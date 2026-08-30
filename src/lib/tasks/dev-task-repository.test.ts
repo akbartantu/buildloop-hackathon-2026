@@ -12,13 +12,14 @@ describe("DevTaskRepository", () => {
     await repo.resetForTests();
   });
 
-  test("creates a contract-ready task without authorization headers", async () => {
+  test("creates a low-risk task with auto-approval when policy allows", async () => {
     const task = await repo.createTask({
       userId: DEV_AUTH_BYPASS_USER_ID,
       goal: "Ubah teks penjelasan workspace menjadi lebih jelas.",
     });
 
-    expect(task.status).toBe("CONTRACT_READY");
+    expect(task.status).toBe("APPROVED_FOR_EXECUTION");
+    expect(task.runnerState?.orchestration?.approvalType).toBe("AUTO_APPROVED_BY_POLICY");
     expect(task.contract.goal).toContain("workspace");
     expect(task.runnerState?.runnerInvoked).toBe(false);
   });
@@ -38,8 +39,9 @@ describe("DevTaskRepository", () => {
   test("supports approve → orchestrator update workflow", async () => {
     const created = await repo.createTask({
       userId: DEV_AUTH_BYPASS_USER_ID,
-      goal: PASS_DEMO_GOAL,
+      goal: "Refactor API endpoint response format for workspace listings",
     });
+    expect(created.status).toBe("CONTRACT_READY");
 
     const approved = await repo.lockContract({
       id: created.id,
@@ -77,7 +79,9 @@ describe("DevTaskRepository", () => {
       userId: DEV_AUTH_BYPASS_USER_ID,
       goal: PASS_DEMO_GOAL,
     });
-    await repo.lockContract({ id: created.id, userId: DEV_AUTH_BYPASS_USER_ID });
+    if (created.status === "CONTRACT_READY") {
+      await repo.lockContract({ id: created.id, userId: DEV_AUTH_BYPASS_USER_ID });
+    }
     await repo.updateAfterRun({
       id: created.id,
       status: "AWAITING_APPROVAL",
@@ -116,7 +120,9 @@ describe("DevTaskRepository", () => {
       userId: DEV_AUTH_BYPASS_USER_ID,
       goal: PASS_DEMO_GOAL,
     });
-    await repo.lockContract({ id: created.id, userId: DEV_AUTH_BYPASS_USER_ID });
+    if (created.status === "CONTRACT_READY") {
+      await repo.lockContract({ id: created.id, userId: DEV_AUTH_BYPASS_USER_ID });
+    }
     await repo.updateAfterRun({
       id: created.id,
       status: "AWAITING_APPROVAL",

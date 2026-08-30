@@ -444,7 +444,7 @@ function OrchestrationView({
       </div>
 
       <DemoPanel title="Lifecycle">
-        <ol className="grid gap-3 sm:grid-cols-5">
+        <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {lifecycle.orchestrationSteps.map((step) => {
             const icon = lifecycleStepIconState(step.state);
             const suffix = formatLifecycleStepLabel(step.state);
@@ -480,6 +480,57 @@ function OrchestrationView({
           })}
         </ol>
       </DemoPanel>
+
+      {task.contract.workPlan && task.contract.workPlan.contracts.length > 0 ? (
+        <DemoPanel title="Work contracts">
+          <ol className="space-y-2">
+            {task.contract.workPlan.contracts.map((contract) => {
+              const orchestrationContract = runner?.orchestration?.contracts?.find(
+                (item) => item.id === contract.id,
+              );
+              const status = orchestrationContract?.status ?? contract.status;
+              const approval = orchestrationContract?.approvalState ?? contract.approvalState;
+              return (
+                <li
+                  key={contract.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm"
+                >
+                  <span className="font-medium text-foreground">
+                    {contract.id} — {contract.goal}
+                  </span>
+                  <span className="text-xs uppercase tracking-wide text-muted-foreground">
+                    {approval === "auto_approved" ? "AUTO_APPROVED_BY_POLICY" : approval} · {status}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
+          {runner?.orchestration?.plannerOutput ? (
+            <p className="mt-3 text-xs text-muted-foreground">{runner.orchestration.plannerOutput}</p>
+          ) : null}
+        </DemoPanel>
+      ) : null}
+
+      {runner?.orchestration ? (
+        <DemoPanel title="Orchestration evidence">
+          <DemoKeyValueTable
+            rows={[
+              { label: "Phase", value: runner.orchestration.phase },
+              { label: "Approval", value: runner.orchestration.approvalType ?? "—" },
+              { label: "Policy", value: runner.orchestration.policyDecision ?? "—" },
+              {
+                label: "Security review",
+                value: runner.orchestration.securityReviewInvoked ? "Invoked" : "Skipped",
+              },
+              {
+                label: "Corrections",
+                value: String(runner.orchestration.correctionCount ?? lifecycle.correctionsUsed),
+              },
+              { label: "Verdict", value: runner.orchestration.finalVerdict ?? lifecycle.implementationVerdict ?? "—" },
+            ]}
+          />
+        </DemoPanel>
+      ) : null}
 
       {isPublicGitHubTask(task) ? (
         <DemoPanel title="Repository source">

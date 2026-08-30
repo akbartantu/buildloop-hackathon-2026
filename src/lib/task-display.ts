@@ -62,11 +62,13 @@ export function orchestrationPhase(status: TaskStatus): number {
 }
 
 export const ORCHESTRATION_STEPS = [
-  { key: "preflight", label: "Preflight", detail: "Contract locked & policy check" },
-  { key: "worker", label: "Worker", detail: "Coding worker menerapkan patch" },
-  { key: "checker", label: "Checker", detail: "Checker independen memverifikasi" },
-  { key: "correction", label: "Correction", detail: "Loop koreksi terbatas" },
-  { key: "decision", label: "Decision", detail: "Orchestrator menentukan verdict" },
+  { key: "planning", label: "Planning", detail: "Planner decomposes goal into contracts" },
+  { key: "preflight", label: "Preflight", detail: "Policy engine evaluates contract" },
+  { key: "worker", label: "Worker", detail: "Implementation worker applies patch" },
+  { key: "checker", label: "Checker", detail: "Functional checker verifies independently" },
+  { key: "security", label: "Security Review", detail: "Security reviewer when triggered" },
+  { key: "correction", label: "Correction", detail: "Bounded correction loop (max 2)" },
+  { key: "decision", label: "Decision", detail: "Decision engine determines verdict" },
 ] as const;
 
 export function countPassedChecks(task: TaskRecord): { passed: number; total: number } {

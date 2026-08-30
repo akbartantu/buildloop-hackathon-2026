@@ -225,20 +225,27 @@ function buildOrchestrationSteps(
     return ORCHESTRATION_STEPS.map((step) => ({
       ...step,
       state:
-        step.key === "preflight"
+        step.key === "preflight" || step.key === "planning"
           ? ("blocked" as const)
           : ("not_run" as const),
     }));
   }
 
   if (!hasRun) {
+    const planningDone = Boolean(runner?.orchestration?.plannerOutput);
     return ORCHESTRATION_STEPS.map((step) => ({
       ...step,
-      state: "not_run" as const,
+      state:
+        step.key === "planning" && planningDone
+          ? ("complete" as const)
+          : step.key === "planning" && task.status === "CONTRACT_READY"
+            ? ("active" as const)
+            : ("not_run" as const),
     }));
   }
 
   const workerDone = Boolean(runner?.runnerInvoked);
+  const securityInvoked = Boolean(runner?.orchestration?.securityReviewInvoked);
   const checkingOrLater =
     workerDone &&
     !["INSPECTING", "RUNNING"].includes(task.status) &&
@@ -251,6 +258,13 @@ function buildOrchestrationSteps(
     return workerDone ? "not_needed" : "not_run";
   })();
 
+  const securityState: LifecycleStepState = (() => {
+    if (!securityInvoked) return runFinished ? "not_needed" : "not_run";
+    if (runFinished || task.status === "AWAITING_APPROVAL" || task.status === "PASS") return "complete";
+    if (task.status === "CHECKING") return "active";
+    return "not_run";
+  })();
+
   const decisionState: LifecycleStepState = (() => {
     if (verdict === "FAILED") return "failed";
     if (verdict === "BLOCKED") return "blocked";
@@ -261,7 +275,9 @@ function buildOrchestrationSteps(
 
   return ORCHESTRATION_STEPS.map((step) => {
     let state: LifecycleStepState = "not_run";
-    if (step.key === "preflight") {
+    if (step.key === "planning") {
+      state = "complete";
+    } else if (step.key === "preflight") {
       state = hasRun ? "complete" : "not_run";
     } else if (step.key === "worker") {
       if (task.status === "RUNNING" || task.status === "NEEDS_CORRECTION") state = "active";
@@ -269,6 +285,8 @@ function buildOrchestrationSteps(
     } else if (step.key === "checker") {
       if (task.status === "CHECKING") state = "active";
       else if (checkingOrLater) state = "complete";
+    } else if (step.key === "security") {
+      state = securityState;
     } else if (step.key === "correction") {
       state = correctionState;
     } else if (step.key === "decision") {

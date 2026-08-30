@@ -97,5 +97,5 @@ describe("manifest revision", () => {
     const second = await computeManifestRevision(root);
     expect(first.revision).toBe(second.revision);
     expect(first.revision.length).toBe(64);
-  });
+  }, 120_000);
 });

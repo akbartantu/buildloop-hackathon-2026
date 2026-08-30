@@ -39,7 +39,7 @@ describe("resolveAuthenticatedRequestContext", () => {
       userId: context.auth.userId,
       goal: "Ubah teks penjelasan workspace menjadi lebih jelas.",
     });
-    expect(task.status).toBe("CONTRACT_READY");
+    expect(task.status).toBe("APPROVED_FOR_EXECUTION");
   });
 
   test("does not activate dev bypass when flag is false", () => {

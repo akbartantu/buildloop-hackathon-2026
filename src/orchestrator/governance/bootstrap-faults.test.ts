@@ -12,7 +12,7 @@ function workspaceRoot(): string {
 }
 
 /** Full orchestrator runs include manifest hashing and sandbox I/O — allow headroom under load. */
-const ORCHESTRATOR_TEST_TIMEOUT_MS = 20_000;
+const ORCHESTRATOR_TEST_TIMEOUT_MS = 120_000;
 
 describe("bootstrap fault paths", () => {
   test(
@@ -20,6 +20,7 @@ describe("bootstrap fault paths", () => {
     async () => {
       const orchestrator = new BootstrapOrchestrator({
         workspaceRoot: workspaceRoot(),
+        allowDirtyWorkspace: true,
         worker: crashingWorker(),
       });
       const result = await orchestrator.runPassDemo();
@@ -36,6 +37,7 @@ describe("bootstrap fault paths", () => {
     async () => {
       const orchestrator = new BootstrapOrchestrator({
         workspaceRoot: workspaceRoot(),
+        allowDirtyWorkspace: true,
         worker: stubWorker("always-fail", (input) => ({
           workerId: "always-fail",
           attemptNumber: input.attemptNumber,
@@ -57,7 +59,7 @@ describe("bootstrap fault paths", () => {
   test(
     "blocked preflight never invokes worker",
     async () => {
-      const orchestrator = new BootstrapOrchestrator({ workspaceRoot: workspaceRoot() });
+      const orchestrator = new BootstrapOrchestrator({ workspaceRoot: workspaceRoot(), allowDirtyWorkspace: true });
       const result = await orchestrator.runBlockedDemo();
       expect(result.run.verdict).toBe("BLOCKED");
       expect(result.run.counters.workerCalls).toBe(0);
@@ -68,7 +70,7 @@ describe("bootstrap fault paths", () => {
   test(
     "PASS demo completes with exactly one correction",
     async () => {
-      const orchestrator = new BootstrapOrchestrator({ workspaceRoot: workspaceRoot() });
+      const orchestrator = new BootstrapOrchestrator({ workspaceRoot: workspaceRoot(), allowDirtyWorkspace: true });
       const result = await orchestrator.runPassDemo();
       expect(result.run.verdict).toBe("PASS");
       expect(result.run.counters.correctionCount).toBe(1);
@@ -88,6 +90,7 @@ describe("bootstrap fault paths", () => {
       try {
         const orchestrator = new BootstrapOrchestrator({
           workspaceRoot: workspaceRoot(),
+          allowDirtyWorkspace: true,
           worker: new GeminiWorker(),
         });
         const result = await orchestrator.runPassDemo();

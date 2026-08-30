@@ -89,7 +89,39 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       humanRevisionCount: task.runnerState?.humanRevisionCount ?? 0,
       revisionRequested: false,
       evidence: summarizeEvidence(result.evidence),
-      decisionLog: result.decisionLog,
+      decisionLog: result.decisionLog.map((entry) => ({
+        rule: entry.rule,
+        summary: entry.summary,
+        nextStatus: entry.nextStatus,
+        verdict: entry.verdict,
+      })),
+      orchestration: {
+        phase: mapOrchestrationPhase(result.run.status, result.run.verdict),
+        ...(task.runnerState?.orchestration?.plannerOutput
+          ? { plannerOutput: task.runnerState.orchestration.plannerOutput }
+          : {}),
+        ...(task.runnerState?.orchestration?.approvalType
+          ? { approvalType: task.runnerState.orchestration.approvalType }
+          : {}),
+        ...(task.runnerState?.orchestration?.policyDecision
+          ? { policyDecision: task.runnerState.orchestration.policyDecision }
+          : {}),
+        workerInvoked: result.run.counters.workerCalls > 0,
+        securityReviewInvoked: result.orchestrationEvidence.securityReviewInvoked,
+        securityFindings: result.orchestrationEvidence.securityFindings,
+        correctionCount: result.run.counters.correctionCount,
+        finalVerdict: result.run.verdict,
+        ...(task.contract.workPlan
+          ? {
+              contracts: task.contract.workPlan.contracts.map((c) => ({
+                id: c.id,
+                goal: c.goal,
+                status: result.run.verdict === "PASS" ? "pass" : c.status,
+                approvalState: c.approvalState,
+              })),
+            }
+          : {}),
+      },
       ...(resolvedBaseline ? { gitBaseline: resolvedBaseline } : {}),
       ...(isHumanRevision ? { lastAction: "human_revision" as const } : {}),
     };
@@ -123,6 +155,17 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       decisionLog: result.decisionLog,
     };
   });
+
+function mapOrchestrationPhase(status: string, verdict: string | null): string {
+  if (verdict === "BLOCKED") return "BLOCKED";
+  if (verdict === "FAILED") return "FAILED";
+  if (verdict === "PASS") return "PASS";
+  if (status === "AWAITING_APPROVAL") return "AWAITING_APPROVAL";
+  if (status === "CHECKING") return "CHECKING";
+  if (status === "RUNNING" || status === "NEEDS_CORRECTION") return "RUNNING";
+  if (status === "INSPECTING") return "PLANNING";
+  return status;
+}
 
 function mapRunStatus(status: string, verdict: string | null): TaskStatus {
   if (verdict === "BLOCKED") return "BLOCKED";

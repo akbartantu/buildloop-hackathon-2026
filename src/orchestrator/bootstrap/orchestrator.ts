@@ -9,6 +9,9 @@ import { DecisionLog } from "../decision/log";
 import { isOperationalWorkerError } from "../gemini/retry-policy";
 import { computeManifestRevision } from "../manifest/revision";
 import { runPreflight } from "../preflight/index";
+import { evaluatePolicy } from "../policy/evaluator";
+import { loadProjectGovernance } from "../policy/project-policy";
+import { runSecurityReview } from "../agents/security-reviewer/reviewer";
 import { defaultWorktreePath, runWorkspacePreflight } from "../preflight/workspace";
 import {
   createIsolatedWorktree,
@@ -42,6 +45,13 @@ export type BootstrapRunResult = {
   evidence: CheckerEvidence[];
   workerReports: WorkerReport[];
   decisionLog: ReturnType<DecisionLog["list"]>;
+  orchestrationEvidence: {
+    securityReviewInvoked: boolean;
+    securityFindings: Array<{ severity: string; finding: string; evidence: string }>;
+    approvalType: string | null;
+    policyDecision: string | null;
+    plannerOutput: string | null;
+  };
 };
 
 export type BootstrapOrchestratorOptions = {
@@ -179,6 +189,9 @@ export class BootstrapOrchestrator {
     const workerReports: WorkerReport[] = [];
     const evidence: CheckerEvidence[] = [];
     const startedAt = new Date().toISOString();
+    const projectPolicy = await loadProjectGovernance(this.workspaceRoot);
+    let securityReviewInvoked = false;
+    let securityFindings: Array<{ severity: string; finding: string; evidence: string }> = [];
 
     status = "INSPECTING";
     const workspacePreflight = await runWorkspacePreflight({
@@ -265,6 +278,8 @@ export class BootstrapOrchestrator {
         workerReports,
         evidence,
         startedAt,
+        securityReviewInvoked: false,
+        securityFindings: [],
       });
     }
 
@@ -342,6 +357,68 @@ export class BootstrapOrchestrator {
         skipCommandExecution: input.scenario !== "real",
       });
       evidence.push(...checkerResult.evidence);
+
+      const changedFiles = workerReport.filesChanged;
+      const runtimePolicy = evaluatePolicy({
+        goal: input.contract.goal,
+        changedFiles,
+        policy: projectPolicy,
+      });
+
+      let runtimeEscalation: "AWAITING_APPROVAL" | "BLOCKED" | null = null;
+      if (runtimePolicy.decision === "BLOCKED") {
+        runtimeEscalation = "BLOCKED";
+        evidence.push({
+          id: crypto.randomUUID(),
+          runId,
+          attemptNumber,
+          category: "preflight",
+          name: "runtime_escalation_blocked",
+          status: "blocked",
+          summary: runtimePolicy.reason,
+          details: runtimePolicy.matchedRules.join(", "),
+          affectedFiles: changedFiles,
+          severity: "critical",
+          createdAt: new Date().toISOString(),
+        });
+      } else if (runtimePolicy.decision === "HUMAN_APPROVAL_REQUIRED") {
+        runtimeEscalation = "AWAITING_APPROVAL";
+        evidence.push({
+          id: crypto.randomUUID(),
+          runId,
+          attemptNumber,
+          category: "preflight",
+          name: "runtime_escalation_approval",
+          status: "fail",
+          summary: runtimePolicy.reason,
+          details: runtimePolicy.matchedRules.join(", "),
+          affectedFiles: changedFiles,
+          severity: "warning",
+          createdAt: new Date().toISOString(),
+        });
+      }
+
+      let securityReviewVerdict = null;
+      if (checkerResult.passed && !runtimeEscalation) {
+        const securityReview = runSecurityReview({
+          runId,
+          attemptNumber,
+          goal: input.contract.goal,
+          changedFiles,
+          checkerSecurityFlag: runtimePolicy.requiresSecurityReview,
+        });
+        if (securityReview.invoked) {
+          securityReviewInvoked = true;
+          securityFindings = securityReview.findings.map((f) => ({
+            severity: f.severity,
+            finding: f.finding,
+            evidence: f.evidence,
+          }));
+          evidence.push(...securityReview.evidence);
+          securityReviewVerdict = securityReview.verdict;
+        }
+      }
+
       await this.persistCheckpoint({
         runId,
         taskId: input.contract.taskId,
@@ -364,6 +441,8 @@ export class BootstrapOrchestrator {
         correctionCount,
         maximumCorrections: input.contract.maximumCorrections,
         sourceStale: sourceRevisionAtStart !== sourceRevisionNow,
+        securityReviewVerdict,
+        runtimeEscalation,
       });
 
       this.recordDecision(runId, attemptNumber, status, decision);
@@ -425,6 +504,8 @@ export class BootstrapOrchestrator {
       workerReports,
       evidence,
       startedAt,
+      securityReviewInvoked,
+      securityFindings,
     });
   }
 
@@ -514,6 +595,8 @@ export class BootstrapOrchestrator {
     workerReports: WorkerReport[];
     evidence: CheckerEvidence[];
     startedAt: string;
+    securityReviewInvoked: boolean;
+    securityFindings: Array<{ severity: string; finding: string; evidence: string }>;
   }): BootstrapRunResult {
     const filesChanged = input.workerReports.flatMap((report) => report.filesChanged).length;
     const commandsExecuted = input.workerReports.flatMap((report) => report.commandsExecuted).length;
@@ -558,6 +641,13 @@ export class BootstrapOrchestrator {
       evidence: input.evidence,
       workerReports: input.workerReports,
       decisionLog: this.decisionLog.list(input.runId),
+      orchestrationEvidence: {
+        securityReviewInvoked: input.securityReviewInvoked,
+        securityFindings: input.securityFindings,
+        approvalType: null,
+        policyDecision: null,
+        plannerOutput: null,
+      },
     };
   }
 }

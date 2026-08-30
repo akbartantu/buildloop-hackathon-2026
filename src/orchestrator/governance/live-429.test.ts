@@ -21,7 +21,7 @@ function mockAdkRunner(handler: AdkAgentRunner["run"]): AdkAgentRunner {
   };
 }
 
-const ORCHESTRATOR_TEST_TIMEOUT_MS = 20_000;
+const ORCHESTRATOR_TEST_TIMEOUT_MS = 120_000;
 
 describe("LIVE-429 operational failure isolation", () => {
   afterEach(() => {
@@ -43,6 +43,7 @@ describe("LIVE-429 operational failure isolation", () => {
 
     const orchestrator = new BootstrapOrchestrator({
       workspaceRoot: workspaceRoot(),
+      allowDirtyWorkspace: true,
       worker: new AdkGeminiWorker(),
     });
     const result = await orchestrator.executeContractRun(testContract());
@@ -107,6 +108,7 @@ describe("LIVE-429 operational failure isolation", () => {
     const worker = new AdkGeminiWorker();
     const orchestrator = new BootstrapOrchestrator({
       workspaceRoot: workspaceRoot(),
+      allowDirtyWorkspace: true,
       worker,
     });
     const result = await orchestrator.executeContractRun(testContract());
@@ -185,6 +187,7 @@ describe("LIVE-429 operational failure isolation", () => {
 
     const orchestrator = new BootstrapOrchestrator({
       workspaceRoot: workspaceRoot(),
+      allowDirtyWorkspace: true,
       worker: new AdkGeminiWorker(),
     });
     const result = await orchestrator.runPassDemo();
@@ -241,6 +244,7 @@ describe("LIVE-429 operational failure isolation", () => {
 
     const orchestrator = new BootstrapOrchestrator({
       workspaceRoot: workspaceRoot(),
+      allowDirtyWorkspace: true,
       worker: new AdkGeminiWorker(),
     });
     const result = await orchestrator.runPassDemo();

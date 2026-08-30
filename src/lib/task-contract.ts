@@ -1,6 +1,6 @@
 /**
  * Contract deterministik untuk BuildLoop.
- * Tidak ada AI di sini: satu goal menghasilkan satu contract yang sama.
+ * Planner mendekomposisi goal; buildContract tetap fallback deterministik.
  */
 
 export const WORKSPACE_NAME = "buildloop-demo";
@@ -52,6 +52,31 @@ export const TASK_STATUSES = [
 
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
+export type ApprovalType = "AUTO_APPROVED_BY_POLICY" | "APPROVED_BY_HUMAN" | null;
+
+export type OrchestrationEvidence = {
+  phase: string;
+  plannerOutput?: string;
+  approvalType?: ApprovalType;
+  policyDecision?: string;
+  policyReason?: string;
+  workerInvoked?: boolean;
+  securityReviewInvoked?: boolean;
+  securityFindings?: Array<{
+    severity: string;
+    finding: string;
+    evidence: string;
+  }>;
+  correctionCount?: number;
+  finalVerdict?: string | null;
+  contracts?: Array<{
+    id: string;
+    goal: string;
+    status: string;
+    approvalState: string;
+  }>;
+};
+
 export type TaskContract = {
   goal: string;
   inScope: string[];
@@ -61,6 +86,21 @@ export type TaskContract = {
   protectedPaths: string[];
   requiredChecks: string[];
   maxAttempts: number;
+  workPlan?: {
+    userGoal: string;
+    decomposed: boolean;
+    plannerSummary: string;
+    contracts: Array<{
+      id: string;
+      goal: string;
+      acceptanceCriteria: string[];
+      expectedScope: string[];
+      dependencies: string[];
+      riskClassification: string;
+      approvalState: string;
+      status: string;
+    }>;
+  };
 };
 
 export type HumanApprovalRecord = {
@@ -109,7 +149,9 @@ export type RunnerState = {
     summary: string;
     nextStatus: string;
     verdict: string | null;
+    outcome?: string;
   }>;
+  orchestration?: OrchestrationEvidence;
 };
 
 /** Evidence nol-perubahan: dipakai untuk BLOCKED dan untuk status siap-runner. */

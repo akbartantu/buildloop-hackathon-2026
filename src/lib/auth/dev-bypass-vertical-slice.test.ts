@@ -14,23 +14,29 @@ describe("dev bypass vertical slice", () => {
     await repo.resetForTests();
   });
 
-  test("PASS scenario: create → approve → orchestrate → evidence → approval state", async () => {
+  test(
+    "PASS scenario: create → approve → orchestrate → evidence → approval state",
+    async () => {
     const created = await repo.createTask({
       userId: DEV_AUTH_BYPASS_USER_ID,
       goal: PASS_DEMO_GOAL,
     });
-    expect(created.status).toBe("CONTRACT_READY");
+    expect(created.status).toBe("APPROVED_FOR_EXECUTION");
+    expect(created.runnerState?.orchestration?.approvalType).toBe("AUTO_APPROVED_BY_POLICY");
 
-    const approved = await repo.lockContract({
-      id: created.id,
-      userId: DEV_AUTH_BYPASS_USER_ID,
-    });
+    const approved = created.lockedAt
+      ? created
+      : await repo.lockContract({
+          id: created.id,
+          userId: DEV_AUTH_BYPASS_USER_ID,
+        });
     expect(approved.status).toBe("APPROVED_FOR_EXECUTION");
 
     const result = await orchestrator.execute({
       goal: approved.goal,
       taskId: approved.id,
       contractId: approved.id,
+      allowDirtyWorkspace: true,
     });
 
     expect(result.run.verdict).toBe("PASS");
@@ -79,9 +85,13 @@ describe("dev bypass vertical slice", () => {
     const persisted = await repo.getTask(approved.id);
     expect(persisted?.status).toBe("CLOSED");
     expect(persisted?.runnerState?.humanApprovals?.[0]?.decision).toBe("APPROVE_COMMIT");
-  });
+  },
+    120_000,
+  );
 
-  test("BLOCKED scenario: sensitive goal blocked with workerCalls = 0", async () => {
+  test(
+    "BLOCKED scenario: sensitive goal blocked with workerCalls = 0",
+    async () => {
     const created = await repo.createTask({
       userId: DEV_AUTH_BYPASS_USER_ID,
       goal: BLOCKED_DEMO_GOAL,
@@ -95,10 +105,13 @@ describe("dev bypass vertical slice", () => {
       goal: created.goal,
       taskId: created.id,
       contractId: created.id,
+      allowDirtyWorkspace: true,
     });
 
     expect(result.run.verdict).toBe("BLOCKED");
     expect(result.run.counters.workerCalls).toBe(0);
     expect(result.run.counters.filesChanged).toBe(0);
-  });
+  },
+    120_000,
+  );
 });

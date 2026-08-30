@@ -137,7 +137,7 @@ describe("orchestration duplicate guard", () => {
   test("second orchestrate call rejected after PASS moves task out of approved state", async () => {
     const created = await repo.createTask({
       userId: DEV_AUTH_BYPASS_USER_ID,
-      goal: PASS_DEMO_GOAL,
+      goal: "Refactor API endpoint response format for workspace listings",
     });
     await repo.lockContract({ id: created.id, userId: DEV_AUTH_BYPASS_USER_ID });
     await repo.updateAfterRun({

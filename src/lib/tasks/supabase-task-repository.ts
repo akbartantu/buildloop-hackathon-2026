@@ -1,11 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
-import { detectSensitiveIntent } from "@/lib/sensitive-intent";
-import { buildContract, WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
+import { WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
 import type { RunnerState, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { planAndEvaluateTask } from "@/lib/task-planning";
+import { getWorkspaceRoot } from "@/orchestrator/product/orchestrator";
 import { toTaskRecord, type TaskRowShape } from "@/lib/tasks/task-record";
 import {
   applyHumanApproval,
@@ -52,26 +53,26 @@ export function createSupabaseTaskRepository(
         }
       }
 
-      const contract = buildContract(input.goal);
-      const blockedReasons = detectSensitiveIntent(input.goal);
-      const blocked = blockedReasons.length > 0;
+      const taskId = crypto.randomUUID();
+      const planned = await planAndEvaluateTask({
+        goal: input.goal,
+        taskId,
+        workspaceRoot: getWorkspaceRoot(),
+      });
 
-      const runnerState = zeroChangeRunnerState(
-        blocked
-          ? "Runner tidak dipanggil karena task dihentikan oleh pre-flight check."
-          : "Runner belum dihubungkan pada tahap ini.",
-      );
+      const runnerState = planned.runnerState;
 
       const { data: row, error } = await supabase
         .from("tasks")
         .insert({
           user_id: input.userId,
           workspace,
-          goal: contract.goal,
-          status: blocked ? "BLOCKED" : "CONTRACT_READY",
-          contract,
-          blocked_reasons: blockedReasons,
+          goal: planned.contract.goal,
+          status: planned.status,
+          contract: planned.contract,
+          blocked_reasons: planned.blockedReasons,
           runner_state: runnerState,
+          locked_at: planned.lockedAt,
           project_id: projectId,
           source_commit_sha: sourceCommitSha,
         })

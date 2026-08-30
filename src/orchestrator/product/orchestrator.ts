@@ -3,6 +3,8 @@ import { fileURLToPath } from "node:url";
 
 import { BootstrapOrchestrator } from "../bootstrap/orchestrator";
 import { createDraftContract, lockContract } from "../contract/schema";
+import { planWork } from "../agents/planner/planner";
+import { loadProjectGovernance } from "../policy/project-policy";
 import { PASS_DEMO_GOAL } from "../scenarios/pass";
 import { detectSensitiveIntent } from "@/lib/sensitive-intent";
 import { resolveWorkspacePathAsync } from "../workspace/git-workspace";
@@ -52,30 +54,30 @@ export class ProductOrchestrator {
     });
 
     let result;
+    const workPlan = planWork({ goal: normalizedGoal, taskId: request.taskId });
     if (isDemoGoal(normalizedGoal) && mode === "demo") {
       result = await bootstrap.runPassDemo();
     } else if (detectSensitiveIntent(normalizedGoal).length > 0) {
       result = await bootstrap.runBlockedDemoForGoal(normalizedGoal);
     } else {
+      const primary = workPlan.contracts[0]!;
       const contract = lockContract(
         createDraftContract({
           id: request.contractId,
           taskId: request.taskId,
           version: 1,
           goal: normalizedGoal,
-          inScope: ["File sumber aplikasi yang relevan", "Test yang relevan"],
+          objective: workPlan.plannerSummary,
+          inScope: primary.expectedScope,
           outOfScope: [
             "Deployment dan infrastruktur",
             "Credential dan secret",
             "Dependency dan lockfile",
             "Database dan migration",
           ],
-          acceptanceCriteria: [
-            "Perilaku yang diminta diimplementasikan.",
-            "Check yang relevan lolos.",
-            "Tidak ada protected path yang berubah.",
-          ],
-          allowedPaths: ["src/**", "docs/**"],
+          acceptanceCriteria: primary.acceptanceCriteria,
+          allowedPaths: primary.expectedScope,
+          maximumCorrections: (await loadProjectGovernance(this.workspaceRoot)).execution.max_corrections,
         }),
       );
       result = await bootstrap.executeContractRun(contract);
@@ -88,6 +90,7 @@ export class ProductOrchestrator {
       workspace: await resolveWorkspacePathAsync(workspaceName, this.workspaceRoot),
       workerMode: mode,
       workerId: workerSelection.workerId,
+      plannerSummary: workPlan.plannerSummary,
     };
     await this.store.saveRun(stored);
     return stored;

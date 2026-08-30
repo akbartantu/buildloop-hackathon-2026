@@ -4,11 +4,11 @@ import { fileURLToPath } from "node:url";
 
 import { randomUUID } from "node:crypto";
 
-import { detectSensitiveIntent } from "@/lib/sensitive-intent";
-import { buildContract, WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
+import { WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
 import type { RunnerState, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { planAndEvaluateTask } from "@/lib/task-planning";
 import { DEV_AUTH_BYPASS_USER_ID } from "@/lib/dev-auth-bypass";
 import {
   applyHumanApproval,
@@ -125,27 +125,26 @@ export function createDevTaskRepository(
         }
       }
 
-      const contract = buildContract(input.goal);
-      const blockedReasons = detectSensitiveIntent(input.goal);
-      const blocked = blockedReasons.length > 0;
+      const taskId = randomUUID();
+      const planned = await planAndEvaluateTask({
+        goal: input.goal,
+        taskId,
+        workspaceRoot: projectRoot(),
+      });
       const now = new Date().toISOString();
 
       const task = {
-        id: randomUUID(),
+        id: taskId,
         userId: input.userId,
         workspace,
-        goal: contract.goal,
-        status: (blocked ? "BLOCKED" : "CONTRACT_READY") as TaskStatus,
-        contract,
-        blockedReasons,
-        runnerState: zeroChangeRunnerState(
-          blocked
-            ? "Runner tidak dipanggil karena task dihentikan oleh pre-flight check."
-            : "Runner belum dihubungkan pada tahap ini.",
-        ),
+        goal: planned.contract.goal,
+        status: planned.status,
+        contract: planned.contract,
+        blockedReasons: planned.blockedReasons,
+        runnerState: planned.runnerState,
         createdAt: now,
         updatedAt: now,
-        lockedAt: null,
+        lockedAt: planned.lockedAt,
         projectId,
         sourceCommitSha,
       };

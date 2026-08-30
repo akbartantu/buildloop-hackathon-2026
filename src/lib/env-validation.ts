@@ -28,14 +28,6 @@ export function validateProductionEnvironment(): EnvValidationResult {
     if (!process.env["FIRESTORE_PROJECT_ID"] && !process.env["GOOGLE_CLOUD_PROJECT"]) {
       errors.push("FIRESTORE_PROJECT_ID is required when BUILDLOOP_PERSISTENCE=firestore.");
     }
-    if (
-      !process.env["FIRESTORE_SERVICE_ACCOUNT_JSON"] &&
-      process.env["BUILDLOOP_FIRESTORE_EMULATOR"] !== "1"
-    ) {
-      errors.push(
-        "FIRESTORE_SERVICE_ACCOUNT_JSON or BUILDLOOP_FIRESTORE_EMULATOR=1 required for Firestore persistence.",
-      );
-    }
   }
 
   if (isDevelopmentRuntime() && process.env["DEV_AUTH_BYPASS"] === "true") {

@@ -7,6 +7,10 @@ import type { CheckerEvidence } from "../types";
 export type StoredRun = BootstrapRunResult & {
   storedAt: string;
   taskGoal: string;
+  workspace?: string;
+  workerMode?: string;
+  workerId?: string;
+  plannerSummary?: string;
 };
 
 export class LocalRunStore {

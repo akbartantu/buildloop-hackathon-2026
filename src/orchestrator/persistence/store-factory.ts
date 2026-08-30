@@ -66,3 +66,14 @@ export function createRuntimeRunStore(root: string): RuntimeRunStore {
     getRun: (runId) => local.get(runId),
   };
 }
+
+export function createRuntimeRunStoreForMode(root: string, mode: PersistenceMode): RuntimeRunStore {
+  if (mode === "firestore") {
+    return new FirestoreRunStore(root);
+  }
+  const local = new LocalRunStore(root);
+  return {
+    saveRun: (run) => local.save(run),
+    getRun: (runId) => local.get(runId),
+  };
+}

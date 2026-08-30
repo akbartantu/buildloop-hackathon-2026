@@ -34,6 +34,18 @@ steps:
       - ${_ARTIFACT_REPO}/buildloop:latest
       - .
 
+  - name: gcr.io/cloud-builders/docker
+    id: push-image-commit
+    args:
+      - push
+      - ${_ARTIFACT_REPO}/buildloop:${COMMIT_SHA}
+
+  - name: gcr.io/cloud-builders/docker
+    id: push-image-latest
+    args:
+      - push
+      - ${_ARTIFACT_REPO}/buildloop:latest
+
   - name: gcr.io/cloud-builders/gcloud
     id: deploy-cloud-run
     args:
@@ -48,10 +60,6 @@ steps:
       - --update-env-vars=APP_BASE_URL=${_APP_BASE_URL},NODE_ENV=production,BUILDLOOP_PERSISTENCE=firestore,FIRESTORE_PROJECT_ID=${_FIRESTORE_PROJECT_ID},SUPABASE_URL=${_VITE_SUPABASE_URL},SUPABASE_PUBLISHABLE_KEY=${_VITE_SUPABASE_PUBLISHABLE_KEY}
       - --update-secrets=SUPABASE_SERVICE_ROLE_KEY=supabase-service-role:latest,GEMINI_API_KEY=gemini-api-key:latest
       - --quiet
-
-images:
-  - ${_ARTIFACT_REPO}/buildloop:${COMMIT_SHA}
-  - ${_ARTIFACT_REPO}/buildloop:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY

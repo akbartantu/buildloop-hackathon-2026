@@ -8,6 +8,12 @@ import {
   isPublicGitHubRepoUrl,
   validatePublicGitHubUrl,
 } from "@/lib/repository/public-github-url";
+import {
+  createRepositoryProbeError,
+  extractRepositoryHost,
+} from "@/lib/repository/repository-connection-errors";
+import { buildGitExecOptions, ensureGitRuntimeReady } from "./git-exec-env";
+import { probePublicRepositoryRefsViaGitHubApi } from "./github-api-probe";
 import { getSandboxRoot } from "./sandbox-root";
 
 const execFileAsync = promisify(execFile);
@@ -71,9 +77,10 @@ export async function runGit(cwd: string, args: string[]): Promise<string> {
     throw new Error("Remote git mutations are not permitted in BuildLoop sandbox execution.");
   }
 
+  await ensureGitRuntimeReady();
   const { stdout } = await execFileAsync("git", args, {
     cwd,
-    maxBuffer: 10 * 1024 * 1024,
+    ...buildGitExecOptions(10 * 1024 * 1024),
   });
   return stdout.trim();
 }
@@ -99,24 +106,44 @@ export async function isGitRepository(repoPath: string): Promise<boolean> {
 
 export async function assertGitAvailable(): Promise<void> {
   try {
-    await execFileAsync("git", ["--version"], { maxBuffer: 1024 * 1024 });
+    await ensureGitRuntimeReady();
+    await execFileAsync("git", ["--version"], buildGitExecOptions(1024 * 1024));
   } catch (error) {
     throw new Error("Git executable is unavailable.", { cause: error });
   }
 }
 
 export async function probePublicRepositoryRefs(normalizedUrl: string): Promise<string[]> {
+  await ensureGitRuntimeReady();
   try {
-    const { stdout } = await execFileAsync("git", ["ls-remote", "--heads", normalizedUrl], {
-      maxBuffer: 10 * 1024 * 1024,
-    });
-    return stdout
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean);
-  } catch (error) {
-    throw new Error("Repository is not publicly accessible.", { cause: error });
+    const { stdout } = await execFileAsync(
+      "git",
+      ["ls-remote", "--heads", normalizedUrl],
+      buildGitExecOptions(10 * 1024 * 1024),
+    );
+    return parseLsRemoteHeads(stdout);
+  } catch (gitError) {
+    try {
+      const refs = await probePublicRepositoryRefsViaGitHubApi(normalizedUrl);
+      console.info(
+        "probePublicRepositoryRefs: git ls-remote failed; GitHub API fallback succeeded",
+        JSON.stringify({
+          repositoryHost: extractRepositoryHost(normalizedUrl),
+          refCount: refs.length,
+        }),
+      );
+      return refs;
+    } catch {
+      throw createRepositoryProbeError(normalizedUrl, gitError);
+    }
   }
+}
+
+export function parseLsRemoteHeads(stdout: string): string[] {
+  return stdout
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 export async function captureGitBaseline(repoPath: string): Promise<GitBaseline | null> {
@@ -272,12 +299,13 @@ export async function ensurePublicGitHubClone(
     : publicGitHubCloneCachePath(validated.normalizedUrl, sandboxRoot);
 
   assertPathWithinRoot(sandboxRoot, cloneDir);
+  await ensureGitRuntimeReady();
 
   if (options.commitSha) {
     await rm(cloneDir, { recursive: true, force: true });
     await mkdir(path.dirname(cloneDir), { recursive: true });
     await execFileAsync("git", ["clone", "--depth", "1", validated.normalizedUrl, cloneDir], {
-      maxBuffer: 10 * 1024 * 1024,
+      ...buildGitExecOptions(10 * 1024 * 1024),
     });
 
     if (!(await isGitRepository(cloneDir))) {
@@ -305,7 +333,7 @@ export async function ensurePublicGitHubClone(
   await rm(cloneDir, { recursive: true, force: true });
   await mkdir(path.dirname(cloneDir), { recursive: true });
   await execFileAsync("git", ["clone", "--depth", "1", validated.normalizedUrl, cloneDir], {
-    maxBuffer: 10 * 1024 * 1024,
+    ...buildGitExecOptions(10 * 1024 * 1024),
   });
 
   if (!(await isGitRepository(cloneDir))) {

@@ -6,6 +6,7 @@ import { validatePublicGitHubUrl } from "@/lib/repository/public-github-url";
 import {
   classifyRepositoryConnectionError,
   logRepositoryConnectionError,
+  RepositoryProbeError,
   repositoryConnectionMessage,
 } from "@/lib/repository/repository-connection-errors";
 import {
@@ -56,9 +57,13 @@ export const connectPublicRepository = createServerFn({ method: "POST" })
       }
     } catch (error) {
       logRepositoryConnectionError("repository accessibility", error);
+      const category =
+        error instanceof RepositoryProbeError
+          ? error.category
+          : classifyRepositoryConnectionError(error);
       return {
         status: "error",
-        message: repositoryConnectionMessage("not_accessible"),
+        message: repositoryConnectionMessage(category),
       };
     }
 

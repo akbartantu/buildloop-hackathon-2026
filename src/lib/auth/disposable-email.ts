@@ -28,21 +28,7 @@ export function setBlocklistCheckerForTests(checker: BlocklistChecker | null): v
   blocklistCheckerOverride = checker;
 }
 
-async function queryBlocklistViaRpc(email: string): Promise<boolean | null> {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const rpc = supabaseAdmin.rpc as (
-    fn: "is_email_domain_blocked",
-    args: { _email: string },
-  ) => PromiseLike<{ data: boolean | null; error: { code?: string } | null }>;
-
-  const { data, error } = await rpc("is_email_domain_blocked", { _email: email });
-  if (error) {
-    return null;
-  }
-  return data === true;
-}
-
-async function queryBlocklistViaTable(email: string): Promise<boolean> {
+async function queryBlocklistFromTable(email: string): Promise<boolean> {
   const normalized = normalizeAuthEmail(email);
   const domain = normalized.split("@")[1] ?? "";
   if (!domain) {
@@ -62,7 +48,7 @@ async function queryBlocklistViaTable(email: string): Promise<boolean> {
     .limit(1);
 
   if (error) {
-    console.error("disposable email domain check failed", error.code);
+    console.error("registration_blocklist_check_failed", { code: error.code });
     throw new Error("domain_check_failed");
   }
 
@@ -77,10 +63,5 @@ export async function isDisposableEmailDomain(email: string): Promise<boolean> {
     return blocklistCheckerOverride(normalized);
   }
 
-  const rpcResult = await queryBlocklistViaRpc(normalized);
-  if (rpcResult !== null) {
-    return rpcResult;
-  }
-
-  return queryBlocklistViaTable(normalized);
+  return queryBlocklistFromTable(normalized);
 }

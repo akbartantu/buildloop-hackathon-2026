@@ -4,6 +4,57 @@ type AuthErrorLike = {
   status?: number | undefined;
 };
 
+export type RegistrationCreateUserResult =
+  | { status: "email_taken" }
+  | { status: "weak_password" }
+  | { status: "error" };
+
+const SENSITIVE_LOG_PATTERNS = [
+  /@/,
+  /\bsb_(publishable|secret)_/i,
+  /\bBearer\s+/i,
+  /\bpassword\b/i,
+  /\btoken\b/i,
+];
+
+/** True when an auth error message is safe to include in server logs. */
+export function isSafeAuthErrorMessageForLogging(message: string): boolean {
+  const trimmed = message.trim();
+  if (!trimmed) {
+    return false;
+  }
+
+  return !SENSITIVE_LOG_PATTERNS.some((pattern) => pattern.test(trimmed));
+}
+
+export function mapRegistrationCreateUserError(
+  error: AuthErrorLike,
+): RegistrationCreateUserResult {
+  const message = (error.message ?? "").toLowerCase();
+  const code = (error.code ?? "").toLowerCase();
+
+  if (
+    code === "user_already_exists" ||
+    code === "email_exists" ||
+    message.includes("user already registered") ||
+    message.includes("already been registered") ||
+    message.includes("already registered") ||
+    message.includes("already exists")
+  ) {
+    return { status: "email_taken" };
+  }
+
+  if (
+    code === "weak_password" ||
+    message.includes("password should be at least") ||
+    message.includes("weak password")
+  ) {
+    return { status: "weak_password" };
+  }
+
+  return { status: "error" };
+}
+
 export function mapAuthError(error: AuthErrorLike | null | undefined): string {
   if (!error) {
     return "Something went wrong. Please try again.";

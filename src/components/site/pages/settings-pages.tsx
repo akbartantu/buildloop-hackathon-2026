@@ -17,12 +17,14 @@ import {
   normalizeFullName,
   normalizePhone,
   resolveAuthProviderLabel,
+  resolveProfileFullName,
 } from "@/lib/auth/user-display";
 import { isDevAuthBypassEnabled } from "@/lib/dev-auth-bypass";
 import { WORKSPACE_NAME } from "@/lib/task-contract";
 
 type UserMetadata = {
   full_name?: string;
+  name?: string;
   phone?: string;
 };
 
@@ -39,7 +41,7 @@ function ProfileFormPanel() {
 
   useEffect(() => {
     const metadata = user?.user_metadata as UserMetadata | undefined;
-    setFullName(metadata?.full_name ?? "");
+    setFullName(resolveProfileFullName(metadata));
     setPhone(metadata?.phone ?? "");
   }, [user]);
 

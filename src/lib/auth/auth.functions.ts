@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getAppBaseUrl } from "@/lib/app-base-url";
+import { buildServerAuthCallbackUrl } from "@/lib/auth/auth-redirect";
 import { signUpSchema, type SignUpParsed } from "@/lib/auth/auth-schema";
-import { AUTH_CALLBACK_PATH } from "@/lib/auth/signup-flow";
 import { isDisposableEmailDomain, normalizeAuthEmail } from "@/lib/auth/disposable-email";
 
 export type SignupPrecheckResult =
@@ -14,8 +13,8 @@ function logPrecheckFailure(phase: "registration_blocklist_check_failed"): void 
   console.error("[registration]", { phase });
 }
 
-export function buildSignupEmailRedirectUrl(baseUrl: string = getAppBaseUrl()): string {
-  return `${baseUrl}${AUTH_CALLBACK_PATH}`;
+export function buildSignupEmailRedirectUrl(baseUrl?: string): string {
+  return buildServerAuthCallbackUrl(baseUrl);
 }
 
 export async function performSignupPrecheck(data: SignUpParsed): Promise<SignupPrecheckResult> {

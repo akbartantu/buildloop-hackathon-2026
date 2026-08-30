@@ -2,6 +2,8 @@ import { describe, expect, test } from "bun:test";
 import {
   isSafeAuthErrorMessageForLogging,
   mapAuthError,
+  mapOAuthCallbackError,
+  mapOAuthStartError,
   mapRegistrationCreateUserError,
   mapSignupError,
 } from "@/lib/auth/auth-errors";
@@ -92,6 +94,50 @@ describe("mapRegistrationCreateUserError", () => {
     expect(mapRegistrationCreateUserError({ message: "unexpected upstream failure" })).toEqual({
       status: "error",
     });
+  });
+});
+
+describe("mapOAuthStartError", () => {
+  test("maps disabled provider safely", () => {
+    expect(mapOAuthStartError({ message: "Provider google is not enabled" })).toContain(
+      "not available",
+    );
+  });
+
+  test("maps redirect misconfiguration safely", () => {
+    expect(mapOAuthStartError({ code: "bad_oauth_callback" })).toContain("misconfigured");
+  });
+
+  test("does not expose raw error details", () => {
+    const message = mapOAuthStartError({
+      message: "Bearer eyJhbGciOiJIUzI1NiJ9.invalid",
+    });
+    expect(message).not.toContain("Bearer");
+    expect(message).not.toContain("eyJ");
+  });
+});
+
+describe("mapOAuthCallbackError", () => {
+  test("maps cancelled OAuth to safe message", () => {
+    expect(mapOAuthCallbackError({ error: "access_denied" })).toContain("cancelled");
+  });
+
+  test("maps provider disabled callback errors", () => {
+    expect(
+      mapOAuthCallbackError({
+        error: "server_error",
+        errorDescription: "Provider google is not enabled",
+      }),
+    ).toContain("not available");
+  });
+
+  test("maps invalid redirect configuration", () => {
+    expect(
+      mapOAuthCallbackError({
+        error: "invalid_request",
+        errorDescription: "redirect_uri mismatch",
+      }),
+    ).toContain("misconfigured");
   });
 });
 

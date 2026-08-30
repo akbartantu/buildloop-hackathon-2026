@@ -126,3 +126,63 @@ export function mapAuthError(error: AuthErrorLike | null | undefined): string {
 
   return "Something went wrong. Please try again.";
 }
+
+/** Safe user-facing message when starting OAuth from the browser. */
+export function mapOAuthStartError(error: AuthErrorLike | null | undefined): string {
+  if (!error) {
+    return "Could not start Google sign-in. Please try again.";
+  }
+
+  const message = (error.message ?? "").toLowerCase();
+  const code = (error.code ?? "").toLowerCase();
+
+  if (
+    message.includes("not enabled") ||
+    message.includes("unsupported provider") ||
+    code === "validation_failed"
+  ) {
+    return "Google sign-in is not available right now. Please try email sign-in or contact support.";
+  }
+
+  if (
+    message.includes("redirect") ||
+    message.includes("invalid request") ||
+    code === "bad_oauth_callback"
+  ) {
+    return "Sign-in redirect is misconfigured. Please try again or contact support.";
+  }
+
+  return "Could not start Google sign-in. Please try again.";
+}
+
+/** Safe user-facing message for OAuth callback failures (no tokens in output). */
+export function mapOAuthCallbackError(input: {
+  error?: string | null;
+  errorDescription?: string | null;
+  fallback?: string;
+}): string {
+  const code = (input.error ?? "").toLowerCase();
+  const description = (input.errorDescription ?? "").toLowerCase();
+
+  if (code === "access_denied" || description.includes("access_denied")) {
+    return "Google sign-in was cancelled. You can try again when ready.";
+  }
+
+  if (
+    code === "server_error" ||
+    description.includes("provider is not enabled") ||
+    description.includes("unsupported provider")
+  ) {
+    return "Google sign-in is not available right now. Please try email sign-in or contact support.";
+  }
+
+  if (
+    code === "invalid_request" ||
+    description.includes("redirect") ||
+    description.includes("redirect_uri")
+  ) {
+    return "Sign-in redirect is misconfigured. Please try again or contact support.";
+  }
+
+  return input.fallback ?? "Sign-in was cancelled or failed. Please try again.";
+}

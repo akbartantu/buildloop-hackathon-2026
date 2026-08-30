@@ -20,6 +20,16 @@ type AuthUserLike = {
 };
 
 /** Canonical display name: full_name → name (OAuth) → email local-part → fallback. */
+/** Profile form value: user-edited full_name, else OAuth name — never overwrites metadata. */
+export function resolveProfileFullName(metadata?: UserMetadataLike | null | undefined): string {
+  const fullName = metadata?.full_name?.trim();
+  if (fullName) {
+    return fullName;
+  }
+
+  return metadata?.name?.trim() ?? "";
+}
+
 export function resolveUserDisplayName(input: {
   email?: string | null | undefined;
   userMetadata?: UserMetadataLike | null | undefined;

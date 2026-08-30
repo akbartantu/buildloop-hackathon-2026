@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { mapOAuthCallbackError } from "@/lib/auth/auth-errors";
 
 export type AuthCallbackResult =
   | { status: "session" }
@@ -26,7 +27,11 @@ export function resolveAuthCallbackFromParams(
       hashParams.get("error_description") ?? queryParams.get("error_description");
     return {
       status: "error",
-      message: description ?? "Masuk dibatalkan atau gagal. Silakan coba lagi.",
+      message: mapOAuthCallbackError({
+        error: oauthError,
+        errorDescription: description,
+        fallback: "Masuk dibatalkan atau gagal. Silakan coba lagi.",
+      }),
     };
   }
 
@@ -45,6 +50,9 @@ export function resolveAuthCallbackFromParams(
 }
 
 function stripSensitiveParams(pathname: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
   window.history.replaceState({}, document.title, pathname);
 }
 

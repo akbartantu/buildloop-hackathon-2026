@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { mapOAuthStartError } from "@/lib/auth/auth-errors";
+import { buildGoogleOAuthRequest } from "@/lib/auth/auth-redirect";
 
 type GoogleSignInButtonProps = {
   disabled?: boolean;
@@ -17,15 +19,10 @@ export function GoogleSignInButton({ disabled, onError }: GoogleSignInButtonProp
     onError("");
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      });
+      const { error } = await supabase.auth.signInWithOAuth(buildGoogleOAuthRequest());
 
       if (error) {
-        onError("Could not start Google sign-in. Please try again.");
+        onError(mapOAuthStartError(error));
       }
     } catch {
       onError("Something went wrong. Please try again.");

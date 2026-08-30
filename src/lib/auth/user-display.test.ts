@@ -6,6 +6,7 @@ import {
   normalizeFullName,
   normalizePhone,
   resolveAuthProviderLabel,
+  resolveProfileFullName,
   resolveUserDisplayName,
 } from "@/lib/auth/user-display";
 
@@ -35,6 +36,21 @@ describe("resolveUserDisplayName", () => {
         userMetadata: { name: "Akbar From Google" },
       }),
     ).toBe("Akbar From Google");
+  });
+});
+
+describe("resolveProfileFullName", () => {
+  test("prefers user-edited full_name over OAuth name", () => {
+    expect(
+      resolveProfileFullName({
+        full_name: "Saved Name",
+        name: "Google Name",
+      }),
+    ).toBe("Saved Name");
+  });
+
+  test("prefills from OAuth name when full_name is missing", () => {
+    expect(resolveProfileFullName({ name: "Akbar From Google" })).toBe("Akbar From Google");
   });
 });
 
@@ -101,6 +117,7 @@ describe("settings profile wiring", () => {
     ).text();
 
     expect(source).toContain("supabase.auth.updateUser");
+    expect(source).toContain("resolveProfileFullName");
     expect(source).toContain("full_name:");
     expect(source).toContain("phone:");
     expect(source).toContain("readOnly");

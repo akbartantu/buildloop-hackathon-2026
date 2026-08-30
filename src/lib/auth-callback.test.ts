@@ -7,7 +7,19 @@ describe("resolveAuthCallbackFromParams", () => {
     const result = resolveAuthCallbackFromParams(new URLSearchParams("error=access_denied"), new URLSearchParams());
     expect(result.status).toBe("error");
     if (result.status === "error") {
-      expect(result.message).toContain("dibatalkan");
+      expect(result.message).toContain("cancelled");
+    }
+  });
+
+  test("returns safe error for provider disabled callback", () => {
+    const result = resolveAuthCallbackFromParams(
+      new URLSearchParams("error=server_error&error_description=Provider+google+is+not+enabled"),
+      new URLSearchParams(),
+    );
+    expect(result.status).toBe("error");
+    if (result.status === "error") {
+      expect(result.message).toContain("not available");
+      expect(result.message).not.toContain("token");
     }
   });
 

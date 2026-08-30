@@ -9,6 +9,9 @@ export type FirestoreRunRecord = {
   taskId: string;
   runId: string;
   taskGoal: string;
+  projectId: string | null;
+  repositoryUrl: string | null;
+  sourceCommitSha: string | null;
   status: string;
   verdict: string | null;
   workerId: string;
@@ -39,6 +42,9 @@ export function storedRunToFirestoreRecord(run: StoredRun): FirestoreRunRecord {
     taskId: run.run.taskId,
     runId: run.run.id,
     taskGoal: run.taskGoal,
+    projectId: run.projectId ?? null,
+    repositoryUrl: run.repositoryUrl ?? null,
+    sourceCommitSha: run.sourceCommitSha ?? null,
     status: run.run.status,
     verdict: run.run.verdict,
     workerId: extended.workerId ?? run.run.workerId,

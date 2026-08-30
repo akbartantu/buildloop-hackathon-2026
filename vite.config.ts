@@ -62,6 +62,15 @@ export default defineConfig(({ mode, command }) => {
       "import.meta.env.DEV_AUTH_BYPASS": JSON.stringify(process.env["DEV_AUTH_BYPASS"] ?? ""),
     },
     css: { transformer: "lightningcss" as const },
+    ssr: {
+      external: ["@google/adk"],
+      noExternal: [],
+    },
+    build: {
+      rolldownOptions: {
+        external: ["@google/adk"],
+      },
+    },
     resolve: {
       alias: { "@": `${process.cwd()}/src` },
       dedupe: [

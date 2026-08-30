@@ -22,44 +22,42 @@ AI coding tools can change files outside scope, add dependencies without review,
 - Public landing page, docs, security, privacy, and terms routes
 - Pilot waitlist form with server-side validation
 - Google OAuth sign-in and protected workspace (`/app`)
-- Task creation with deterministic contract generation
-- **BLOCKED preflight** for sensitive goals (credential, deployment, protected branch, etc.)
-- Contract review and execution approval (`lockContract`)
-- Structured blocked reasons and zero-change runner evidence in the UI
+- Multi-workspace projects with active workspace switching and project-scoped tasks
+- Task creation with deterministic, task-specific contract scope (not broad `src/**` defaults)
+- User acceptance criteria preserved through contract and checker paths
+- English default UI with Bahasa Indonesia toggle
+- Orchestrator runtime with coding worker (Google ADK + Gemini), independent checker, bounded correction loop (max 2)
+- PASS / FAILED / BLOCKED verdicts with structured evidence
+- **BLOCKED preflight** for sensitive goals (credential, deployment, protected paths)
+- Contract review, lock, and execution against stored contract
+- Human approval gate for commit (copy and UI boundary visible)
+- Public GitHub repository connection, clone, and baseline capture
+- Cloud Run deployment with Firestore runtime persistence and `/ready` health check
 
-## Not yet implemented
+## Known limitations
 
-The following are **submission targets** and are not claimed as working in this checkpoint:
-
-- BuildLoop Orchestrator state machine (runtime)
-- Coding worker (Gemini or demo adapter)
-- Independent checker and correction loop
-- PASS / FAILED / AWAITING_APPROVAL runtime transitions
-- Contract versioning
-- Task detail tabs (Overview, Contract, Orchestration, Evidence, Approval)
-- Gemini integration
-- Google ADK orchestration
-- Cloud Run orchestrator service
-- Firestore runtime store (runs, evidence, decisions)
-- PASS and BLOCKED end-to-end demo scenarios with worker execution
-- Commit / push / merge / deploy approval gates (beyond copy)
+- Commit / push / merge / deploy execution remains approval-gated; automatic Git commit is not enabled in this release
+- Semantic scope planning uses deterministic repository inspection; full Gemini scope reasoning is a future enhancement when confidence is low
+- Private GitHub OAuth is out of hackathon scope (public repos only)
+- Production Supabase `projects` migration may still need to be applied on hosted environment (see deployment notes)
 
 ## Current architecture
 
 ```
-Browser UI (TanStack Start + React)
-  → Server functions (tasks, waitlist)
-  → Supabase Auth + Postgres (tasks, approvals, waitlist)
-  → Deterministic preflight policy (sensitive-intent)
+Browser UI (TanStack Start + React, EN/ID)
+  → Server functions (tasks, projects, orchestration)
+  → Supabase Auth + Postgres (users, projects, tasks, approvals)
+  → BuildLoop Orchestrator (Cloud Run)
+      → Policy preflight + contract lock
+      → Repository-aware scope planning
+      → Google ADK + Gemini coding worker
+      → Independent deterministic checker
+      → Bounded correction loop (max 2)
+      → Firestore (runs, evidence, decisions)
+  → Human approval gate (commit / push / merge / deploy)
 ```
 
-Planned submission architecture:
-
-```
-UI → ADK Orchestrator (Cloud Run) → Policy → Worker → Checker → Evidence (Firestore) → Human Approval
-```
-
-Supabase remains the store for authentication and task/contract persistence. Firestore will hold orchestrator runtime state only — not duplicate entities.
+Supabase holds relational product state. Firestore holds orchestrator runtime/evidence only.
 
 ## Tech stack
 

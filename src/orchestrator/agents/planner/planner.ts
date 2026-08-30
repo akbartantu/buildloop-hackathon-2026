@@ -1,4 +1,6 @@
 import { MAX_ATTEMPTS } from "@/lib/task-contract";
+import { deriveTaskContractFields, isAmbiguousGoal } from "@/orchestrator/contract/derive-task-contract";
+import { discoverCandidatePaths } from "@/orchestrator/contract/discover-candidate-paths";
 import { classifyRisk } from "@/orchestrator/policy/evaluator";
 import {
   MAX_CONTRACTS_PER_GOAL,
@@ -39,6 +41,23 @@ function isAuthGoal(goal: string): boolean {
   );
 }
 
+function extractExplicitScopeFromGoal(goal: string): boolean {
+  return deriveTaskContractFields({ goal }).expectedScope.length > 0;
+}
+
+function shouldDiscoverRepositoryCandidates(goal: string): boolean {
+  if (extractExplicitScopeFromGoal(goal) || isAmbiguousGoal(goal)) {
+    return false;
+  }
+  const normalized = goal.toLowerCase();
+  return (
+    isAuthGoal(goal) ||
+    /\b(forgot password|password reset|reset password|sign[- ]?in|sign[- ]?up|authentication)\b/.test(
+      normalized,
+    )
+  );
+}
+
 function isSimpleBoundedTask(goal: string): boolean {
   const g = goal.toLowerCase();
   if (goal.length < 80) return true;
@@ -48,36 +67,52 @@ function isSimpleBoundedTask(goal: string): boolean {
   return !/\bauth(entication)?\b/.test(g) || !/\bsign[- ]?up\b/.test(g);
 }
 
-function buildSingleContract(goal: string, taskId: string): WorkContract {
+function buildSingleContract(
+  goal: string,
+  taskId: string,
+  acceptanceCriteria?: string[],
+  repositoryCandidates?: string[],
+): WorkContract {
   const risk = classifyRisk(goal);
+  const derived = deriveTaskContractFields({
+    goal,
+    ...(acceptanceCriteria ? { acceptanceCriteria } : {}),
+    ...(repositoryCandidates?.length ? { repositoryCandidates } : {}),
+  });
   return {
     id: `${taskId.slice(0, 8).toUpperCase()}-01`,
     goal: goal.trim(),
-    acceptanceCriteria: [
-      "Perilaku yang diminta diimplementasikan.",
-      "Check yang relevan lolos.",
-      "Tidak ada protected path yang berubah.",
-    ],
-    expectedScope: ["src/**", "docs/**"],
+    acceptanceCriteria: derived.acceptanceCriteria,
+    expectedScope: derived.expectedScope,
     dependencies: [],
     riskClassification: risk,
     approvalState: "pending",
-    status: "pending",
+    status: derived.needsClarification ? ("blocked" as const) : ("pending" as const),
   };
 }
 
-function buildAuthContracts(goal: string, taskId: string): WorkContract[] {
+function buildAuthContracts(goal: string, taskId: string, repositoryCandidates?: string[]): WorkContract[] {
   const prefix = "AUTH";
-  return AUTH_DECOMPOSITION.map((item, index) => ({
-    id: `${prefix}-${item.suffix}`,
-    goal: `${prefix}-${item.suffix} ${item.goal}`,
-    acceptanceCriteria: item.criteria,
-    expectedScope: ["src/**"],
-    dependencies: index > 0 ? [`${prefix}-${AUTH_DECOMPOSITION[index - 1]!.suffix}`] : [],
-    riskClassification: "security" as const,
-    approvalState: "pending" as const,
-    status: "pending" as const,
-  })).slice(0, MAX_CONTRACTS_PER_GOAL);
+  return AUTH_DECOMPOSITION.map((item, index) => {
+    const derived = deriveTaskContractFields({
+      goal: `${item.goal} ${goal}`,
+      acceptanceCriteria: item.criteria,
+      ...(repositoryCandidates?.length ? { repositoryCandidates } : {}),
+    });
+    return {
+      id: `${prefix}-${item.suffix}`,
+      goal: `${prefix}-${item.suffix} ${item.goal}`,
+      acceptanceCriteria: item.criteria,
+      expectedScope: derived.expectedScope,
+      dependencies: index > 0 ? [`${prefix}-${AUTH_DECOMPOSITION[index - 1]!.suffix}`] : [],
+      riskClassification: "security" as const,
+      approvalState: "pending" as const,
+      status:
+        derived.needsClarification || derived.expectedScope.length === 0
+          ? ("blocked" as const)
+          : ("pending" as const),
+    };
+  }).slice(0, MAX_CONTRACTS_PER_GOAL);
 }
 
 function decomposeByClauses(goal: string, taskId: string): WorkContract[] | null {
@@ -91,29 +126,35 @@ function decomposeByClauses(goal: string, taskId: string): WorkContract[] | null
   }
 
   const prefix = taskId.slice(0, 4).toUpperCase();
-  return clauses.map((clause, index) => ({
-    id: `${prefix}-${String(index + 1).padStart(2, "0")}`,
-    goal: clause.charAt(0).toUpperCase() + clause.slice(1),
-    acceptanceCriteria: [
-      `${clause} implemented.`,
-      "Relevant checks pass.",
-      "No protected paths changed.",
-    ],
-    expectedScope: ["src/**"],
-    dependencies: index > 0 ? [`${prefix}-${String(index).padStart(2, "0")}`] : [],
-    riskClassification: classifyRisk(clause),
-    approvalState: "pending" as const,
-    status: "pending" as const,
-  }));
+  return clauses.map((clause, index) => {
+    const derived = deriveTaskContractFields({ goal: clause });
+    return {
+      id: `${prefix}-${String(index + 1).padStart(2, "0")}`,
+      goal: clause.charAt(0).toUpperCase() + clause.slice(1),
+      acceptanceCriteria: derived.acceptanceCriteria,
+      expectedScope: derived.expectedScope.length > 0 ? derived.expectedScope : [],
+      dependencies: index > 0 ? [`${prefix}-${String(index).padStart(2, "0")}`] : [],
+      riskClassification: classifyRisk(clause),
+      approvalState: "pending" as const,
+      status:
+        derived.needsClarification || derived.expectedScope.length === 0
+          ? ("blocked" as const)
+          : ("pending" as const),
+    };
+  });
 }
 
 /** Deterministic planner — decomposes large goals, keeps simple tasks as single contract. */
-export function planWork(input: PlannerInput): PlannerOutput {
+export async function planWork(input: PlannerInput): Promise<PlannerOutput> {
   const goal = input.goal.trim();
   const maxContracts = input.maxContracts ?? MAX_CONTRACTS_PER_GOAL;
+  const repositoryCandidates =
+    input.workspaceRoot && shouldDiscoverRepositoryCandidates(goal)
+      ? (await discoverCandidatePaths(goal, input.workspaceRoot)).candidates
+      : undefined;
 
   if (isAuthGoal(goal)) {
-    const contracts = buildAuthContracts(goal, input.taskId);
+    const contracts = buildAuthContracts(goal, input.taskId, repositoryCandidates);
     return {
       userGoal: goal,
       contracts: contracts.slice(0, maxContracts),
@@ -123,7 +164,12 @@ export function planWork(input: PlannerInput): PlannerOutput {
   }
 
   if (isSimpleBoundedTask(goal)) {
-    const contract = buildSingleContract(goal, input.taskId);
+    const contract = buildSingleContract(
+      goal,
+      input.taskId,
+      input.acceptanceCriteria,
+      repositoryCandidates,
+    );
     return {
       userGoal: goal,
       contracts: [contract],
@@ -142,7 +188,12 @@ export function planWork(input: PlannerInput): PlannerOutput {
     };
   }
 
-  const contract = buildSingleContract(goal, input.taskId);
+  const contract = buildSingleContract(
+    goal,
+    input.taskId,
+    input.acceptanceCriteria,
+    repositoryCandidates,
+  );
   return {
     userGoal: goal,
     contracts: [contract],
@@ -153,10 +204,15 @@ export function planWork(input: PlannerInput): PlannerOutput {
 
 export function workPlanToContractFields(plan: WorkPlan) {
   const primary = plan.contracts[0]!;
+  const derived = deriveTaskContractFields({
+    goal: plan.userGoal,
+    acceptanceCriteria: primary.acceptanceCriteria,
+  });
   return {
     goal: plan.userGoal,
     inScope: primary.expectedScope,
     acceptanceCriteria: primary.acceptanceCriteria,
+    requiredChecks: derived.requiredChecks,
     maxAttempts: MAX_ATTEMPTS,
     workPlan: plan,
   };

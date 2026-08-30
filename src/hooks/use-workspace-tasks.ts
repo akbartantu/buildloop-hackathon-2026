@@ -3,9 +3,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { createTask, listTasks, lockContract, recordHumanApproval } from "@/lib/tasks.functions";
 import { executeTaskRun } from "@/lib/orchestration.functions";
 import type { HumanGateDecision, SensitiveApprovalAction } from "@/lib/human-approval";
+import { useProjects } from "@/hooks/use-projects";
 
 export function useWorkspaceTasks() {
   const queryClient = useQueryClient();
+  const { activeProject } = useProjects();
+  const projectScope = activeProject?.id ?? null;
   const fetchTasks = useServerFn(listTasks);
   const submitTask = useServerFn(createTask);
   const approveContract = useServerFn(lockContract);
@@ -13,14 +16,19 @@ export function useWorkspaceTasks() {
   const submitHumanApproval = useServerFn(recordHumanApproval);
 
   const tasksQuery = useQuery({
-    queryKey: ["tasks"],
-    queryFn: () => fetchTasks(),
+    queryKey: ["tasks", projectScope],
+    queryFn: () => fetchTasks({ data: { projectId: projectScope } }),
   });
 
   const createMutation = useMutation({
-    mutationFn: (input: string | { goal: string; workspace?: string; projectId?: string }) => {
+    mutationFn: (input: string | { goal: string; workspace?: string; projectId?: string; acceptanceCriteria?: string[] }) => {
       const payload = typeof input === "string" ? { goal: input } : input;
-      return submitTask({ data: payload });
+      return submitTask({
+        data: {
+          ...payload,
+          ...(activeProject?.id && !payload.projectId ? { projectId: activeProject.id } : {}),
+        },
+      });
     },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -35,7 +43,13 @@ export function useWorkspaceTasks() {
   });
 
   const runMutation = useMutation({
-    mutationFn: (id: string) => runOrchestrator({ data: { id } }),
+    mutationFn: (id: string) =>
+      runOrchestrator({
+        data: {
+          id,
+          activeProjectId: projectScope,
+        },
+      }),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
@@ -64,6 +78,7 @@ export function useWorkspaceTasks() {
 
   return {
     tasks: tasksQuery.data ?? [],
+    projectScope,
     isLoading: tasksQuery.isLoading,
     isError: tasksQuery.isError,
     createMutation,

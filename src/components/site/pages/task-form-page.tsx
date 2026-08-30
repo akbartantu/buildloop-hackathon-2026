@@ -6,29 +6,44 @@ import { Textarea } from "@/components/ui/textarea";
 import { DemoPageHeader, DemoPanel } from "@/components/site/demo-ui";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { useI18n } from "@/i18n/context";
 import { abbreviateCommitSha } from "@/lib/repository/task-source-display";
 import { MAX_ATTEMPTS, PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
 
+function parseAcceptanceCriteria(raw: string): string[] | undefined {
+  const criteria = raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length >= 3);
+
+  return criteria.length > 0 ? criteria : undefined;
+}
+
 export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const { tasks, createMutation } = useWorkspaceTasks();
   const { source, activeProject } = useProjects();
   const sourceTask = fromTaskId ? (tasks.find((task) => task.id === fromTaskId) ?? null) : null;
   const [taskGoal, setTaskGoal] = useState("");
+  const [acceptanceCriteriaText, setAcceptanceCriteriaText] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const workspaceLabel = source?.repoName ?? WORKSPACE_NAME;
 
   useEffect(() => {
     if (sourceTask) {
       setTaskGoal(sourceTask.goal);
+      setAcceptanceCriteriaText(sourceTask.contract.acceptanceCriteria.join("\n"));
     }
   }, [sourceTask]);
 
   async function handleSubmit() {
     setFormError(null);
     try {
+      const acceptanceCriteria = parseAcceptanceCriteria(acceptanceCriteriaText);
       const task = await createMutation.mutateAsync({
         goal: taskGoal,
+        ...(acceptanceCriteria ? { acceptanceCriteria } : {}),
         ...(activeProject?.id
           ? { projectId: activeProject.id }
           : source
@@ -41,41 +56,50 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
         replace: true,
       });
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Gagal membuat task");
+      setFormError(error instanceof Error ? error.message : t("tasks.createError"));
     }
   }
 
   return (
     <div className="space-y-6">
-      <DemoPageHeader
-        title="Definisikan batas task"
-        description="Tulis goal yang jelas. BuildLoop akan membuat contract deterministik sebelum orchestrator dijalankan."
-      />
+      <DemoPageHeader title={t("tasks.formTitle")} description={t("tasks.formDescription")} />
 
-      <DemoPanel title="Task baru">
+      <DemoPanel title={t("tasks.formPanelTitle")}>
         <div className="space-y-2">
-          <Label htmlFor="task-goal">Apa yang perlu dikerjakan?</Label>
+          <Label htmlFor="task-goal">{t("tasks.goalLabel")}</Label>
           <Textarea
             id="task-goal"
             value={taskGoal}
             onChange={(event) => setTaskGoal(event.target.value)}
-            placeholder="Contoh: Add a small deterministic health endpoint and update its focused test without changing protected files."
+            placeholder={t("tasks.goalPlaceholder")}
             rows={4}
           />
+        </div>
+
+        <div className="mt-6 space-y-2">
+          <Label htmlFor="task-criteria">{t("tasks.criteriaLabel")}</Label>
+          <Textarea
+            id="task-criteria"
+            value={acceptanceCriteriaText}
+            onChange={(event) => setAcceptanceCriteriaText(event.target.value)}
+            placeholder={t("tasks.criteriaPlaceholder")}
+            rows={6}
+          />
+          <p className="text-xs text-muted-foreground">{t("tasks.criteriaHelp")}</p>
           {formError ? <p className="text-sm text-status-blocked">{formError}</p> : null}
         </div>
 
         <dl className="mt-6 grid gap-x-8 gap-y-4 border-t border-border pt-5 sm:grid-cols-3">
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-              Workspace
+              {t("tasks.workspace")}
             </dt>
             <dd className="mt-1 font-mono text-sm text-foreground">{workspaceLabel}</dd>
           </div>
           {source ? (
             <div>
               <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-                Source commit
+                {t("tasks.sourceCommit")}
               </dt>
               <dd className="mt-1 font-mono text-sm text-foreground">
                 {abbreviateCommitSha(source.commitSha)}
@@ -84,13 +108,13 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
           ) : null}
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-              Maks. percobaan koreksi
+              {t("tasks.maxCorrections")}
             </dt>
             <dd className="mt-1 text-sm text-foreground">{MAX_ATTEMPTS}</dd>
           </div>
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-              Protected paths
+              {t("tasks.protectedPaths")}
             </dt>
             <dd className="mt-1">
               <ul className="space-y-1">
@@ -106,10 +130,10 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
 
         <div className="mt-6 flex flex-wrap gap-3 border-t border-border pt-5">
           <Button onClick={handleSubmit} disabled={createMutation.isPending}>
-            {createMutation.isPending ? "Menyimpan…" : "Buat task"}
+            {createMutation.isPending ? t("common.saving") : t("tasks.createTask")}
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/app/tasks">Batal</Link>
+            <Link to="/app/tasks">{t("common.cancel")}</Link>
           </Button>
         </div>
       </DemoPanel>

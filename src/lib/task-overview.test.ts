@@ -37,8 +37,12 @@ function baseTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
 
 describe("friendlyStatusLabel", () => {
   test("maps technical status to user-facing label", () => {
-    expect(friendlyStatusLabel("APPROVED_FOR_EXECUTION")).toBe("Siap dijalankan");
-    expect(friendlyStatusLabel("CONTRACT_READY")).toBe("Menunggu persetujuan contract");
+    expect(friendlyStatusLabel("APPROVED_FOR_EXECUTION")).toBe("Approved for execution");
+    expect(friendlyStatusLabel("CONTRACT_READY")).toBe("Awaiting contract approval");
+    expect(friendlyStatusLabel("APPROVED_FOR_EXECUTION", "id")).toBe("Disetujui untuk dieksekusi");
+    expect(friendlyStatusLabel("BLOCKED")).toBe("Blocked");
+    expect(friendlyStatusLabel("BLOCKED", "id")).toBe("Diblokir");
+    expect("BLOCKED").toBe("BLOCKED");
   });
 });
 

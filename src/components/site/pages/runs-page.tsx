@@ -1,19 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { DemoPageHeader, DemoPanel } from "@/components/site/demo-ui";
+import { TaskStatusLabel } from "@/components/site/task-status-label";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { useI18n } from "@/i18n/context";
+import type { TranslationKey } from "@/i18n/en";
 import { formatTaskRef } from "@/lib/task-display";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import type { TaskStatus } from "@/lib/task-contract";
-
-const RUN_STATUS_LABELS = [
-  "APPROVED_FOR_EXECUTION (READY)",
-  "RUNNING",
-  "NEEDS_CORRECTION",
-  "PASS",
-  "FAILED",
-  "BLOCKED",
-  "AWAITING_APPROVAL",
-] as const;
 
 function isRunTask(task: TaskRecord): boolean {
   if (task.runnerState?.runnerInvoked) return true;
@@ -29,15 +22,18 @@ function isRunTask(task: TaskRecord): boolean {
   ].includes(task.status);
 }
 
-function runDecision(task: TaskRecord): string {
-  if (task.status === "PASS" || task.status === "AWAITING_APPROVAL") return "PASS";
-  if (task.status === "FAILED") return "FAILED";
-  if (task.status === "BLOCKED") return "BLOCKED";
+function runDecision(
+  task: TaskRecord,
+  t: (key: TranslationKey, params?: Record<string, string | number>) => string,
+): string {
+  if (task.status === "PASS" || task.status === "AWAITING_APPROVAL") return t("runs.decision.pass");
+  if (task.status === "FAILED") return t("runs.decision.failed");
+  if (task.status === "BLOCKED") return t("runs.decision.blocked");
   if (["RUNNING", "CHECKING", "NEEDS_CORRECTION", "INSPECTING"].includes(task.status)) {
-    return "IN PROGRESS";
+    return t("runs.decision.inProgress");
   }
-  if (task.status === "APPROVED_FOR_EXECUTION") return "READY";
-  return "—";
+  if (task.status === "APPROVED_FOR_EXECUTION") return t("runs.decision.ready");
+  return t("runs.decision.none");
 }
 
 function statusTone(status: TaskStatus): "pass" | "blocked" | "review" | "neutral" {
@@ -49,28 +45,24 @@ function statusTone(status: TaskStatus): "pass" | "blocked" | "review" | "neutra
 
 export function RunsPage() {
   const { tasks, isLoading } = useWorkspaceTasks();
+  const { t } = useI18n();
   const runs = tasks.filter(isRunTask);
 
   return (
     <div className="space-y-6">
-      <DemoPageHeader
-        title="Runs"
-        description="Riwayat dan status eksekusi orchestrator. Setiap run terkait dengan satu task."
-      />
+      <DemoPageHeader title={t("runs.title")} description={t("runs.description")} />
 
-      <DemoPanel title="Orchestrator runs">
+      <DemoPanel title={t("runs.panelTitle")}>
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">Memuat…</p>
+          <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
         ) : runs.length === 0 ? (
           <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Belum ada run. Setujui contract pada task lalu jalankan orchestrator untuk melihat run di sini.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("runs.empty")}</p>
             <Link
               to="/app/tasks"
               className="inline-flex text-sm font-medium text-foreground underline-offset-4 hover:underline"
             >
-              Buka tasks
+              {t("runs.openTasks")}
             </Link>
           </div>
         ) : (
@@ -78,11 +70,11 @@ export function RunsPage() {
             <table className="w-full min-w-[640px] text-left text-sm">
               <thead>
                 <tr className="border-b border-border font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                  <th className="pb-3 pr-4 font-medium">Task</th>
-                  <th className="pb-3 pr-4 font-medium">Status</th>
-                  <th className="pb-3 pr-4 font-medium">Koreksi</th>
-                  <th className="pb-3 pr-4 font-medium">Decision</th>
-                  <th className="pb-3 pr-4 font-medium">Diperbarui</th>
+                  <th className="pb-3 pr-4 font-medium">{t("runs.columns.task")}</th>
+                  <th className="pb-3 pr-4 font-medium">{t("runs.columns.status")}</th>
+                  <th className="pb-3 pr-4 font-medium">{t("runs.columns.corrections")}</th>
+                  <th className="pb-3 pr-4 font-medium">{t("runs.columns.decision")}</th>
+                  <th className="pb-3 pr-4 font-medium">{t("runs.columns.updated")}</th>
                   <th className="pb-3 font-medium" />
                 </tr>
               </thead>
@@ -96,7 +88,8 @@ export function RunsPage() {
                       <p className="mt-1 max-w-xs truncate text-foreground">{task.goal}</p>
                     </td>
                     <td className="py-3 pr-4">
-                      <span
+                      <TaskStatusLabel
+                        status={task.status}
                         className={`font-mono text-[11px] uppercase tracking-[0.1em] ${
                           statusTone(task.status) === "pass"
                             ? "text-status-pass"
@@ -106,15 +99,13 @@ export function RunsPage() {
                                 ? "text-status-review"
                                 : "text-foreground"
                         }`}
-                      >
-                        {task.status}
-                      </span>
+                      />
                     </td>
                     <td className="py-3 pr-4 font-mono text-xs text-foreground">
                       {task.runnerState?.correctionCount ?? 0} / {task.contract.maxAttempts}
                     </td>
                     <td className="py-3 pr-4 font-mono text-xs text-foreground">
-                      {runDecision(task)}
+                      {runDecision(task, t)}
                     </td>
                     <td className="py-3 pr-4 font-mono text-[10px] text-muted-foreground">
                       {new Date(task.updatedAt).toLocaleString()}
@@ -126,7 +117,7 @@ export function RunsPage() {
                         search={{ tab: "orchestration" }}
                         className="text-xs font-medium text-foreground underline-offset-4 hover:underline"
                       >
-                        Inspect
+                        {t("runs.inspect")}
                       </Link>
                     </td>
                   </tr>
@@ -137,9 +128,7 @@ export function RunsPage() {
         )}
       </DemoPanel>
 
-      <p className="text-xs text-muted-foreground">
-        Status canonical: {RUN_STATUS_LABELS.join(", ")}. Detail lengkap tersedia di tab Orchestration dan Evidence pada task detail.
-      </p>
+      <p className="text-xs text-muted-foreground">{t("runs.footer")}</p>
     </div>
   );
 }

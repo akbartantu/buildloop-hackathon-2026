@@ -18,8 +18,8 @@ import type { CheckerResult } from "@/orchestrator/checker/deterministic-checker
 const policy = resolveProjectPolicy(null);
 
 describe("Taskmaster Planner", () => {
-  test("large auth goal decomposes into bounded contracts", () => {
-    const plan = planWork({
+  test("large auth goal decomposes into bounded contracts", async () => {
+    const plan = await planWork({
       goal: "Build authentication: sign up, sign in, forgot password",
       taskId: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
     });
@@ -29,8 +29,8 @@ describe("Taskmaster Planner", () => {
     expect(plan.contracts[0]!.id).toMatch(/^AUTH-/);
   });
 
-  test("simple task remains single contract", () => {
-    const plan = planWork({
+  test("simple task remains single contract", async () => {
+    const plan = await planWork({
       goal: "Add a small safe feature and its focused test",
       taskId: "bbbbbbbb-bbbb-cccc-dddd-eeeeeeeeeeee",
     });
@@ -38,8 +38,8 @@ describe("Taskmaster Planner", () => {
     expect(plan.contracts).toHaveLength(1);
   });
 
-  test("decomposition max limit enforced", () => {
-    const plan = planWork({
+  test("decomposition max limit enforced", async () => {
+    const plan = await planWork({
       goal: "Build authentication: sign up, sign in, forgot password, oauth, mfa, audit",
       taskId: "cccccccc-bbbb-cccc-dddd-eeeeeeeeeeee",
       maxContracts: 4,
@@ -251,8 +251,8 @@ describe("Governance separation", () => {
     expect(resolved.require_human_approval).toContain("credential_access");
   });
 
-  test("initial task status for low-risk is auto-approved when policy allows", () => {
-    const plan = planWork({
+  test("initial task status for low-risk is auto-approved when policy allows", async () => {
+    const plan = await planWork({
       goal: "Add a small safe feature and its focused test",
       taskId: "dddddddd-bbbb-cccc-dddd-eeeeeeeeeeee",
     });
@@ -261,8 +261,8 @@ describe("Governance separation", () => {
     expect(initial.approvalType).toBe("AUTO_APPROVED_BY_POLICY");
   });
 
-  test("migration goal requires human approval not auto", () => {
-    const plan = planWork({
+  test("migration goal requires human approval not auto", async () => {
+    const plan = await planWork({
       goal: "Add users table via supabase migration",
       taskId: "eeeeeeee-bbbb-cccc-dddd-eeeeeeeeeeee",
     });

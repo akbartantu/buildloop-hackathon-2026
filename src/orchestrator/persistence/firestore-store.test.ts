@@ -83,6 +83,20 @@ function sampleStoredRun(runId: string, taskId: string): StoredRun {
 }
 
 describe("Firestore mapper", () => {
+  test("persists immutable project identity on Firestore run records", () => {
+    const original = {
+      ...sampleStoredRun("run-project-a", "task-project-a"),
+      projectId: "11111111-1111-4111-8111-111111111111",
+      repositoryUrl: "https://github.com/owner/a",
+      sourceCommitSha: "abc1234567890abcdef1234567890abcdef123456",
+    } satisfies StoredRun;
+
+    const record = storedRunToFirestoreRecord(original);
+    expect(record.projectId).toBe("11111111-1111-4111-8111-111111111111");
+    expect(record.repositoryUrl).toBe("https://github.com/owner/a");
+    expect(record.sourceCommitSha).toBe("abc1234567890abcdef1234567890abcdef123456");
+  });
+
   test("round-trips StoredRun through Firestore record encoding", () => {
     const original = sampleStoredRun("run-1", "task-1");
     const record = storedRunToFirestoreRecord(original);

@@ -11,6 +11,9 @@ export type StoredRun = BootstrapRunResult & {
   workerMode?: string;
   workerId?: string;
   plannerSummary?: string;
+  projectId?: string | null;
+  repositoryUrl?: string;
+  sourceCommitSha?: string | null;
 };
 
 export class LocalRunStore {

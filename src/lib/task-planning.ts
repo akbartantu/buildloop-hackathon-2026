@@ -25,9 +25,15 @@ export async function planAndEvaluateTask(input: {
   goal: string;
   taskId: string;
   workspaceRoot: string;
+  acceptanceCriteria?: string[];
 }): Promise<TaskPlanningResult> {
   const policy = await loadProjectGovernance(input.workspaceRoot);
-  const workPlan = planWork({ goal: input.goal, taskId: input.taskId });
+  const workPlan = await planWork({
+    goal: input.goal,
+    taskId: input.taskId,
+    workspaceRoot: input.workspaceRoot,
+    ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
+  });
   const fields = workPlanToContractFields(workPlan);
 
   const base = buildContract(input.goal);
@@ -36,6 +42,7 @@ export async function planAndEvaluateTask(input: {
     goal: fields.goal,
     inScope: fields.inScope,
     acceptanceCriteria: fields.acceptanceCriteria,
+    requiredChecks: fields.requiredChecks,
     maxAttempts: fields.maxAttempts,
     workPlan: {
       userGoal: workPlan.userGoal,

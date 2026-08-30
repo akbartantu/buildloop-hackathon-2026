@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 
 import { requireAuth } from "@/lib/auth/require-auth";
-import { taskIdSchema } from "./tasks-schema";
+import { executeTaskRunSchema, taskIdSchema } from "./tasks-schema";
 import { getWorkspaceRoot, ProductOrchestrator } from "@/orchestrator/product/orchestrator";
 import { summarizeEvidence } from "@/orchestrator/persistence/local-store";
 import { zeroChangeRunnerState } from "./task-contract";
@@ -9,6 +9,7 @@ import type { TaskStatus } from "./task-contract";
 import { captureGitBaseline, resolveWorkspacePathAsync, createRunSandboxId } from "@/orchestrator/workspace/git-workspace";
 import { getSandboxRoot } from "@/orchestrator/workspace/sandbox-root";
 import { isPublicGitHubRepoUrl } from "@/lib/repository/public-github-url";
+import { assertTaskProjectExecutionSafe } from "@/lib/workspace/execution-guard";
 
 const ACTIVE_ORCHESTRATION_STATUSES: TaskStatus[] = [
   "INSPECTING",
@@ -19,7 +20,7 @@ const ACTIVE_ORCHESTRATION_STATUSES: TaskStatus[] = [
 
 export const executeTaskRun = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .inputValidator((input: unknown) => taskIdSchema.parse(input))
+  .inputValidator((input: unknown) => executeTaskRunSchema.parse(input))
   .handler(async ({ data, context }) => {
     const task = await context.tasks.getTask(data.id);
 
@@ -34,6 +35,21 @@ export const executeTaskRun = createServerFn({ method: "POST" })
     if (ACTIVE_ORCHESTRATION_STATUSES.includes(task.status)) {
       throw new Error("Orchestrator sudah berjalan untuk task ini.");
     }
+
+    const linkedProject = task.projectId
+      ? await context.projects.getProject(task.projectId, context.auth.userId)
+      : null;
+
+    assertTaskProjectExecutionSafe({
+      task,
+      project: linkedProject
+        ? {
+            repositoryUrl: linkedProject.repositoryUrl,
+            connectedCommitSha: linkedProject.connectedCommitSha,
+          }
+        : null,
+      ...(data.activeProjectId !== undefined ? { activeProjectId: data.activeProjectId } : {}),
+    });
 
     const workspaceRoot = getWorkspaceRoot();
     const runSandboxId = createRunSandboxId(task.id);
@@ -62,6 +78,9 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       contractId: task.id,
       workspace: task.workspace,
       allowDirtyWorkspace: false,
+      storedContract: task.contract,
+      projectId: task.projectId,
+      repositoryUrl: task.workspace,
       ...(task.sourceCommitSha ? { sourceCommitSha: task.sourceCommitSha } : {}),
       runSandboxId,
     });

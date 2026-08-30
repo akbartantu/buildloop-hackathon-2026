@@ -44,7 +44,7 @@ describe("getContractHandoff", () => {
       running: false,
       approving: false,
     });
-    expect(handoff.primaryLabel).toBe("Mulai Orchestration");
+    expect(handoff.primaryLabel).toBe("Start orchestration");
     expect(handoff.primaryAction).toBe("run");
   });
 

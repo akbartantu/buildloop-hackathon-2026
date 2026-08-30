@@ -33,6 +33,7 @@ import {
 } from "@/lib/task-overview";
 import { buildTaskLifecycleViewModel } from "@/lib/task-lifecycle";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { useI18n } from "@/i18n/context";
 import { cn } from "@/lib/utils";
 
 type TaskOverviewViewProps = {
@@ -57,10 +58,11 @@ export function TaskOverviewView({
   onHandoffAction,
   onGoToTab,
 }: TaskOverviewViewProps) {
+  const { locale } = useI18n();
   const taskRef = formatTaskRef(task.id);
   const runner = task.runnerState;
   const lifecycle = buildTaskLifecycleViewModel(task);
-  const handoff = getContractHandoff(task, { running, approving });
+  const handoff = getContractHandoff(task, { running, approving }, locale);
   const journey = getJourneySteps(task.status);
   const snapshot = getContractSnapshot(task);
   const evidence = getEvidenceSnapshot(task);
@@ -87,10 +89,7 @@ export function TaskOverviewView({
           <div>
             <dt className="sr-only">Status</dt>
             <dd>
-              <span className="text-foreground">{friendlyStatusLabel(task.status)}</span>
-              <span className="ml-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-                {task.status}
-              </span>
+              <span className="text-foreground">{friendlyStatusLabel(task.status, locale)}</span>
             </dd>
           </div>
           <div>
@@ -333,6 +332,7 @@ function OrchestrationSummary({
   primaryDisabled: boolean;
   onHandoffAction: (action: ContractHandoffAction) => void;
 }) {
+  const { locale } = useI18n();
   const runner = task.runnerState;
 
   if (task.status === "APPROVED_FOR_EXECUTION") {
@@ -363,7 +363,7 @@ function OrchestrationSummary({
         <dl className="space-y-2 text-sm">
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground">Phase</dt>
-            <dd className="font-mono text-foreground">{task.status.replaceAll("_", " ")}</dd>
+            <dd className="font-mono text-foreground">{friendlyStatusLabel(task.status, locale)}</dd>
           </div>
           <div className="flex justify-between gap-4">
             <dt className="text-muted-foreground">Worker attempt</dt>

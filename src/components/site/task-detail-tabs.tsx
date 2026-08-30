@@ -29,7 +29,7 @@ import {
   taskWorkspaceLabel,
 } from "@/lib/repository/task-source-display";
 import {
-  CONTRACT_NEXT_STEPS_COPY,
+  contractNextStepsCopy,
   getContractHandoff,
   getTabProgress,
   handoffActionToTab,
@@ -38,7 +38,6 @@ import {
 import {
   contractSections,
   formatTaskRef,
-  nextActionLabel,
   suggestedTab,
   taskVersion,
   type DemoTab,
@@ -61,6 +60,10 @@ import { isApprovalGateOpen, isOrchestrationInProgress } from "@/lib/evidence-an
 import { cn } from "@/lib/utils";
 import { TaskOverviewView } from "@/components/site/task-overview-view";
 import { friendlyStatusLabel } from "@/lib/task-overview";
+import { useI18n } from "@/i18n/context";
+import type { TranslationKey } from "@/i18n/en";
+import { translate, type Locale } from "@/i18n";
+import { en, id } from "@/i18n";
 
 type TaskDetailTabsProps = {
   task: TaskRecord;
@@ -76,13 +79,15 @@ type TaskDetailTabsProps = {
   onBack: () => void;
 };
 
-const TAB_ITEMS: Array<{ value: DemoTab; label: string; step: number; icon: typeof FileText }> = [
-  { value: "overview", label: "Overview", step: 1, icon: Layers },
-  { value: "contract", label: "Contract", step: 2, icon: FileText },
-  { value: "orchestration", label: "Orchestration", step: 3, icon: GitBranch },
-  { value: "evidence", label: "Evidence", step: 4, icon: Shield },
-  { value: "approval", label: "Approval", step: 5, icon: ShieldCheck },
-];
+const TAB_VALUES: DemoTab[] = ["overview", "contract", "orchestration", "evidence", "approval"];
+
+const TAB_ICONS = {
+  overview: Layers,
+  contract: FileText,
+  orchestration: GitBranch,
+  evidence: Shield,
+  approval: ShieldCheck,
+} as const;
 
 export function TaskDetailTabs({
   task,
@@ -97,6 +102,7 @@ export function TaskDetailTabs({
   onEdit,
   onBack,
 }: TaskDetailTabsProps) {
+  const { t, locale } = useI18n();
   const [tab, setTab] = useState<DemoTab>(() => initialTab ?? suggestedTab(task.status));
   const blocked = task.status === "BLOCKED";
   const locked = task.status === "APPROVED_FOR_EXECUTION" || Boolean(task.lockedAt);
@@ -128,7 +134,13 @@ export function TaskDetailTabs({
     <div className="space-y-6">
       <Tabs value={tab} onValueChange={(value) => setTab(value as DemoTab)}>
         <TabsList className="h-auto w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0">
-          {TAB_ITEMS.map((item) => {
+          {TAB_VALUES.map((value, index) => {
+            const item = {
+              value,
+              label: t(`taskDetail.tabs.${value}` as TranslationKey),
+              step: index + 1,
+              icon: TAB_ICONS[value],
+            };
             const progress = getTabProgress(task.status, item.value);
             return (
               <TabsTrigger
@@ -171,7 +183,7 @@ export function TaskDetailTabs({
 
         <TabsContent value="contract" className="mt-6 space-y-6">
           <DemoPageHeader
-            title="Tinjau rencana kerja"
+            title={t("taskDetail.contract.reviewTitle")}
             meta={`${taskRef} · ${taskVersion(task)}`}
           />
 
@@ -181,6 +193,7 @@ export function TaskDetailTabs({
             blocked={blocked}
             running={running}
             approving={approving}
+            locale={locale}
             onEdit={onEdit}
             onHandoffAction={handleHandoffAction}
           />
@@ -193,12 +206,13 @@ export function TaskDetailTabs({
             lifecycle={lifecycle}
             canRun={canRun}
             running={running}
+            locale={locale}
             onRun={onRun}
           />
         </TabsContent>
 
         <TabsContent value="evidence" className="mt-6 space-y-6">
-          <EvidenceView task={task} taskRef={taskRef} lifecycle={lifecycle} onEdit={onEdit} />
+          <EvidenceView task={task} taskRef={taskRef} lifecycle={lifecycle} locale={locale} onEdit={onEdit} />
         </TabsContent>
 
         <TabsContent value="approval" className="mt-6 space-y-6">
@@ -208,6 +222,7 @@ export function TaskDetailTabs({
             lifecycle={lifecycle}
             submitting={submittingHumanApproval}
             error={error}
+            locale={locale}
             onEdit={onEdit}
             onSubmit={onSubmitHumanApproval}
             onGoToTab={goToTab}
@@ -219,7 +234,7 @@ export function TaskDetailTabs({
 
       <div className="border-t border-border pt-4">
         <Button variant="ghost" size="sm" onClick={onBack} className="text-muted-foreground">
-          Kembali ke tasks
+          {t("taskDetail.backToTasks")}
         </Button>
       </div>
     </div>
@@ -232,6 +247,7 @@ function ContractReview({
   blocked,
   running,
   approving,
+  locale,
   onEdit,
   onHandoffAction,
 }: {
@@ -240,11 +256,14 @@ function ContractReview({
   blocked: boolean;
   running: boolean;
   approving: boolean;
+  locale: Locale;
   onEdit: () => void;
   onHandoffAction: (action: ContractHandoffAction) => void;
 }) {
-  const sections = contractSections(task.contract);
-  const handoff = getContractHandoff(task, { running, approving });
+  const t = (key: TranslationKey, params?: Record<string, string | number>) =>
+    translate(locale, key, params);
+  const sections = contractSections(task.contract, locale);
+  const handoff = getContractHandoff(task, { running, approving }, locale);
   const primaryDisabled =
     (handoff.primaryAction === "run" && running) ||
     (handoff.primaryAction === "approve" && approving);
@@ -256,15 +275,15 @@ function ContractReview({
           locked ? (
             <div className="text-right">
               <span className="block rounded-md border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                Contract dikunci untuk eksekusi
+                {t("taskDetail.contract.lockedBadge")}
               </span>
               <span className="mt-1 block text-[11px] text-muted-foreground">
-                Batas kerja ini tidak akan berubah selama agent bekerja.
+                {t("taskDetail.contract.lockedNote")}
               </span>
             </div>
           ) : (
             <span className="rounded-md border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              Draft · Perlu persetujuan
+              {t("taskDetail.contract.draftBadge")}
             </span>
           )
         }
@@ -272,25 +291,25 @@ function ContractReview({
         <div className="grid gap-8 lg:grid-cols-2">
           <div className="space-y-5">
             <div>
-              <DemoSectionLabel>Tujuan</DemoSectionLabel>
+              <DemoSectionLabel>{t("taskDetail.contract.goal")}</DemoSectionLabel>
               <p className="mt-2 text-sm leading-relaxed">{sections.goal}</p>
             </div>
             <div>
-              <DemoSectionLabel>Yang akan dilakukan</DemoSectionLabel>
+              <DemoSectionLabel>{t("taskDetail.contract.willDo")}</DemoSectionLabel>
               <DemoBulletList items={sections.willDo} />
             </div>
             <div>
-              <DemoSectionLabel>Selesai jika</DemoSectionLabel>
+              <DemoSectionLabel>{t("taskDetail.contract.doneWhen")}</DemoSectionLabel>
               <DemoBulletList items={sections.doneWhen} />
             </div>
           </div>
           <div className="space-y-5">
             <div>
-              <DemoSectionLabel>Yang tidak akan dilakukan</DemoSectionLabel>
+              <DemoSectionLabel>{t("taskDetail.contract.wontDo")}</DemoSectionLabel>
               <DemoBulletList items={sections.wontDo} />
             </div>
             <div>
-              <DemoSectionLabel>Batas proses</DemoSectionLabel>
+              <DemoSectionLabel>{t("taskDetail.contract.limits")}</DemoSectionLabel>
               <DemoBulletList items={sections.limits} />
             </div>
           </div>
@@ -299,15 +318,15 @@ function ContractReview({
         {!blocked && handoff.showApproveActions ? (
           <div className="mt-8 flex flex-wrap gap-3 border-t border-border pt-6">
             <Button variant="outline" onClick={onEdit}>
-              Edit rencana
+              {t("taskDetail.contract.editPlan")}
             </Button>
           </div>
         ) : null}
       </DemoPanel>
 
       {handoff.showNextSteps ? (
-        <DemoPanel title="Apa yang terjadi berikutnya?">
-          <p className="text-sm leading-relaxed text-foreground">{CONTRACT_NEXT_STEPS_COPY}</p>
+        <DemoPanel title={t("taskDetail.contract.nextStepsTitle")}>
+          <p className="text-sm leading-relaxed text-foreground">{contractNextStepsCopy(locale)}</p>
           {handoff.statusNote ? (
             <p className="mt-3 text-sm text-muted-foreground">{handoff.statusNote}</p>
           ) : null}
@@ -331,7 +350,7 @@ function ContractReview({
           </div>
         </DemoPanel>
       ) : (
-        <DemoPanel title="Langkah selanjutnya">
+        <DemoPanel title={t("taskDetail.contract.nextStepsShort")}>
           {handoff.statusNote ? (
             <p className="text-sm text-muted-foreground">{handoff.statusNote}</p>
           ) : null}
@@ -370,6 +389,7 @@ function OrchestrationView({
   lifecycle,
   canRun,
   running,
+  locale,
   onRun,
 }: {
   task: TaskRecord;
@@ -377,16 +397,47 @@ function OrchestrationView({
   lifecycle: TaskLifecycleViewModel;
   canRun: boolean;
   running: boolean;
+  locale: Locale;
   onRun: () => void;
 }) {
+  const t = (key: TranslationKey, params?: Record<string, string | number>) =>
+    translate(locale, key, params);
   const runner = task.runnerState;
   const activeRun = ["INSPECTING", "RUNNING", "CHECKING", "NEEDS_CORRECTION"].includes(task.status);
+  const catalog = (locale === "id" ? id : en) as typeof en;
+  const roleCards = [
+    {
+      title: t("taskDetail.orchestration.roles.orchestrator.title"),
+      tone: "border-status-review/30 bg-status-review/5",
+      items: [...catalog.taskDetail.orchestration.roles.orchestrator.items],
+    },
+    {
+      title: t("taskDetail.orchestration.roles.worker.title"),
+      tone: "border-status-pass/30 bg-status-pass/5",
+      items: [...catalog.taskDetail.orchestration.roles.worker.items],
+    },
+    {
+      title: t("taskDetail.orchestration.roles.checker.title"),
+      tone: "border-status-review/40 bg-accent/40",
+      items: [...catalog.taskDetail.orchestration.roles.checker.items],
+    },
+    {
+      title: t("taskDetail.orchestration.roles.decision.title"),
+      tone: "border-border bg-card",
+      items: [...catalog.taskDetail.orchestration.roles.decision.items],
+    },
+  ];
 
   return (
     <>
       <DemoPageHeader
-        title="BuildLoop mengoordinasikan task"
-        meta={`${taskRef} · Koreksi otomatis ${lifecycle.correctionsUsed} / ${lifecycle.correctionLimit} · ${taskVersion(task)}`}
+        title={t("taskDetail.orchestration.title")}
+        meta={t("taskDetail.orchestration.meta", {
+          taskRef,
+          used: lifecycle.correctionsUsed,
+          limit: lifecycle.correctionLimit,
+          version: taskVersion(task),
+        })}
       />
 
       {lifecycle.executionCompleteLabel ? (
@@ -398,40 +449,23 @@ function OrchestrationView({
       ) : activeRun ? (
         <DemoStatusBanner
           status="RUNNING"
-          title={lifecycle.correction.kind === "human" ? "Revisi dari Anda" : "Koreksi otomatis"}
+          title={
+            lifecycle.correction.kind === "human"
+              ? t("taskDetail.orchestration.revisionFromYou")
+              : t("taskDetail.orchestration.autoCorrection")
+          }
           description={lifecycle.orchestrationUserSummary}
         />
       ) : lifecycle.implementationVerdict === "PASS" ? (
         <DemoStatusBanner
           status="PASS"
-          title="Verdict PASS"
+          title={t("taskDetail.orchestration.passVerdict")}
           description={lifecycle.plainLanguageSummary}
         />
       ) : null}
 
       <div className="grid gap-3 lg:grid-cols-4">
-        {[
-          {
-            title: "BuildLoop Orchestrator",
-            tone: "border-status-review/30 bg-status-review/5",
-            items: ["Memantau proses", "Menentukan langkah berikut", "Membatasi percobaan", "Menghentikan risiko"],
-          },
-          {
-            title: "Coding Worker",
-            tone: "border-status-pass/30 bg-status-pass/5",
-            items: ["Menerapkan perubahan", "Membaca file relevan", "Menghasilkan patch"],
-          },
-          {
-            title: "Independent Checker",
-            tone: "border-status-review/40 bg-accent/40",
-            items: ["Menunggu hasil worker", "Memeriksa scope & keamanan", "Memverifikasi acceptance criteria"],
-          },
-          {
-            title: "Decision",
-            tone: "border-border bg-card",
-            items: ["Menilai evidence", "PASS / FAILED / BLOCKED", "Menyiapkan approval gate"],
-          },
-        ].map((card) => (
+        {roleCards.map((card) => (
           <div key={card.title} className={cn("rounded-lg border p-4", card.tone)}>
             <p className="text-sm font-semibold text-foreground">{card.title}</p>
             <ul className="mt-3 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
@@ -443,7 +477,7 @@ function OrchestrationView({
         ))}
       </div>
 
-      <DemoPanel title="Lifecycle">
+      <DemoPanel title={t("taskDetail.orchestration.lifecycle")}>
         <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {lifecycle.orchestrationSteps.map((step) => {
             const icon = lifecycleStepIconState(step.state);
@@ -482,7 +516,7 @@ function OrchestrationView({
       </DemoPanel>
 
       {task.contract.workPlan && task.contract.workPlan.contracts.length > 0 ? (
-        <DemoPanel title="Work contracts">
+        <DemoPanel title={t("taskDetail.orchestration.workContracts")}>
           <ol className="space-y-2">
             {task.contract.workPlan.contracts.map((contract) => {
               const orchestrationContract = runner?.orchestration?.contracts?.find(
@@ -512,7 +546,7 @@ function OrchestrationView({
       ) : null}
 
       {runner?.orchestration ? (
-        <DemoPanel title="Orchestration evidence">
+        <DemoPanel title={t("taskDetail.orchestration.orchestrationEvidence")}>
           <DemoKeyValueTable
             rows={[
               { label: "Phase", value: runner.orchestration.phase },
@@ -533,7 +567,7 @@ function OrchestrationView({
       ) : null}
 
       {isPublicGitHubTask(task) ? (
-        <DemoPanel title="Repository source">
+        <DemoPanel title={t("taskDetail.orchestration.repositorySource")}>
           <DemoKeyValueTable
             rows={[
               { label: "Repository", value: taskWorkspaceLabel(task) },
@@ -549,16 +583,20 @@ function OrchestrationView({
       {lifecycle.hasRun ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <DemoMetricCard
-            label="Koreksi otomatis"
+            label={t("taskDetail.orchestration.autoCorrections")}
             value={`${lifecycle.correctionsUsed} / ${lifecycle.correctionLimit}`}
           />
           <DemoMetricCard
-            label="Worker execution"
+            label={t("taskDetail.orchestration.workerExecution")}
             value={`${lifecycle.workerAttemptNumber} / ${lifecycle.workerAttemptLimit}`}
           />
-          <DemoMetricCard label="Files changed" value={String(runner?.filesChanged ?? 0)} tone="pass" />
           <DemoMetricCard
-            label="Checks (final)"
+            label={t("taskDetail.orchestration.filesChanged")}
+            value={String(runner?.filesChanged ?? 0)}
+            tone="pass"
+          />
+          <DemoMetricCard
+            label={t("taskDetail.orchestration.checksFinal")}
             value={lifecycle.checks.friendlySummary}
             tone={lifecycle.checks.allRequiredSatisfied ? "pass" : "review"}
           />
@@ -568,17 +606,15 @@ function OrchestrationView({
       {canRun ? (
         <div className="flex flex-wrap gap-3">
           <Button onClick={onRun} disabled={running}>
-            {running ? "Menjalankan…" : "Jalankan orchestrator"}
+            {running ? t("taskDetail.orchestration.running") : t("taskDetail.orchestration.runOrchestrator")}
           </Button>
         </div>
       ) : lifecycle.showOrchestratorNotStarted ? (
-        <p className="text-sm text-muted-foreground">
-          Orchestrator belum dijalankan. Setujui contract terlebih dahulu.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("taskDetail.orchestration.notStarted")}</p>
       ) : null}
 
       {runner?.decisionLog?.length ? (
-        <DemoCollapsible title="Lihat aktivitas teknis">
+        <DemoCollapsible title={t("taskDetail.orchestration.technicalActivity")}>
           <ul className="space-y-2 font-mono text-xs">
             {runner.decisionLog.map((entry) => (
               <li key={`${entry.rule}-${entry.summary}`}>
@@ -596,13 +632,17 @@ function EvidenceView({
   task,
   taskRef,
   lifecycle,
+  locale,
   onEdit,
 }: {
   task: TaskRecord;
   taskRef: string;
   lifecycle: TaskLifecycleViewModel;
+  locale: Locale;
   onEdit: () => void;
 }) {
+  const t = (key: TranslationKey, params?: Record<string, string | number>) =>
+    translate(locale, key, params);
   const runner = task.runnerState;
   const blocked = lifecycle.isBlocked;
 
@@ -612,18 +652,17 @@ function EvidenceView({
         <DemoPageHeader
           title={task.goal}
           meta={taskRef}
-          description="BuildLoop berhenti sebelum membuat perubahan"
+          description={t("taskDetail.evidence.blockedDescription")}
         />
         <DemoStatusBanner
           status="BLOCKED"
-          title="BLOCKED"
+          title={t("taskDetail.evidence.blockedTitle")}
           description={
-            task.blockedReasons[0]?.explanation ??
-            "Permintaan ini berada di luar izin task otomatis."
+            task.blockedReasons[0]?.explanation ?? t("taskDetail.evidence.blockedFallback")
           }
         />
         <div className="grid gap-4 lg:grid-cols-2">
-          <DemoPanel title="Ringkasan bukti">
+          <DemoPanel title={t("taskDetail.evidence.summary")}>
             <DemoKeyValueTable
               rows={[
                 { label: "Files changed", value: String(runner?.filesChanged ?? 0) },
@@ -633,20 +672,20 @@ function EvidenceView({
               ]}
             />
           </DemoPanel>
-          <DemoPanel title="Alasan">
+          <DemoPanel title={t("taskDetail.evidence.reasons")}>
             <DemoBulletList
               items={
                 task.blockedReasons.length
                   ? task.blockedReasons.map((reason) => reason.explanation)
-                  : ["Worker tidak dipanggil karena preflight check gagal."]
+                  : [t("taskDetail.evidence.preflightFailed")]
               }
             />
           </DemoPanel>
         </div>
         <div className="flex flex-wrap gap-3">
-          <Button disabled>Minta persetujuan developer</Button>
+          <Button disabled>{t("taskDetail.evidence.requestDeveloperApproval")}</Button>
           <Button variant="outline" onClick={onEdit}>
-            Ubah permintaan
+            {t("taskDetail.evidence.editRequest")}
           </Button>
         </div>
       </>
@@ -662,17 +701,20 @@ function EvidenceView({
           description={lifecycle.plainLanguageSummary}
         />
       ) : (
-        <DemoPageHeader title="Evidence run" meta={`${taskRef} · ${friendlyStatusLabel(task.status)}`} />
+        <DemoPageHeader
+          title={t("taskDetail.evidence.runTitle")}
+          meta={`${taskRef} · ${friendlyStatusLabel(task.status, locale)}`}
+        />
       )}
 
-      <DemoPanel title="Status sekarang">
+      <DemoPanel title={t("taskDetail.evidence.currentStatus")}>
         <p className="text-sm leading-relaxed text-foreground">
           {lifecycle.correction.phase === "verifying"
-            ? "Perbaikan sedang diperiksa ulang. Belum ada hasil akhir."
+            ? t("taskDetail.evidence.verifying")
             : lifecycle.correction.phase === "preparing"
               ? lifecycle.correction.userSummary
               : lifecycle.checks.total === 0
-                ? "Belum ada pemeriksaan akhir."
+                ? t("taskDetail.evidence.noFinalChecks")
                 : lifecycle.checks.friendlySummary}
         </p>
         {lifecycle.correction.kind === "automatic" && lifecycle.correction.userSummary ? (
@@ -681,7 +723,7 @@ function EvidenceView({
       </DemoPanel>
 
       {lifecycle.implementationVerdict === "PASS" && lifecycle.checks.allRequiredSatisfied ? (
-        <DemoPanel title="Hasil akhir">
+        <DemoPanel title={t("taskDetail.evidence.finalResult")}>
           <p className="text-sm leading-relaxed text-foreground">
             {lifecycle.approval.finalChecksSummary}
           </p>
@@ -697,7 +739,7 @@ function EvidenceView({
       {lifecycle.approval.historicalCorrection &&
       lifecycle.correction.phase === "verified" &&
       lifecycle.implementationVerdict === "PASS" ? (
-        <DemoPanel title="Masalah yang ditemukan (sudah diperbaiki)">
+        <DemoPanel title={t("taskDetail.evidence.fixedIssues")}>
           <DemoBulletList
             items={lifecycle.approval.historicalCorrection.timeline.map(
               (entry) => `${entry.phase}: ${entry.detail}`,
@@ -707,7 +749,7 @@ function EvidenceView({
       ) : null}
 
       {lifecycle.evidenceHistory.length > 0 ? (
-        <DemoCollapsible title="Riwayat pemeriksaan (teknis)">
+        <DemoCollapsible title={t("taskDetail.evidence.checkHistory")}>
           <ul className="space-y-2 font-mono text-xs">
             {lifecycle.evidenceHistory.map((entry) => (
               <li key={entry.attemptNumber}>
@@ -718,7 +760,7 @@ function EvidenceView({
         </DemoCollapsible>
       ) : null}
 
-      <DemoPanel title="Ringkasan (bahasa sederhana)">
+      <DemoPanel title={t("taskDetail.evidence.plainSummary")}>
         <p className="text-sm leading-relaxed text-foreground">{lifecycle.plainLanguageSummary}</p>
       </DemoPanel>
 
@@ -769,7 +811,7 @@ function EvidenceView({
             </ul>
           </div>
         ) : (
-          <p className="mt-4 text-sm text-muted-foreground">Belum ada evidence run.</p>
+          <p className="mt-4 text-sm text-muted-foreground">{t("taskDetail.evidence.noRunEvidence")}</p>
         )}
       </DemoCollapsible>
     </>
@@ -782,6 +824,7 @@ function ApprovalView({
   lifecycle,
   submitting,
   error,
+  locale,
   onEdit,
   onSubmit,
   onGoToTab,
@@ -791,10 +834,13 @@ function ApprovalView({
   lifecycle: TaskLifecycleViewModel;
   submitting: boolean;
   error: string | null;
+  locale: Locale;
   onEdit: () => void;
   onSubmit: (input: { decision: HumanGateDecision; note?: string }) => void;
   onGoToTab: (tab: DemoTab) => void;
 }) {
+  const t = (key: TranslationKey, params?: Record<string, string | number>) =>
+    translate(locale, key, params);
   const runner = task.runnerState;
   const outcome = getHumanApprovalOutcome(task);
   const pending = isPendingHumanApproval(task);
@@ -826,11 +872,14 @@ function ApprovalView({
   if (isOrchestrationInProgress(task.status)) {
     return (
       <>
-        <DemoPageHeader title="Keputusan approval" meta={`${taskRef} · ${friendlyStatusLabel(task.status)}`} />
-        <DemoPanel title="Belum ada keputusan yang perlu Anda ambil">
-          <p className="text-sm text-foreground">BuildLoop masih menjalankan atau memeriksa task.</p>
+        <DemoPageHeader
+          title={t("taskDetail.approval.title")}
+          meta={`${taskRef} · ${friendlyStatusLabel(task.status, locale)}`}
+        />
+        <DemoPanel title={t("taskDetail.approval.notReadyTitle")}>
+          <p className="text-sm text-foreground">{t("taskDetail.approval.notReadyBody")}</p>
           <Button className="mt-4" variant="outline" onClick={() => onGoToTab("orchestration")}>
-            Lihat proses
+            {t("taskDetail.approval.viewProgress")}
           </Button>
         </DemoPanel>
       </>
@@ -840,23 +889,26 @@ function ApprovalView({
   if (task.status === "BLOCKED") {
     return (
       <>
-        <DemoPageHeader title="Keputusan approval" meta={`${taskRef} · ${friendlyStatusLabel(task.status)}`} />
+        <DemoPageHeader
+          title={t("taskDetail.approval.title")}
+          meta={`${taskRef} · ${friendlyStatusLabel(task.status, locale)}`}
+        />
         <DemoStatusBanner
           status="BLOCKED"
           title={recommendation.label}
           description={recommendation.description}
         />
         {recommendation.unresolvedIssues.length ? (
-          <DemoPanel title="Alasan">
+          <DemoPanel title={t("taskDetail.approval.reasons")}>
             <DemoBulletList items={recommendation.unresolvedIssues} />
           </DemoPanel>
         ) : null}
         <div className="flex flex-wrap gap-3">
           <Button variant="outline" onClick={() => onGoToTab("evidence")}>
-            Lihat detail
+            {t("taskDetail.approval.viewDetails")}
           </Button>
           <Button variant="outline" onClick={onEdit}>
-            Ubah permintaan
+            {t("taskDetail.evidence.editRequest")}
           </Button>
         </div>
       </>
@@ -873,28 +925,28 @@ function ApprovalView({
         />
         <DemoStatusBanner
           status={outcome.kind === "commit_approved" ? "PASS" : "NEEDS HUMAN REVIEW"}
-          title={outcome.kind === "commit_approved" ? "Commit telah disetujui" : outcome.title}
+          title={outcome.kind === "commit_approved" ? t("taskDetail.approval.commitApprovedTitle") : outcome.title}
           description={
             outcome.kind === "commit_approved"
-              ? "Anda telah memberikan izin untuk commit pada task ini."
+              ? t("taskDetail.approval.commitApprovedBody")
               : outcome.description
           }
         />
 
         {outcome.kind === "commit_approved" ? (
           <>
-            <DemoPanel title="Eksekusi">
+            <DemoPanel title={t("taskDetail.approval.execution")}>
               <p className="text-sm text-foreground">
                 {commitExecuted
-                  ? "Git commit sudah dijalankan."
-                  : "Git commit belum dijalankan."}
+                  ? t("taskDetail.approval.commitExecuted")
+                  : t("taskDetail.approval.commitNotExecuted")}
               </p>
               {recommendation.commitAutomationNote ? (
                 <p className="mt-2 text-sm text-muted-foreground">{recommendation.commitAutomationNote}</p>
               ) : null}
             </DemoPanel>
 
-            <DemoPanel title="Izin yang tersisa">
+            <DemoPanel title={t("taskDetail.approval.remainingPermissions")}>
               <DemoBulletList
                 items={[
                   `Push: ${lifecycle.deliveryLabels.push}`,
@@ -907,13 +959,13 @@ function ApprovalView({
         ) : null}
 
         {recommendation.historicalCorrection ? (
-          <DemoPanel title="Koreksi otomatis">
+          <DemoPanel title={t("taskDetail.approval.autoCorrection")}>
             <p className="text-sm text-foreground">{recommendation.historicalCorrection.summary}</p>
           </DemoPanel>
         ) : null}
 
         {runner?.humanApprovals?.length ? (
-          <DemoCollapsible title="Audit trail (teknis)">
+          <DemoCollapsible title={t("taskDetail.approval.auditTrail")}>
             <ul className="space-y-2 font-mono text-xs text-muted-foreground">
               {runner.humanApprovals.map((entry) => (
                 <li key={`${entry.decision}-${entry.createdAt}`}>
@@ -930,12 +982,10 @@ function ApprovalView({
 
   if (!pending && !gateOpen) {
     return (
-      <DemoPanel title="Keputusan approval">
-        <p className="text-sm text-muted-foreground">
-          Belum ada keputusan yang perlu Anda ambil. Approval gate aktif setelah orchestrator menghasilkan PASS.
-        </p>
+      <DemoPanel title={t("taskDetail.approval.title")}>
+        <p className="text-sm text-muted-foreground">{t("taskDetail.approval.gateClosed")}</p>
         <Button className="mt-4" variant="outline" onClick={() => onGoToTab("orchestration")}>
-          Lihat proses
+          {t("taskDetail.approval.viewProgress")}
         </Button>
       </DemoPanel>
     );
@@ -947,8 +997,8 @@ function ApprovalView({
   return (
     <>
       <DemoPageHeader
-        title="Keputusan approval"
-        meta={`${taskRef} · ${friendlyStatusLabel(task.status)}`}
+        title={t("taskDetail.approval.title")}
+        meta={`${taskRef} · ${friendlyStatusLabel(task.status, locale)}`}
       />
 
       <DemoStatusBanner
@@ -984,11 +1034,8 @@ function ApprovalView({
         </DemoPanel>
       ) : null}
 
-      <DemoPanel title="Yang Anda izinkan">
-        <p className="text-sm leading-relaxed text-foreground">
-          Approve commit hanya memberikan izin kepada BuildLoop untuk melakukan Git commit untuk
-          hasil task ini.
-        </p>
+      <DemoPanel title={t("taskDetail.approval.whatYouAllow")}>
+        <p className="text-sm leading-relaxed text-foreground">{t("taskDetail.approval.allowBody")}</p>
         <DemoBulletList
           items={[
             `Commit: ${lifecycle.deliveryLabels.commit}`,
@@ -997,19 +1044,13 @@ function ApprovalView({
             `Deploy: ${lifecycle.deliveryLabels.deploy}`,
           ]}
         />
-        <p className="mt-4 text-xs text-muted-foreground">
-          BuildLoop akan mencatat izin commit. Eksekusi Git commit otomatis belum tersedia pada
-          versi ini.
-        </p>
+        <p className="mt-4 text-xs text-muted-foreground">{t("taskDetail.approval.commitNote")}</p>
       </DemoPanel>
 
-      <DemoPanel title="Keputusan">
+      <DemoPanel title={t("taskDetail.approval.decision")}>
         <form onSubmit={handleSubmit} className="space-y-5">
           {recommendation.kind !== "RECOMMENDED_APPROVE" ? (
-            <p className="text-sm text-muted-foreground">
-              BuildLoop belum merekomendasikan approval. Anda masih dapat memilih keputusan lanjutan
-              jika governance mengizinkan.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("taskDetail.approval.notRecommended")}</p>
           ) : null}
 
           <div className="space-y-3 text-sm">
@@ -1035,34 +1076,34 @@ function ApprovalView({
               disabled={submitting}
               onChange={(event) => setConfirmedReview(event.target.checked)}
             />
-            <span>Saya memahami bahwa approval ini hanya berlaku untuk commit.</span>
+            <span>{t("taskDetail.approval.confirmReview")}</span>
           </label>
 
           <div className="flex flex-wrap gap-3">
             {showPrimaryApprove ? (
               <Button type="submit" disabled={!confirmedReview || submitting}>
-                {submitting ? "Menyimpan approval…" : selectedOption.submitLabel}
+                {submitting ? t("taskDetail.approval.savingApproval") : selectedOption.submitLabel}
               </Button>
             ) : recommendation.kind === "FIX_FIRST" ? (
               <Button type="button" variant="default" onClick={() => onGoToTab("evidence")}>
-                Lihat masalah
+                {t("taskDetail.approval.viewIssues")}
               </Button>
             ) : (
               <Button type="button" variant="outline" onClick={() => onGoToTab("evidence")}>
-                Lihat detail
+                {t("taskDetail.approval.viewDetails")}
               </Button>
             )}
             <Button type="button" variant="outline" onClick={() => onGoToTab("evidence")}>
-              Lihat evidence teknis
+              {t("taskDetail.approval.viewTechnicalEvidence")}
             </Button>
             {!showPrimaryApprove && decision === "APPROVE_COMMIT" ? (
               <Button type="submit" variant="outline" disabled={!confirmedReview || submitting}>
-                {submitting ? "Menyimpan…" : "Setujui commit (lanjutan)"}
+                {submitting ? t("taskDetail.approval.saving") : t("taskDetail.approval.approveCommitOverride")}
               </Button>
             ) : null}
             {!showPrimaryApprove && decision !== "APPROVE_COMMIT" ? (
               <Button type="submit" variant="outline" disabled={!confirmedReview || submitting}>
-                {submitting ? "Menyimpan…" : selectedOption.submitLabel}
+                {submitting ? t("taskDetail.approval.saving") : selectedOption.submitLabel}
               </Button>
             ) : null}
           </div>

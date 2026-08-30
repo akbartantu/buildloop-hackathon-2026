@@ -1,11 +1,16 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { connectPublicRepository } from "@/lib/repository.functions";
 import { listProjects } from "@/lib/projects.functions";
 import type { ProjectRecord } from "@/lib/projects/project-record";
 import { projectDisplayName } from "@/lib/projects/project-record";
 import type { ConnectedRepositorySource } from "@/lib/repository/repository-source";
+import {
+  persistActiveProjectId,
+  readStoredActiveProjectId,
+  resolveActiveProjectId,
+} from "@/lib/workspace/active-project";
 
 function toConnectedSource(project: ProjectRecord): ConnectedRepositorySource {
   return {
@@ -22,7 +27,9 @@ export function useProjects() {
   const queryClient = useQueryClient();
   const fetchProjects = useServerFn(listProjects);
   const connectRepository = useServerFn(connectPublicRepository);
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectIdState] = useState<string | null>(() =>
+    readStoredActiveProjectId(),
+  );
 
   const projectsQuery = useQuery({
     queryKey: ["projects"],
@@ -31,14 +38,27 @@ export function useProjects() {
 
   const projects = projectsQuery.data ?? [];
 
-  const activeProject = useMemo(() => {
-    if (selectedProjectId) {
-      return projects.find((project) => project.id === selectedProjectId) ?? projects[0] ?? null;
+  useEffect(() => {
+    const resolved = resolveActiveProjectId(projects, selectedProjectId);
+    if (resolved !== selectedProjectId) {
+      setSelectedProjectIdState(resolved);
+      persistActiveProjectId(resolved);
     }
-    return projects[0] ?? null;
+  }, [projects, selectedProjectId]);
+
+  const activeProject = useMemo(() => {
+    const resolvedId = resolveActiveProjectId(projects, selectedProjectId);
+    return projects.find((project) => project.id === resolvedId) ?? null;
   }, [projects, selectedProjectId]);
 
   const source = activeProject ? toConnectedSource(activeProject) : null;
+
+  const setSelectedProjectId = useCallback((projectId: string | null) => {
+    const resolved = resolveActiveProjectId(projects, projectId);
+    persistActiveProjectId(resolved);
+    setSelectedProjectIdState(resolved);
+    void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+  }, [projects, queryClient]);
 
   const connect = useCallback(
     async (url: string) => {
@@ -50,14 +70,14 @@ export function useProjects() {
       }
       return result;
     },
-    [connectRepository, queryClient],
+    [connectRepository, queryClient, setSelectedProjectId],
   );
 
   return {
     projects,
     source,
     activeProject,
-    selectedProjectId,
+    selectedProjectId: activeProject?.id ?? null,
     setSelectedProjectId,
     connect,
     isLoading: projectsQuery.isLoading,

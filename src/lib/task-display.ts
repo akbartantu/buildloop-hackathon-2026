@@ -1,5 +1,7 @@
 import type { TaskContract, TaskStatus } from "@/lib/task-contract";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { translate, DEFAULT_LOCALE, type Locale } from "@/i18n";
+import type { TranslationKey } from "@/i18n/en";
 import { analyzeChecks } from "@/lib/task-lifecycle";
 
 export function formatTaskRef(id: string): string {
@@ -27,23 +29,27 @@ export function suggestedTab(status: TaskStatus): DemoTab {
   return "overview";
 }
 
-export function nextActionLabel(status: TaskStatus): string {
-  const labels: Record<string, string> = {
-    DRAFT: "Lengkapi goal task.",
-    CONTRACT_READY: "Tinjau dan setujui contract.",
-    APPROVED_FOR_EXECUTION: "Jalankan orchestrator.",
-    INSPECTING: "Preflight policy sedang berjalan.",
-    RUNNING: "Worker menerapkan perubahan.",
-    CHECKING: "Checker independen memverifikasi hasil.",
-    NEEDS_CORRECTION: "Orchestrator menyiapkan koreksi terbatas.",
-    PASS: "Verdict PASS — tinjau evidence.",
-    AWAITING_APPROVAL: "Commit, push, merge, dan deploy membutuhkan approval.",
-    FAILED: "Gagal setelah batas koreksi — tinjau evidence.",
-    BLOCKED: "Task dihentikan — tinjau alasan guardrail.",
-    CLOSED: "Task ditutup.",
-    STALE: "Manifest basi — perbarui contract.",
+export function nextActionLabel(status: TaskStatus, locale: Locale = DEFAULT_LOCALE): string {
+  const key = `nextAction.${status}` as TranslationKey;
+  const translated = translate(locale, key);
+  if (translated !== key) {
+    return translated;
+  }
+  return translate(locale, "nextAction.default");
+}
+
+export function contractSections(contract: TaskContract, locale: Locale = DEFAULT_LOCALE) {
+  return {
+    goal: contract.goal,
+    willDo: contract.inScope,
+    doneWhen: contract.acceptanceCriteria,
+    wontDo: contract.outOfScope,
+    limits: [
+      translate(locale, "taskDetail.contractLimits.maxCorrections", { count: contract.maxAttempts }),
+      translate(locale, "taskDetail.contractLimits.stopSensitive"),
+      translate(locale, "taskDetail.contractLimits.sandboxUntilApproval"),
+    ],
   };
-  return labels[status] ?? "Lanjutkan alur task.";
 }
 
 export function orchestrationPhase(status: TaskStatus): number {
@@ -74,18 +80,4 @@ export const ORCHESTRATION_STEPS = [
 export function countPassedChecks(task: TaskRecord): { passed: number; total: number } {
   const checks = analyzeChecks(task);
   return { passed: checks.passed, total: checks.total };
-}
-
-export function contractSections(contract: TaskContract) {
-  return {
-    goal: contract.goal,
-    willDo: contract.inScope,
-    doneWhen: contract.acceptanceCriteria,
-    wontDo: contract.outOfScope,
-    limits: [
-      `Maksimum ${contract.maxAttempts} koreksi`,
-      "Berhenti jika tindakan sensitif terdeteksi",
-      "Hasil tetap di sandbox sampai approval",
-    ],
-  };
 }

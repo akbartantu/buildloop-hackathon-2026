@@ -8,10 +8,19 @@ export const createTaskSchema = z.object({
   goal: z.string().trim().min(10, "Goal terlalu pendek").max(GOAL_MAX),
   workspace: z.string().trim().min(1).optional(),
   projectId: z.string().uuid().optional(),
+  acceptanceCriteria: z.array(z.string().trim().min(3)).min(1).max(20).optional(),
+});
+
+export const listTasksSchema = z.object({
+  projectId: z.string().uuid().nullable().optional(),
 });
 
 export const taskIdSchema = z.object({
   id: z.string().uuid(),
+});
+
+export const executeTaskRunSchema = taskIdSchema.extend({
+  activeProjectId: z.string().uuid().nullable().optional(),
 });
 
 export const APPROVAL_DECISIONS = ["APPROVE_EXECUTION", "REVISE", "ESCALATE", "CLOSE"] as const;

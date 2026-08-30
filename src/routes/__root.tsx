@@ -15,6 +15,7 @@ import { reportRuntimeError } from "../lib/runtime-error-reporting";
 import { SiteHeader } from "@/components/site/site-header";
 import { SiteFooter } from "@/components/site/site-footer";
 import { supabase } from "@/integrations/supabase/client";
+import { I18nProvider, useI18n } from "@/i18n/context";
 
 function NotFoundComponent() {
   return (
@@ -107,11 +108,23 @@ function RootShell({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        <I18nProvider>
+          <DocumentLang>{children}</DocumentLang>
+        </I18nProvider>
         <Scripts />
       </body>
     </html>
   );
+}
+
+function DocumentLang({ children }: { children: ReactNode }) {
+  const { locale } = useI18n();
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
+
+  return children;
 }
 
 function RootComponent() {

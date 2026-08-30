@@ -5,8 +5,9 @@ import { BootstrapOrchestrator } from "../bootstrap/orchestrator";
 import { createDraftContract, lockContract } from "../contract/schema";
 import { planWork } from "../agents/planner/planner";
 import { loadProjectGovernance } from "../policy/project-policy";
-import { PASS_DEMO_GOAL } from "../scenarios/pass";
 import { detectSensitiveIntent } from "@/lib/sensitive-intent";
+import type { TaskContract } from "@/lib/task-contract";
+import { deriveAllowedCommands } from "@/orchestrator/contract/derive-task-contract";
 import { resolveWorkspacePathAsync } from "../workspace/git-workspace";
 import {
   isDemoGoal,
@@ -26,6 +27,9 @@ export type ProductRunRequest = {
   executionMode?: WorkerExecutionMode;
   sourceCommitSha?: string;
   runSandboxId?: string;
+  storedContract?: TaskContract;
+  projectId?: string | null;
+  repositoryUrl?: string;
 };
 
 export class ProductOrchestrator {
@@ -54,33 +58,66 @@ export class ProductOrchestrator {
     });
 
     let result;
-    const workPlan = planWork({ goal: normalizedGoal, taskId: request.taskId });
-    if (isDemoGoal(normalizedGoal) && mode === "demo") {
-      result = await bootstrap.runPassDemo();
-    } else if (detectSensitiveIntent(normalizedGoal).length > 0) {
-      result = await bootstrap.runBlockedDemoForGoal(normalizedGoal);
-    } else {
-      const primary = workPlan.contracts[0]!;
+    let plannerSummary: string;
+
+    if (
+      request.storedContract &&
+      request.storedContract.inScope.length > 0 &&
+      request.storedContract.acceptanceCriteria.length > 0
+    ) {
+      const stored = request.storedContract;
+      plannerSummary = "Executing locked task contract.";
       const contract = lockContract(
         createDraftContract({
           id: request.contractId,
           taskId: request.taskId,
           version: 1,
-          goal: normalizedGoal,
-          objective: workPlan.plannerSummary,
-          inScope: primary.expectedScope,
-          outOfScope: [
-            "Deployment dan infrastruktur",
-            "Credential dan secret",
-            "Dependency dan lockfile",
-            "Database dan migration",
-          ],
-          acceptanceCriteria: primary.acceptanceCriteria,
-          allowedPaths: primary.expectedScope,
+          goal: stored.goal,
+          objective: stored.goal,
+          inScope: stored.inScope,
+          outOfScope: stored.outOfScope,
+          acceptanceCriteria: stored.acceptanceCriteria,
+          allowedPaths: stored.inScope,
+          allowedCommands: deriveAllowedCommands(stored.inScope),
           maximumCorrections: (await loadProjectGovernance(this.workspaceRoot)).execution.max_corrections,
         }),
       );
       result = await bootstrap.executeContractRun(contract);
+    } else {
+      const workPlan = await planWork({
+        goal: normalizedGoal,
+        taskId: request.taskId,
+        workspaceRoot: this.workspaceRoot,
+      });
+      plannerSummary = workPlan.plannerSummary;
+      if (isDemoGoal(normalizedGoal) && mode === "demo") {
+        result = await bootstrap.runPassDemo();
+      } else if (detectSensitiveIntent(normalizedGoal).length > 0) {
+        result = await bootstrap.runBlockedDemoForGoal(normalizedGoal);
+      } else {
+        const primary = workPlan.contracts[0]!;
+        const contract = lockContract(
+          createDraftContract({
+            id: request.contractId,
+            taskId: request.taskId,
+            version: 1,
+            goal: normalizedGoal,
+            objective: workPlan.plannerSummary,
+            inScope: primary.expectedScope,
+            outOfScope: [
+              "Deployment dan infrastruktur",
+              "Credential dan secret",
+              "Dependency dan lockfile",
+              "Database dan migration",
+            ],
+            acceptanceCriteria: primary.acceptanceCriteria,
+            allowedPaths: primary.expectedScope,
+            allowedCommands: deriveAllowedCommands(primary.expectedScope),
+            maximumCorrections: (await loadProjectGovernance(this.workspaceRoot)).execution.max_corrections,
+          }),
+        );
+        result = await bootstrap.executeContractRun(contract);
+      }
     }
 
     const stored = {
@@ -90,7 +127,10 @@ export class ProductOrchestrator {
       workspace: await resolveWorkspacePathAsync(workspaceName, this.workspaceRoot),
       workerMode: mode,
       workerId: workerSelection.workerId,
-      plannerSummary: workPlan.plannerSummary,
+      plannerSummary,
+      projectId: request.projectId ?? null,
+      repositoryUrl: request.repositoryUrl ?? workspaceName,
+      sourceCommitSha: request.sourceCommitSha ?? null,
     };
     await this.store.saveRun(stored);
     return stored;

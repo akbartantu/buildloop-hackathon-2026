@@ -1,24 +1,11 @@
 import { StatusMark } from "./status-pill";
+import { TaskStatusLabel } from "./task-status-label";
+import { useI18n } from "@/i18n/context";
 import type { TaskRecord } from "@/lib/tasks-schema";
-
-const STATUS_LABEL: Record<string, string> = {
-  DRAFT: "Draft",
-  CONTRACT_READY: "Contract siap ditinjau",
-  APPROVED_FOR_EXECUTION: "Disetujui & siap diorkestrasi",
-  INSPECTING: "Preflight policy",
-  RUNNING: "Worker berjalan",
-  CHECKING: "Checker independen",
-  NEEDS_CORRECTION: "Koreksi diperlukan",
-  PASS: "Semua check lulus",
-  FAILED: "Gagal setelah batas koreksi",
-  BLOCKED: "Dihentikan",
-  AWAITING_APPROVAL: "Menunggu approval manusia",
-  CLOSED: "Ditutup",
-  STALE: "Manifest basi",
-};
 
 /** Panel status task + evidence. Tidak pernah mengklaim kode sudah dijalankan. */
 export function TaskStatusPanel({ task }: { task: TaskRecord }) {
+  const { t, taskStatusLabel } = useI18n();
   const blocked = task.status === "BLOCKED";
   const runner = task.runnerState;
 
@@ -27,14 +14,12 @@ export function TaskStatusPanel({ task }: { task: TaskRecord }) {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            Status task
+            {t("tasks.title")}
           </p>
           <h3 className="mt-2 font-mono text-base font-semibold tracking-tight text-foreground">
-            {task.status}
+            <TaskStatusLabel status={task.status} />
           </h3>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {STATUS_LABEL[task.status] ?? "Belum dijalankan"}
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{taskStatusLabel(task.status)}</p>
         </div>
         {blocked ? <StatusMark status="BLOCKED" className="shrink-0" /> : null}
       </div>
@@ -42,7 +27,7 @@ export function TaskStatusPanel({ task }: { task: TaskRecord }) {
       {blocked && task.blockedReasons.length > 0 ? (
         <div className="mt-5 border-t border-border pt-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            Alasan pemblokiran
+            {t("taskDetail.evidence.reasons")}
           </p>
           <ul className="mt-3 space-y-3">
             {task.blockedReasons.map((reason) => (
@@ -61,7 +46,7 @@ export function TaskStatusPanel({ task }: { task: TaskRecord }) {
       {runner ? (
         <div className="mt-5 border-t border-border pt-4">
           <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-            Evidence
+            {t("taskDetail.tabs.evidence")}
           </p>
           <dl className="mt-3 space-y-2 font-mono text-[11px]">
             <EvidenceRow label="runner dipanggil" value={runner.runnerInvoked ? "true" : "false"} />

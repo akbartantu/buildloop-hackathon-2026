@@ -1,6 +1,3 @@
-import { Gemini, InMemoryRunner, LlmAgent, stringifyContent } from "@google/adk";
-import type { Event } from "@google/adk";
-
 import { safeLogSummary } from "@/lib/redaction";
 import { GeminiClientError } from "../gemini/errors";
 import {
@@ -33,7 +30,46 @@ export type AdkAgentRunner = {
   isConfigured(): boolean;
 };
 
+type AdkEvent = {
+  errorMessage?: string;
+  errorCode?: string;
+  output?: unknown;
+};
+
+type OfficialAdkModule = {
+  Gemini: new (options: { model: string }) => unknown;
+  InMemoryRunner: new (options: {
+    agent: unknown;
+    appName: string;
+  }) => {
+    runEphemeral(input: {
+      userId: string;
+      newMessage: { parts: Array<{ text: string }> };
+    }): AsyncIterable<AdkEvent>;
+  };
+  LlmAgent: new (options: Record<string, unknown>) => unknown;
+  stringifyContent: (event: AdkEvent) => string;
+};
+
 let runnerOverride: AdkAgentRunner | null = null;
+let officialAdkModulePromise: Promise<OfficialAdkModule> | null = null;
+
+async function loadOfficialAdkModule(): Promise<OfficialAdkModule> {
+  if (!officialAdkModulePromise) {
+    officialAdkModulePromise = import("@google/adk").catch((error: unknown) => {
+      officialAdkModulePromise = null;
+      const message = error instanceof Error ? error.message : String(error);
+      throw new GeminiClientError(
+        "ADK_MODULE_UNAVAILABLE",
+        `Official Google ADK runtime is unavailable: ${message}`,
+        undefined,
+        undefined,
+        { adkRunnerInvoked: false, geminiCallCount: 0 },
+      );
+    }) as Promise<OfficialAdkModule>;
+  }
+  return officialAdkModulePromise;
+}
 
 /** Test hook — inject mock official ADK runner without live API. */
 export function setAdkRunnerOverride(runner: AdkAgentRunner | null): void {
@@ -99,6 +135,7 @@ async function invokeOfficialAdkRunner(
   request: AdkAgentRunRequest,
   model: string,
 ): Promise<Omit<AdkAgentRunResult, "operationalRetries" | "geminiCallCount">> {
+  const { Gemini, InMemoryRunner, LlmAgent, stringifyContent } = await loadOfficialAdkModule();
   const agentName = "buildloop_coding_worker";
   const agent = new LlmAgent({
     name: agentName,
@@ -117,7 +154,7 @@ async function invokeOfficialAdkRunner(
     appName: "buildloop-orchestrator",
   });
 
-  const events: Event[] = [];
+  const events: AdkEvent[] = [];
   for await (const event of runner.runEphemeral({
     userId: "buildloop",
     newMessage: { parts: [{ text: request.userPrompt }] },
@@ -125,7 +162,7 @@ async function invokeOfficialAdkRunner(
     events.push(event);
   }
 
-  const text = extractAdkResponseText(events);
+  const text = extractAdkResponseText(events, stringifyContent);
   if (!text) {
     const errorMessage = events.map((event) => event.errorMessage).filter(Boolean).join(" ");
     throw classifyEmptyAdkResponse(errorMessage);
@@ -161,7 +198,10 @@ function classifyEmptyAdkResponse(errorMessage: string): GeminiClientError {
   );
 }
 
-function extractAdkResponseText(events: Event[]): string {
+function extractAdkResponseText(
+  events: AdkEvent[],
+  stringifyContent: (event: AdkEvent) => string,
+): string {
   const chunks: string[] = [];
   for (const event of events) {
     if (event.errorMessage) {

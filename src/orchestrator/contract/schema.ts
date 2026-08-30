@@ -63,7 +63,7 @@ export function createDraftContract(input: {
     acceptanceCriteria: input.acceptanceCriteria,
     protectedAreas: [...PROTECTED_PATHS],
     allowedCommands: input.allowedCommands ?? ["bun run typecheck", "bun test", "bun run lint"],
-    allowedPaths: input.allowedPaths ?? ["src/**", "docs/**"],
+    allowedPaths: input.allowedPaths ?? [],
     maximumCorrections: input.maximumCorrections ?? MAX_ATTEMPTS,
     lockedAt: null,
     createdAt: now,

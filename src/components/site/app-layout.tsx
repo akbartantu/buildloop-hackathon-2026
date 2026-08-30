@@ -38,7 +38,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useWorkspaceSession } from "@/hooks/use-workspace-session";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
-import { useWorkspaceLabel } from "@/hooks/use-workspace-label";
+import { WorkspaceSwitcher } from "@/components/site/workspace-switcher";
 import { ProductTour, useProductTourController } from "@/components/site/product-tour";
 import {
   APP_NAV_ITEMS,
@@ -47,6 +47,8 @@ import {
   type AppNavItem,
 } from "@/lib/app-nav";
 import { isDevAuthBypassEnabled } from "@/lib/dev-auth-bypass";
+import { useI18n } from "@/i18n/context";
+import { LanguageSwitcher } from "@/i18n/language-switcher";
 
 const NAV_ICONS: Record<AppNavItem["key"], LucideIcon> = {
   home: Home,
@@ -69,29 +71,31 @@ function getInitials(name: string): string {
 }
 
 function NavLink({ item, isActive }: { item: AppNavItem; isActive: boolean }) {
+  const { t } = useI18n();
   const Icon = NAV_ICONS[item.key];
+  const label = t(item.labelKey);
 
   if (item.comingSoon) {
     return (
       <SidebarMenuButton
         disabled
         className="opacity-50"
-        tooltip={`${item.label} — coming soon`}
+        tooltip={`${label} — ${t("common.soon").toLowerCase()}`}
       >
         <Icon className="size-4" />
-        <span>{item.label}</span>
+        <span>{label}</span>
         <span className="ml-auto font-mono text-[9px] uppercase tracking-wider text-muted-foreground">
-          Soon
+          {t("common.soon")}
         </span>
       </SidebarMenuButton>
     );
   }
 
   return (
-    <SidebarMenuButton asChild isActive={isActive} tooltip={item.label}>
-      <Link to={item.to} data-tour={`nav-${item.key}`}>
+    <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+      <Link to={item.to!} data-tour={`nav-${item.key}`}>
         <Icon className="size-4" />
-        <span>{item.label}</span>
+        <span>{label}</span>
       </Link>
     </SidebarMenuButton>
   );
@@ -100,7 +104,7 @@ function NavLink({ item, isActive }: { item: AppNavItem; isActive: boolean }) {
 export function AppLayout() {
   const { displayName, email, avatarUrl, handleSignOut } = useWorkspaceSession();
   const { tasks } = useWorkspaceTasks();
-  const { label: workspaceLabel } = useWorkspaceLabel();
+  const { t } = useI18n();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const activeNav = resolveActiveNav(pathname);
   const latestTask = tasks[0] ?? null;
@@ -118,12 +122,7 @@ export function AppLayout() {
             <BuildLoopBrandMark />
             <span>BuildLoop</span>
           </Link>
-          <div className="rounded-md border border-sidebar-border bg-background px-3 py-2" data-tour="workspace">
-            <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              Workspace
-            </p>
-            <p className="mt-1 truncate text-sm font-medium text-foreground">{workspaceLabel}</p>
-          </div>
+          <WorkspaceSwitcher />
         </SidebarHeader>
 
         <SidebarContent>
@@ -178,15 +177,16 @@ export function AppLayout() {
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               readOnly
-              placeholder="Cari project, task, atau run"
+              placeholder={t("common.searchPlaceholder")}
               className="h-9 bg-muted/40 pl-9"
-              aria-label="Cari project, task, atau run"
+              aria-label={t("common.searchPlaceholder")}
             />
           </div>
           <div className="ml-auto flex items-center gap-2">
+            <LanguageSwitcher />
             {isDevAuthBypassEnabled() ? (
               <span className="hidden rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300 sm:inline">
-                DEV AUTH BYPASS
+                {t("common.devBypass")}
               </span>
             ) : null}
             <Button variant="ghost" size="icon" className="size-8" disabled aria-label="Notifikasi">
@@ -211,7 +211,7 @@ export function AppLayout() {
               </AvatarFallback>
             </Avatar>
             <Button variant="outline" size="sm" onClick={handleSignOut} className="hidden sm:inline-flex">
-              Keluar
+              {t("nav.signOut")}
             </Button>
           </div>
         </header>

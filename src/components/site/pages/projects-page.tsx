@@ -12,6 +12,7 @@ import {
 } from "@/components/site/demo-ui";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { useI18n } from "@/i18n/context";
 import { abbreviateCommitSha } from "@/lib/repository/task-source-display";
 import { formatTaskRef } from "@/lib/task-display";
 import { PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
@@ -19,12 +20,11 @@ import { PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
 export function ProjectsPage() {
   const { tasks, isLoading } = useWorkspaceTasks();
   const { source, activeProject, connect, isHydrated } = useProjects();
+  const { t } = useI18n();
   const [repoUrl, setRepoUrl] = useState("");
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
-  const projectTasks = activeProject
-    ? tasks.filter((task) => task.projectId === activeProject.id)
-    : tasks.filter((task) => !task.projectId);
+  const projectTasks = tasks;
   const latestRun =
     projectTasks.find((task) => task.runnerState?.runnerInvoked) ?? null;
   const repositoryLabel = source?.repoName ?? WORKSPACE_NAME;
@@ -47,7 +47,7 @@ export function ProjectsPage() {
 
       setRepoUrl("");
     } catch {
-      setConnectError("Repository could not be connected.");
+      setConnectError(t("projects.connectError"));
     } finally {
       setConnecting(false);
     }
@@ -55,30 +55,25 @@ export function ProjectsPage() {
 
   return (
     <div className="space-y-6">
-      <DemoPageHeader
-        title="Projects"
-        description="Connect a public GitHub repository for hosted execution, or continue with the controlled local demo workspace."
-      />
+      <DemoPageHeader title={t("projects.title")} description={t("projects.description")} />
 
-      <DemoPanel title="Connect repository">
+      <DemoPanel title={t("projects.connectTitle")}>
         <form onSubmit={handleConnect} className="space-y-4">
           <div>
-            <Label htmlFor="repository-url">Public GitHub repository URL</Label>
+            <Label htmlFor="repository-url">{t("projects.connectLabel")}</Label>
             <Input
               id="repository-url"
               name="repositoryUrl"
-              placeholder="https://github.com/owner/repository"
+              placeholder={t("projects.connectPlaceholder")}
               value={repoUrl}
               onChange={(event) => setRepoUrl(event.target.value)}
               className="mt-2"
             />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Example: https://github.com/owner/repository
-            </p>
+            <p className="mt-2 text-xs text-muted-foreground">{t("projects.connectExample")}</p>
           </div>
           {connectError ? <p className="text-sm text-destructive">{connectError}</p> : null}
           <Button type="submit" disabled={connecting || !isHydrated}>
-            {connecting ? "Connecting…" : "Connect repository"}
+            {connecting ? t("common.connecting") : t("projects.connectButton")}
           </Button>
         </form>
       </DemoPanel>
@@ -87,16 +82,16 @@ export function ProjectsPage() {
         title={repositoryLabel}
         badge={
           <span className="rounded border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {source ? "Public GitHub" : "Controlled sandbox"}
+            {source ? t("projects.publicGithub") : t("projects.controlledSandbox")}
           </span>
         }
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <DemoMetricCard label="Repository" value={repositoryLabel} />
-          <DemoMetricCard label="Branch" value={source?.branch ?? "main"} />
-          <DemoMetricCard label="Safety" value="Protected" tone="pass" />
+          <DemoMetricCard label={t("projects.repository")} value={repositoryLabel} />
+          <DemoMetricCard label={t("projects.branch")} value={source?.branch ?? "main"} />
+          <DemoMetricCard label={t("projects.safety")} value={t("projects.protected")} tone="pass" />
           <DemoMetricCard
-            label="Tasks"
+            label={t("projects.tasks")}
             value={isLoading ? "…" : String(projectTasks.length)}
           />
         </div>
@@ -104,17 +99,17 @@ export function ProjectsPage() {
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-              Source
+              {t("projects.source")}
             </p>
             <p className="mt-2 text-sm text-foreground">
               {source
-                ? `Public GitHub · ${source.url}`
-                : "Controlled local workspace — not a direct GitHub connection."}
+                ? t("projects.sourcePublic", { url: source.url })
+                : t("projects.sourceLocal")}
             </p>
           </div>
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-              Commit SHA
+              {t("projects.commitSha")}
             </p>
             <p className="mt-2 break-all font-mono text-sm text-foreground">
               {source?.commitSha ? abbreviateCommitSha(source.commitSha) : "—"}
@@ -145,7 +140,7 @@ export function ProjectsPage() {
         <div className="mt-6 flex flex-wrap gap-3 border-t border-border pt-5">
           <Button asChild>
             <Link to="/app/tasks/new">
-              Create task
+              {t("tasks.createNew")}
               <ArrowRight className="ml-2 size-4" />
             </Link>
           </Button>

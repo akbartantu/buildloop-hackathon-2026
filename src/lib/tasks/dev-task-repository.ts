@@ -103,6 +103,7 @@ export function createDevTaskRepository(
       goal: string;
       workspace?: string;
       projectId?: string;
+      acceptanceCriteria?: string[];
     }): Promise<TaskRecord> {
       const store = await readStore();
       let workspace = input.workspace ?? WORKSPACE_NAME;
@@ -130,6 +131,7 @@ export function createDevTaskRepository(
         goal: input.goal,
         taskId,
         workspaceRoot: projectRoot(),
+        ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
       });
       const now = new Date().toISOString();
 
@@ -160,10 +162,19 @@ export function createDevTaskRepository(
       return task ? toRecord(task) : null;
     },
 
-    async listTasks(userId: string): Promise<TaskRecord[]> {
+    async listTasks(userId: string, filter?: { projectId?: string | null }): Promise<TaskRecord[]> {
       const store = await readStore();
       return store.tasks
         .filter((task) => task.userId === userId)
+        .filter((task) => {
+          if (filter?.projectId === undefined) {
+            return true;
+          }
+          if (filter.projectId === null) {
+            return task.projectId === null;
+          }
+          return task.projectId === filter.projectId;
+        })
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
         .slice(0, 20)
         .map(toRecord);

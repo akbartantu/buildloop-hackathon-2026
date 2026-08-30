@@ -14,6 +14,8 @@ import { PasswordField } from "@/components/auth/password-field";
 import { supabase } from "@/integrations/supabase/client";
 import { mapAuthError } from "@/lib/auth/auth-errors";
 import { signInSchema } from "@/lib/auth/auth-schema";
+import { useI18n } from "@/i18n/context";
+import { LanguageSwitcher } from "@/i18n/language-switcher";
 
 export const Route = createFileRoute("/auth/")({
   ssr: false,
@@ -30,6 +32,7 @@ type FieldErrors = Partial<Record<"email" | "password", string>>;
 
 function SignInPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -78,7 +81,10 @@ function SignInPage() {
   }
 
   return (
-    <AuthShell>
+    <AuthShell title={t("auth.signInTitle")} description={t("auth.signInDescription")}>
+      <div className="mb-4 flex justify-end">
+        <LanguageSwitcher />
+      </div>
       <GoogleSignInButton disabled={loading} onError={setFormError} />
       <AuthDivider />
 
@@ -86,7 +92,7 @@ function SignInPage() {
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <div>
-          <Label htmlFor="sign-in-email">Email</Label>
+          <Label htmlFor="sign-in-email">{t("auth.email")}</Label>
           <Input
             id="sign-in-email"
             name="email"
@@ -103,12 +109,12 @@ function SignInPage() {
 
         <div>
           <div className="flex items-center justify-between">
-            <Label htmlFor="sign-in-password">Password</Label>
+            <Label htmlFor="sign-in-password">{t("auth.password")}</Label>
             <Link
               to="/auth/forgot-password"
               className="text-xs text-muted-foreground underline hover:text-foreground"
             >
-              Forgot password?
+              {t("auth.forgotPassword")}
             </Link>
           </div>
           <PasswordField
@@ -127,14 +133,14 @@ function SignInPage() {
         </div>
 
         <Button type="submit" disabled={loading} className="w-full" size="lg">
-          {loading ? "Signing in…" : "Sign in"}
+          {loading ? t("auth.signingIn") : t("auth.signIn")}
         </Button>
       </form>
 
       <p className="mt-4 text-center text-sm text-muted-foreground">
-        Don&apos;t have an account?{" "}
+        {t("auth.noAccount")}{" "}
         <Link to="/auth/sign-up" className="font-medium text-foreground underline hover:no-underline">
-          Create account
+          {t("auth.signUp")}
         </Link>
       </p>
     </AuthShell>

@@ -3,6 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth/require-auth";
 import {
   createTaskSchema,
+  executeTaskRunSchema,
+  listTasksSchema,
   recordApprovalSchema,
   recordHumanApprovalSchema,
   taskIdSchema,
@@ -18,6 +20,7 @@ export const createTask = createServerFn({ method: "POST" })
       goal: data.goal,
       ...(data.workspace ? { workspace: data.workspace } : {}),
       ...(data.projectId ? { projectId: data.projectId } : {}),
+      ...(data.acceptanceCriteria ? { acceptanceCriteria: data.acceptanceCriteria } : {}),
     });
   });
 
@@ -38,8 +41,11 @@ export const getTaskState = createServerFn({ method: "POST" })
 
 export const listTasks = createServerFn({ method: "POST" })
   .middleware([requireAuth])
-  .handler(async ({ context }): Promise<TaskRecord[]> => {
-    return context.tasks.listTasks(context.auth.userId);
+  .inputValidator((input: unknown) => listTasksSchema.parse(input ?? {}))
+  .handler(async ({ data, context }): Promise<TaskRecord[]> => {
+    return context.tasks.listTasks(context.auth.userId, {
+      ...(data.projectId !== undefined ? { projectId: data.projectId } : {}),
+    });
   });
 
 export const lockContract = createServerFn({ method: "POST" })

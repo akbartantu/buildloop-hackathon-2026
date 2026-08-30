@@ -80,6 +80,8 @@ describe("public GitHub clone lifecycle", () => {
     const repoPath = path.join(sandboxRoot, "repo");
     await mkdir(repoPath, { recursive: true });
     await runGit(repoPath, ["init"]);
+    await runGit(repoPath, ["config", "user.email", "buildloop@test.local"]);
+    await runGit(repoPath, ["config", "user.name", "BuildLoop Test"]);
     await writeFile(path.join(repoPath, "README.md"), "hello\n", "utf8");
     await runGit(repoPath, ["add", "README.md"]);
     await runGit(repoPath, ["commit", "-m", "init"]);

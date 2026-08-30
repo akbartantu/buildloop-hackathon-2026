@@ -7,8 +7,10 @@ import {
   DemoPageHeader,
   DemoPanel,
 } from "@/components/site/demo-ui";
+import { TaskStatusLabel } from "@/components/site/task-status-label";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
 import { useWorkspaceLabel } from "@/hooks/use-workspace-label";
+import { useI18n } from "@/i18n/context";
 import { formatTaskRef } from "@/lib/task-display";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import { isPendingHumanApproval } from "@/lib/human-approval";
@@ -28,6 +30,7 @@ function latestRunTask(tasks: TaskRecord[]): TaskRecord | null {
 export function HomePage() {
   const { tasks, isLoading } = useWorkspaceTasks();
   const { label: workspaceLabel } = useWorkspaceLabel();
+  const { taskStatusLabel } = useI18n();
   const latestTask = tasks[0] ?? null;
   const recentRun = latestRunTask(tasks);
   const pendingApprovals = countPendingApprovals(tasks);
@@ -47,7 +50,7 @@ export function HomePage() {
         />
         <DemoMetricCard
           label="Run terakhir"
-          value={recentRun ? recentRun.status : "Belum ada"}
+          value={recentRun ? taskStatusLabel(recentRun.status) : "Belum ada"}
           tone={
             recentRun?.status === "PASS" || recentRun?.status === "AWAITING_APPROVAL"
               ? "pass"
@@ -70,9 +73,10 @@ export function HomePage() {
           ) : latestTask ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-foreground">
-                  {latestTask.status}
-                </span>
+                <TaskStatusLabel
+                  status={latestTask.status}
+                  className="font-mono text-[11px] font-medium uppercase tracking-[0.12em] text-foreground"
+                />
                 <span className="font-mono text-[10px] text-muted-foreground">
                   {formatTaskRef(latestTask.id)}
                 </span>

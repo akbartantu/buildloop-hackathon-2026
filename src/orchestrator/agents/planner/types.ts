@@ -26,6 +26,8 @@ export type PlannerInput = {
   goal: string;
   taskId: string;
   maxContracts?: number;
+  acceptanceCriteria?: string[];
+  workspaceRoot?: string;
 };
 
 export type PlannerOutput = WorkPlan;

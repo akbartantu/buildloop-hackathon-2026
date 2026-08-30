@@ -1,5 +1,7 @@
 import type { TaskStatus } from "@/lib/task-contract";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { translate, DEFAULT_LOCALE, type Locale } from "@/i18n";
+import type { TranslationKey } from "@/i18n/en";
 import { countPassedChecks, contractSections } from "@/lib/task-display";
 import { analyzeChecks, buildTaskLifecycleViewModel, taskHasRun } from "@/lib/task-lifecycle";
 import { isActiveRun, isOrchestrated } from "@/lib/contract-handoff";
@@ -34,24 +36,29 @@ export type EvidenceSnapshot = {
   commandsExecuted: number | null;
 };
 
-const FRIENDLY_STATUS: Partial<Record<TaskStatus, string>> = {
+const FRIENDLY_STATUS_EN: Partial<Record<TaskStatus, string>> = {
   DRAFT: "Draft",
-  CONTRACT_READY: "Menunggu persetujuan contract",
-  APPROVED_FOR_EXECUTION: "Siap dijalankan",
-  INSPECTING: "Preflight berjalan",
-  RUNNING: "Worker berjalan",
-  CHECKING: "Checker memverifikasi",
-  NEEDS_CORRECTION: "Koreksi terbatas",
-  PASS: "PASS — tinjau hasil",
-  AWAITING_APPROVAL: "Menunggu approval",
+  CONTRACT_READY: "Awaiting contract approval",
+  APPROVED_FOR_EXECUTION: "Approved for execution",
+  INSPECTING: "Preflight running",
+  RUNNING: "Worker running",
+  CHECKING: "Checker verifying",
+  NEEDS_CORRECTION: "Limited correction",
+  PASS: "PASS — review results",
+  AWAITING_APPROVAL: "Awaiting approval",
   FAILED: "FAILED",
-    BLOCKED: "BLOCKED",
-    CLOSED: "Eksekusi selesai",
-    STALE: "Contract basi",
+  BLOCKED: "Blocked",
+  CLOSED: "Run completed",
+  STALE: "Stale contract",
 };
 
-export function friendlyStatusLabel(status: TaskStatus): string {
-  return FRIENDLY_STATUS[status] ?? status.replaceAll("_", " ");
+export function friendlyStatusLabel(status: TaskStatus, locale: Locale = DEFAULT_LOCALE): string {
+  const key = `status.task.${status}` as TranslationKey;
+  const translated = translate(locale, key);
+  if (translated !== key) {
+    return translated;
+  }
+  return FRIENDLY_STATUS_EN[status] ?? status.replaceAll("_", " ");
 }
 
 export function contractVersionLabel(task: TaskRecord): string {

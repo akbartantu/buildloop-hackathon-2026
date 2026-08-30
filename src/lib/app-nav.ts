@@ -9,22 +9,22 @@ export type AppNavKey =
 
 export type AppNavItem = {
   key: AppNavKey;
-  label: string;
-  to: string;
+  labelKey: `nav.${AppNavKey}` | "nav.productTour" | "nav.notifications" | "nav.profileSettings" | "nav.signOut";
+  to?: string;
   comingSoon?: boolean;
 };
 
 export const APP_NAV_ITEMS: AppNavItem[] = [
-  { key: "home", label: "Home", to: "/app" },
-  { key: "projects", label: "Projects", to: "/app/projects" },
-  { key: "tasks", label: "Tasks", to: "/app/tasks" },
-  { key: "runs", label: "Runs", to: "/app/runs" },
-  { key: "approvals", label: "Approvals", to: "/app/approvals" },
+  { key: "home", labelKey: "nav.home", to: "/app" },
+  { key: "projects", labelKey: "nav.projects", to: "/app/projects" },
+  { key: "tasks", labelKey: "nav.tasks", to: "/app/tasks" },
+  { key: "runs", labelKey: "nav.runs", to: "/app/runs" },
+  { key: "approvals", labelKey: "nav.approvals", to: "/app/approvals" },
 ];
 
 export const APP_SECONDARY_NAV_ITEMS: AppNavItem[] = [
-  { key: "integrations", label: "Integrations", to: "/app/integrations" },
-  { key: "settings", label: "Settings", to: "/app/settings" },
+  { key: "integrations", labelKey: "nav.integrations", to: "/app/integrations" },
+  { key: "settings", labelKey: "nav.settings", to: "/app/settings" },
 ];
 
 export function resolveActiveNav(pathname: string): AppNavKey {

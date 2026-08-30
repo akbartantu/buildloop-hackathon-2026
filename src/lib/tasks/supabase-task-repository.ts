@@ -32,6 +32,7 @@ export function createSupabaseTaskRepository(
       goal: string;
       workspace?: string;
       projectId?: string;
+      acceptanceCriteria?: string[];
     }): Promise<TaskRecord> {
       let workspace = input.workspace ?? WORKSPACE_NAME;
       let projectId: string | null = null;
@@ -58,6 +59,7 @@ export function createSupabaseTaskRepository(
         goal: input.goal,
         taskId,
         workspaceRoot: getWorkspaceRoot(),
+        ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
       });
 
       const runnerState = planned.runnerState;
@@ -101,13 +103,19 @@ export function createSupabaseTaskRepository(
       return row ? toTaskRecord(row as TaskRowShape) : null;
     },
 
-    async listTasks(userId: string): Promise<TaskRecord[]> {
-      const { data: rows, error } = await supabase
+    async listTasks(userId: string, filter?: { projectId?: string | null }): Promise<TaskRecord[]> {
+      let query = supabase
         .from("tasks")
         .select(SELECT_COLUMNS)
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false })
-        .limit(20);
+        .eq("user_id", userId);
+
+      if (filter?.projectId === null) {
+        query = query.is("project_id", null);
+      } else if (filter?.projectId) {
+        query = query.eq("project_id", filter.projectId);
+      }
+
+      const { data: rows, error } = await query.order("created_at", { ascending: false }).limit(20);
 
       if (error) {
         console.error("listTasks failed", error.code);

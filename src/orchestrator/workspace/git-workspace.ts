@@ -1,7 +1,13 @@
+import { createHash } from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdir, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
+
+import {
+  isPublicGitHubRepoUrl,
+  validatePublicGitHubUrl,
+} from "@/lib/repository/public-github-url";
 
 const execFileAsync = promisify(execFile);
 
@@ -162,6 +168,13 @@ export function isDependencyManifest(filePath: string): boolean {
 }
 
 export function resolveWorkspacePath(workspace: string, defaultRoot: string): string {
+  if (isPublicGitHubRepoUrl(workspace)) {
+    const validated = validatePublicGitHubUrl(workspace);
+    if (validated.ok) {
+      return publicGitHubCloneCachePath(validated.normalizedUrl, defaultRoot);
+    }
+  }
+
   if (path.isAbsolute(workspace) && workspace.length > 1) {
     return path.resolve(workspace);
   }
@@ -170,4 +183,47 @@ export function resolveWorkspacePath(workspace: string, defaultRoot: string): st
   }
   const candidate = path.resolve(defaultRoot, workspace);
   return candidate;
+}
+
+export function publicGitHubCloneCachePath(normalizedUrl: string, workspaceRoot: string): string {
+  const cacheKey = createHash("sha256").update(normalizedUrl).digest("hex").slice(0, 16);
+  return path.join(workspaceRoot, ".buildloop", "repos", cacheKey);
+}
+
+export async function ensurePublicGitHubClone(
+  repoUrl: string,
+  workspaceRoot: string,
+): Promise<string> {
+  const validated = validatePublicGitHubUrl(repoUrl);
+  if (!validated.ok) {
+    throw new Error(validated.reason);
+  }
+
+  const cloneDir = publicGitHubCloneCachePath(validated.normalizedUrl, workspaceRoot);
+  if (await isGitRepository(cloneDir)) {
+    return cloneDir;
+  }
+
+  await rm(cloneDir, { recursive: true, force: true });
+  await mkdir(path.dirname(cloneDir), { recursive: true });
+  await execFileAsync("git", ["clone", "--depth", "1", validated.normalizedUrl, cloneDir], {
+    maxBuffer: 10 * 1024 * 1024,
+  });
+
+  if (!(await isGitRepository(cloneDir))) {
+    throw new Error("Cloned repository is not a valid Git workspace.");
+  }
+
+  return cloneDir;
+}
+
+export async function resolveWorkspacePathAsync(
+  workspace: string,
+  defaultRoot: string,
+): Promise<string> {
+  if (isPublicGitHubRepoUrl(workspace)) {
+    return ensurePublicGitHubClone(workspace, defaultRoot);
+  }
+
+  return resolveWorkspacePath(workspace, defaultRoot);
 }

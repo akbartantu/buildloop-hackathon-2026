@@ -5,7 +5,7 @@ import { BootstrapOrchestrator } from "../bootstrap/orchestrator";
 import { createDraftContract, lockContract } from "../contract/schema";
 import { PASS_DEMO_GOAL } from "../scenarios/pass";
 import { detectSensitiveIntent } from "@/lib/sensitive-intent";
-import { resolveWorkspacePath } from "../workspace/git-workspace";
+import { resolveWorkspacePathAsync } from "../workspace/git-workspace";
 import {
   isDemoGoal,
   resolveWorkerExecutionMode,
@@ -36,7 +36,7 @@ export class ProductOrchestrator {
   async execute(request: ProductRunRequest) {
     const normalizedGoal = request.goal.trim();
     const workspaceName = request.workspace ?? "buildloop-demo";
-    const mode = resolveWorkerExecutionMode(normalizedGoal, request.executionMode);
+    const mode = resolveWorkerExecutionMode(normalizedGoal, request.executionMode, workspaceName);
     const workerSelection = selectWorker({ mode, goal: normalizedGoal });
 
     const bootstrap = new BootstrapOrchestrator({
@@ -81,7 +81,7 @@ export class ProductOrchestrator {
       ...result,
       storedAt: new Date().toISOString(),
       taskGoal: normalizedGoal,
-      workspace: resolveWorkspacePath(workspaceName, this.workspaceRoot),
+      workspace: await resolveWorkspacePathAsync(workspaceName, this.workspaceRoot),
       workerMode: mode,
       workerId: workerSelection.workerId,
     };

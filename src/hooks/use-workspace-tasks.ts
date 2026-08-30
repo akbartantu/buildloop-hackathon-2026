@@ -18,7 +18,10 @@ export function useWorkspaceTasks() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (goal: string) => submitTask({ data: { goal } }),
+    mutationFn: (input: string | { goal: string; workspace?: string }) => {
+      const payload = typeof input === "string" ? { goal: input } : input;
+      return submitTask({ data: payload });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },

@@ -6,7 +6,7 @@ import { getWorkspaceRoot, ProductOrchestrator } from "@/orchestrator/product/or
 import { summarizeEvidence } from "@/orchestrator/persistence/local-store";
 import { zeroChangeRunnerState } from "./task-contract";
 import type { TaskStatus } from "./task-contract";
-import { captureGitBaseline, resolveWorkspacePath } from "@/orchestrator/workspace/git-workspace";
+import { captureGitBaseline, resolveWorkspacePathAsync } from "@/orchestrator/workspace/git-workspace";
 
 const ACTIVE_ORCHESTRATION_STATUSES: TaskStatus[] = [
   "INSPECTING",
@@ -34,7 +34,7 @@ export const executeTaskRun = createServerFn({ method: "POST" })
     }
 
     const workspaceRoot = getWorkspaceRoot();
-    const repoPath = resolveWorkspacePath(task.workspace, workspaceRoot);
+    const repoPath = await resolveWorkspacePathAsync(task.workspace, workspaceRoot);
     const gitBaseline = (await captureGitBaseline(repoPath)) ?? undefined;
 
     const orchestrator = new ProductOrchestrator(workspaceRoot);

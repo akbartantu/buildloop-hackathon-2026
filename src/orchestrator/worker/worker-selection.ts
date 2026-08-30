@@ -1,5 +1,6 @@
 import { DemoPassWorker } from "./demo-worker";
 import { AdkGeminiWorker } from "../adk/gemini-agent";
+import { isPublicGitHubRepoUrl } from "@/lib/repository/public-github-url";
 import type { CodingWorker } from "./types";
 
 export type WorkerExecutionMode = "demo" | "real";
@@ -25,8 +26,13 @@ export function isDemoGoal(goal: string): boolean {
   );
 }
 
-export function resolveWorkerExecutionMode(goal: string, forceMode?: WorkerExecutionMode): WorkerExecutionMode {
+export function resolveWorkerExecutionMode(
+  goal: string,
+  forceMode?: WorkerExecutionMode,
+  workspace?: string,
+): WorkerExecutionMode {
   if (forceMode) return forceMode;
+  if (workspace && isPublicGitHubRepoUrl(workspace)) return "real";
   return isDemoGoal(goal) ? "demo" : "real";
 }
 

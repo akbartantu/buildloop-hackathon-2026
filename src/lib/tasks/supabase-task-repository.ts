@@ -21,7 +21,7 @@ export type SupabaseTaskRepository = ReturnType<typeof createSupabaseTaskReposit
 
 export function createSupabaseTaskRepository(supabase: SupabaseClient<Database>) {
   return {
-    async createTask(input: { userId: string; goal: string }): Promise<TaskRecord> {
+    async createTask(input: { userId: string; goal: string; workspace?: string }): Promise<TaskRecord> {
       const contract = buildContract(input.goal);
       const blockedReasons = detectSensitiveIntent(input.goal);
       const blocked = blockedReasons.length > 0;
@@ -36,7 +36,7 @@ export function createSupabaseTaskRepository(supabase: SupabaseClient<Database>)
         .from("tasks")
         .insert({
           user_id: input.userId,
-          workspace: WORKSPACE_NAME,
+          workspace: input.workspace ?? WORKSPACE_NAME,
           goal: contract.goal,
           status: blocked ? "BLOCKED" : "CONTRACT_READY",
           contract,

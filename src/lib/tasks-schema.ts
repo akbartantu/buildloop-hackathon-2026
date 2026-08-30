@@ -6,6 +6,7 @@ export const GOAL_MAX = 1000;
 
 export const createTaskSchema = z.object({
   goal: z.string().trim().min(10, "Goal terlalu pendek").max(GOAL_MAX),
+  workspace: z.string().trim().min(1).optional(),
 });
 
 export const taskIdSchema = z.object({

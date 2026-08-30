@@ -5,7 +5,7 @@ import type { LockedContract } from "../contract/schema";
 import {
   captureGitBaseline,
   pathExists,
-  resolveWorkspacePath,
+  resolveWorkspacePathAsync,
   type GitBaseline,
 } from "../workspace/git-workspace";
 
@@ -23,7 +23,7 @@ export async function runWorkspacePreflight(input: {
   workspaceName: string;
   allowDirty?: boolean;
 }): Promise<WorkspacePreflightResult> {
-  const repoPath = resolveWorkspacePath(input.workspaceName, input.workspaceRoot);
+  const repoPath = await resolveWorkspacePathAsync(input.workspaceName, input.workspaceRoot);
   const now = new Date().toISOString();
   const evidence: CheckerEvidence[] = [];
   const blockedReasons: Array<{ rule: string; explanation: string }> = [];

@@ -1,0 +1,29 @@
+# Build and push the Cloud Run image. Public Supabase values are required at
+# build time so Vite can embed them in the browser bundle.
+#
+# Example:
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co,_VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY
+#
+# Do not pass SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY, or other secrets here.
+
+substitutions:
+  _VITE_SUPABASE_URL: ""
+  _VITE_SUPABASE_PUBLISHABLE_KEY: ""
+
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - infrastructure/cloudrun/Dockerfile
+      - --build-arg
+      - VITE_SUPABASE_URL=${_VITE_SUPABASE_URL}
+      - --build-arg
+      - VITE_SUPABASE_PUBLISHABLE_KEY=${_VITE_SUPABASE_PUBLISHABLE_KEY}
+      - -t
+      - asia-southeast1-docker.pkg.dev/buildloop-hackathon-2026/buildloop/buildloop:latest
+      - .
+
+images:
+  - asia-southeast1-docker.pkg.dev/buildloop-hackathon-2026/buildloop/buildloop:latest

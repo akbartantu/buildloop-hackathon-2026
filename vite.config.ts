@@ -26,7 +26,12 @@ function buildLoopDevStatusPlugin() {
 
 export default defineConfig(({ mode, command }) => {
   const envDefine: Record<string, string> = {};
-  for (const [key, value] of Object.entries(loadEnv(mode, process.cwd(), "VITE_"))) {
+  const fileEnv = loadEnv(mode, process.cwd(), "VITE_");
+  for (const key of new Set([
+    ...Object.keys(fileEnv),
+    ...Object.keys(process.env).filter((name) => name.startsWith("VITE_")),
+  ])) {
+    const value = process.env[key] ?? fileEnv[key] ?? "";
     envDefine[`import.meta.env.${key}`] = JSON.stringify(value);
   }
 

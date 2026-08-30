@@ -78,21 +78,26 @@ bun run dev
 
 ### Environment variables (names only)
 
-**Client (Vite):**
+**Build-time public (Vite client bundle):**
+
+Required when running `bun run build` or building the Cloud Run Docker image. These values are embedded in the browser bundle and are safe to expose publicly (Supabase publishable key).
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_PUBLISHABLE_KEY`
 
-**Server:**
+**Runtime server (Node / Cloud Run):**
+
+Set on the Cloud Run service at deploy time. Not injected into the browser bundle after the image is built.
 
 - `SUPABASE_URL`
 - `SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `APP_BASE_URL` — canonical origin for sitemap and absolute URLs (defaults to `http://localhost:5173`)
+- `APP_BASE_URL` — canonical origin for sitemap and OAuth redirects
+- `GEMINI_API_KEY` — server-only (Secret Manager on Cloud Run)
 - `BUILDLOOP_CRON_SECRET` — cron auth (internal, if used)
 - `BUILDLOOP_CRON_SECRET_PREVIOUS` — cron auth rotation (internal, if used)
 
-Gemini and GCP variables will be documented when integration is implemented.
+For Cloud Run, pass `VITE_SUPABASE_*` as Docker build args (see `cloudbuild.yaml`). Keep `SUPABASE_SERVICE_ROLE_KEY` and `GEMINI_API_KEY` as runtime secrets only.
 
 ## Routes
 

@@ -1,0 +1,23 @@
+# BuildLoop Submission Checklist
+
+- [ ] Hosted URL configured (`APP_BASE_URL`)
+- [ ] Repository access for judges
+- [ ] README updated with evidence
+- [ ] Architecture diagram (`docs/architecture.md`)
+- [ ] Gemini adapter present (`gemini-worker.ts`)
+- [ ] Google ADK shell present (`adk/shell.ts`)
+- [ ] Cloud Run Dockerfile present
+- [ ] Firestore interface present (`firestore-store.ts`)
+- [ ] PASS scenario (`bun run orchestrator:demo:pass`)
+- [ ] BLOCKED scenario (`bun run orchestrator:demo:blocked`)
+- [ ] Demo video recorded (`docs/demo-script.md`)
+- [ ] Devpost fields completed
+- [ ] Screenshots (landing, app, PASS, BLOCKED)
+- [ ] License file
+- [ ] Secret scan clean
+- [ ] `bun run lint` pass
+- [ ] `bun run typecheck` pass
+- [ ] `bun test` pass
+- [ ] `bun run build` pass
+- [ ] Production smoke test (with Supabase env)
+- [ ] Cloud Run deploy (requires approval)

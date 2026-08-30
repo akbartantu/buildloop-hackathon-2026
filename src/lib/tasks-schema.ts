@@ -1,0 +1,53 @@
+import { z } from "zod";
+import type { BlockedReason } from "./sensitive-intent";
+import type { RunnerState, TaskContract, TaskStatus } from "./task-contract";
+
+export const GOAL_MAX = 1000;
+
+export const createTaskSchema = z.object({
+  goal: z.string().trim().min(10, "Goal terlalu pendek").max(GOAL_MAX),
+});
+
+export const taskIdSchema = z.object({
+  id: z.string().uuid(),
+});
+
+export const APPROVAL_DECISIONS = ["APPROVE_EXECUTION", "REVISE", "ESCALATE", "CLOSE"] as const;
+
+export const recordApprovalSchema = z.object({
+  id: z.string().uuid(),
+  decision: z.enum(APPROVAL_DECISIONS),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const HUMAN_GATE_DECISIONS = [
+  "APPROVE_COMMIT",
+  "REQUEST_REVISION",
+  "REJECT_CHANGES",
+  "ESCALATE_REVIEW",
+] as const;
+
+export const SENSITIVE_APPROVAL_ACTIONS = ["COMMIT", "PUSH", "MERGE", "DEPLOY"] as const;
+
+export const recordHumanApprovalSchema = z.object({
+  id: z.string().uuid(),
+  decision: z.enum(HUMAN_GATE_DECISIONS),
+  action: z.enum(SENSITIVE_APPROVAL_ACTIONS).default("COMMIT"),
+  note: z.string().trim().max(500).optional(),
+  confirmedReview: z.literal(true, {
+    errorMap: () => ({ message: "Konfirmasi review diperlukan." }),
+  }),
+});
+
+export type TaskRecord = {
+  id: string;
+  workspace: string;
+  goal: string;
+  status: TaskStatus;
+  contract: TaskContract;
+  blockedReasons: BlockedReason[];
+  runnerState: RunnerState | null;
+  createdAt: string;
+  updatedAt: string;
+  lockedAt: string | null;
+};

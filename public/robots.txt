@@ -1,0 +1,17 @@
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: *
+Allow: /
+
+# Absolute sitemap URLs are generated at runtime by /sitemap.xml using APP_BASE_URL.
+# Configure APP_BASE_URL in deployment; production domain is not finalized in this export.

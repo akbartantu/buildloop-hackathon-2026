@@ -1,0 +1,101 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+import { BootstrapOrchestrator } from "../bootstrap/orchestrator";
+import { createDraftContract, lockContract } from "../contract/schema";
+import { PASS_DEMO_GOAL } from "../scenarios/pass";
+import { detectSensitiveIntent } from "@/lib/sensitive-intent";
+import { resolveWorkspacePath } from "../workspace/git-workspace";
+import {
+  isDemoGoal,
+  resolveWorkerExecutionMode,
+  selectWorker,
+  type WorkerExecutionMode,
+} from "../worker/worker-selection";
+import { createRuntimeRunStore } from "../persistence/store-factory";
+import type { RuntimeRunStore } from "../persistence/store-factory";
+
+export type ProductRunRequest = {
+  goal: string;
+  taskId: string;
+  contractId: string;
+  workspace?: string;
+  allowDirtyWorkspace?: boolean;
+  executionMode?: WorkerExecutionMode;
+};
+
+export class ProductOrchestrator {
+  private readonly workspaceRoot: string;
+  private readonly store: RuntimeRunStore;
+
+  constructor(workspaceRoot: string, store?: RuntimeRunStore) {
+    this.workspaceRoot = workspaceRoot;
+    this.store = store ?? createRuntimeRunStore(workspaceRoot);
+  }
+
+  async execute(request: ProductRunRequest) {
+    const normalizedGoal = request.goal.trim();
+    const workspaceName = request.workspace ?? "buildloop-demo";
+    const mode = resolveWorkerExecutionMode(normalizedGoal, request.executionMode);
+    const workerSelection = selectWorker({ mode, goal: normalizedGoal });
+
+    const bootstrap = new BootstrapOrchestrator({
+      workspaceRoot: this.workspaceRoot,
+      workspaceName,
+      allowDirtyWorkspace: request.allowDirtyWorkspace ?? false,
+      worker: workerSelection.worker,
+      store: this.store,
+    });
+
+    let result;
+    if (isDemoGoal(normalizedGoal)) {
+      result = await bootstrap.runPassDemo();
+    } else if (detectSensitiveIntent(normalizedGoal).length > 0) {
+      result = await bootstrap.runBlockedDemoForGoal(normalizedGoal);
+    } else {
+      const contract = lockContract(
+        createDraftContract({
+          id: request.contractId,
+          taskId: request.taskId,
+          version: 1,
+          goal: normalizedGoal,
+          inScope: ["File sumber aplikasi yang relevan", "Test yang relevan"],
+          outOfScope: [
+            "Deployment dan infrastruktur",
+            "Credential dan secret",
+            "Dependency dan lockfile",
+            "Database dan migration",
+          ],
+          acceptanceCriteria: [
+            "Perilaku yang diminta diimplementasikan.",
+            "Check yang relevan lolos.",
+            "Tidak ada protected path yang berubah.",
+          ],
+          allowedPaths: ["src/**", "docs/**"],
+        }),
+      );
+      result = await bootstrap.executeContractRun(contract);
+    }
+
+    const stored = {
+      ...result,
+      storedAt: new Date().toISOString(),
+      taskGoal: normalizedGoal,
+      workspace: resolveWorkspacePath(workspaceName, this.workspaceRoot),
+      workerMode: mode,
+      workerId: workerSelection.workerId,
+    };
+    await this.store.saveRun(stored);
+    return stored;
+  }
+
+  getStore() {
+    return this.store;
+  }
+}
+
+export function getWorkspaceRoot(): string {
+  return path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
+}
+
+export { isDemoGoal, resolveWorkerExecutionMode, selectWorker };

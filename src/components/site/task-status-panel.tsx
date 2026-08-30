@@ -1,0 +1,87 @@
+import { StatusMark } from "./status-pill";
+import type { TaskRecord } from "@/lib/tasks-schema";
+
+const STATUS_LABEL: Record<string, string> = {
+  DRAFT: "Draft",
+  CONTRACT_READY: "Contract siap ditinjau",
+  APPROVED_FOR_EXECUTION: "Disetujui & siap diorkestrasi",
+  INSPECTING: "Preflight policy",
+  RUNNING: "Worker berjalan",
+  CHECKING: "Checker independen",
+  NEEDS_CORRECTION: "Koreksi diperlukan",
+  PASS: "Semua check lulus",
+  FAILED: "Gagal setelah batas koreksi",
+  BLOCKED: "Dihentikan",
+  AWAITING_APPROVAL: "Menunggu approval manusia",
+  CLOSED: "Ditutup",
+  STALE: "Manifest basi",
+};
+
+/** Panel status task + evidence. Tidak pernah mengklaim kode sudah dijalankan. */
+export function TaskStatusPanel({ task }: { task: TaskRecord }) {
+  const blocked = task.status === "BLOCKED";
+  const runner = task.runnerState;
+
+  return (
+    <div className="rounded-md border border-border bg-background p-5 sm:p-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+            Status task
+          </p>
+          <h3 className="mt-2 font-mono text-base font-semibold tracking-tight text-foreground">
+            {task.status}
+          </h3>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {STATUS_LABEL[task.status] ?? "Belum dijalankan"}
+          </p>
+        </div>
+        {blocked ? <StatusMark status="BLOCKED" className="shrink-0" /> : null}
+      </div>
+
+      {blocked && task.blockedReasons.length > 0 ? (
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+            Alasan pemblokiran
+          </p>
+          <ul className="mt-3 space-y-3">
+            {task.blockedReasons.map((reason) => (
+              <li key={reason.rule} className="border-l-2 border-boundary pl-3">
+                <p className="font-mono text-[11px] font-medium text-foreground">{reason.rule}</p>
+                <p className="mt-1 text-sm leading-relaxed text-foreground">{reason.explanation}</p>
+                <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                  target: {reason.protectedTarget} · cocok: “{reason.matchedText}”
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {runner ? (
+        <div className="mt-5 border-t border-border pt-4">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+            Evidence
+          </p>
+          <dl className="mt-3 space-y-2 font-mono text-[11px]">
+            <EvidenceRow label="runner dipanggil" value={runner.runnerInvoked ? "true" : "false"} />
+            <EvidenceRow label="files changed" value={String(runner.filesChanged)} />
+            <EvidenceRow label="commands executed" value={String(runner.commandsExecuted)} />
+            <EvidenceRow label="commit" value={runner.commit ? "true" : "false"} />
+            <EvidenceRow label="push" value={runner.push ? "true" : "false"} />
+          </dl>
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{runner.note}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function EvidenceRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-border/60 pb-1.5">
+      <dt className="uppercase tracking-[0.1em] text-muted-foreground">{label}</dt>
+      <dd className="text-foreground">{value}</dd>
+    </div>
+  );
+}

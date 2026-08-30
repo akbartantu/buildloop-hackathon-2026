@@ -1,18 +1,25 @@
-# Build and push the Cloud Run image. Public Supabase values are required at
-# build time so Vite can embed them in the browser bundle.
+# Build, push, and deploy BuildLoop to Cloud Run on each triggered build.
 #
-# Example:
-#   gcloud builds submit --config cloudbuild.yaml \
-#     --substitutions=_VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co,_VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY
+# Manual submit example:
+#   gcloud builds submit --project=buildloop-hackathon-2026 --config=cloudbuild.yaml \
+#     --substitutions=_VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co,_VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_YOUR_KEY .
 #
-# Do not pass SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY, or other secrets here.
+# GitHub trigger (main): configure the same _VITE_* substitutions on the trigger.
+# Do not pass SUPABASE_SERVICE_ROLE_KEY, GEMINI_API_KEY, or other server secrets here.
 
 substitutions:
   _VITE_SUPABASE_URL: ""
   _VITE_SUPABASE_PUBLISHABLE_KEY: ""
+  _REGION: asia-southeast1
+  _SERVICE_NAME: buildloop
+  _RUNTIME_SERVICE_ACCOUNT: buildloop-runner@buildloop-hackathon-2026.iam.gserviceaccount.com
+  _ARTIFACT_REPO: asia-southeast1-docker.pkg.dev/buildloop-hackathon-2026/buildloop
+  _APP_BASE_URL: https://buildloop-151062816499.asia-southeast1.run.app
+  _FIRESTORE_PROJECT_ID: buildloop-hackathon-2026
 
 steps:
   - name: gcr.io/cloud-builders/docker
+    id: build-image
     args:
       - build
       - -f
@@ -22,8 +29,29 @@ steps:
       - --build-arg
       - VITE_SUPABASE_PUBLISHABLE_KEY=${_VITE_SUPABASE_PUBLISHABLE_KEY}
       - -t
-      - asia-southeast1-docker.pkg.dev/buildloop-hackathon-2026/buildloop/buildloop:latest
+      - ${_ARTIFACT_REPO}/buildloop:${COMMIT_SHA}
+      - -t
+      - ${_ARTIFACT_REPO}/buildloop:latest
       - .
 
+  - name: gcr.io/cloud-builders/gcloud
+    id: deploy-cloud-run
+    args:
+      - run
+      - deploy
+      - ${_SERVICE_NAME}
+      - --project=${PROJECT_ID}
+      - --region=${_REGION}
+      - --platform=managed
+      - --image=${_ARTIFACT_REPO}/buildloop:${COMMIT_SHA}
+      - --service-account=${_RUNTIME_SERVICE_ACCOUNT}
+      - --update-env-vars=APP_BASE_URL=${_APP_BASE_URL},NODE_ENV=production,BUILDLOOP_PERSISTENCE=firestore,FIRESTORE_PROJECT_ID=${_FIRESTORE_PROJECT_ID},SUPABASE_URL=${_VITE_SUPABASE_URL},SUPABASE_PUBLISHABLE_KEY=${_VITE_SUPABASE_PUBLISHABLE_KEY}
+      - --update-secrets=SUPABASE_SERVICE_ROLE_KEY=supabase-service-role:latest,GEMINI_API_KEY=gemini-api-key:latest
+      - --quiet
+
 images:
-  - asia-southeast1-docker.pkg.dev/buildloop-hackathon-2026/buildloop/buildloop:latest
+  - ${_ARTIFACT_REPO}/buildloop:${COMMIT_SHA}
+  - ${_ARTIFACT_REPO}/buildloop:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY

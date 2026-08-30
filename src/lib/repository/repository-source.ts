@@ -6,6 +6,7 @@ export type ConnectedRepositorySource = {
   branch: string;
   commitSha: string;
   sourceType: RepositorySourceType;
+  projectId?: string;
 };
 
 export const CONNECTED_REPOSITORY_STORAGE_KEY = "buildloop-connected-repository";
@@ -37,6 +38,7 @@ export function parseConnectedRepository(raw: string | null): ConnectedRepositor
       branch: parsed.branch,
       commitSha: parsed.commitSha,
       sourceType: "public_github",
+      ...(typeof parsed.projectId === "string" ? { projectId: parsed.projectId } : {}),
     };
   } catch {
     return null;

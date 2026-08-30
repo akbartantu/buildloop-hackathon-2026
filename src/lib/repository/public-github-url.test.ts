@@ -14,6 +14,14 @@ describe("validatePublicGitHubUrl", () => {
     }
   });
 
+  test("normalizes trailing .git", () => {
+    const result = validatePublicGitHubUrl("https://github.com/octocat/Hello-World.git");
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.normalizedUrl).toBe("https://github.com/octocat/Hello-World");
+    }
+  });
+
   test("rejects non-GitHub host", () => {
     const result = validatePublicGitHubUrl("https://gitlab.com/example/repo");
     expect(result).toEqual({

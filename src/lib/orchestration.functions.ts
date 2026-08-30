@@ -6,7 +6,9 @@ import { getWorkspaceRoot, ProductOrchestrator } from "@/orchestrator/product/or
 import { summarizeEvidence } from "@/orchestrator/persistence/local-store";
 import { zeroChangeRunnerState } from "./task-contract";
 import type { TaskStatus } from "./task-contract";
-import { captureGitBaseline, resolveWorkspacePathAsync } from "@/orchestrator/workspace/git-workspace";
+import { captureGitBaseline, resolveWorkspacePathAsync, createRunSandboxId } from "@/orchestrator/workspace/git-workspace";
+import { getSandboxRoot } from "@/orchestrator/workspace/sandbox-root";
+import { isPublicGitHubRepoUrl } from "@/lib/repository/public-github-url";
 
 const ACTIVE_ORCHESTRATION_STATUSES: TaskStatus[] = [
   "INSPECTING",
@@ -34,8 +36,24 @@ export const executeTaskRun = createServerFn({ method: "POST" })
     }
 
     const workspaceRoot = getWorkspaceRoot();
-    const repoPath = await resolveWorkspacePathAsync(task.workspace, workspaceRoot);
+    const runSandboxId = createRunSandboxId(task.id);
+    const cloneOptions =
+      isPublicGitHubRepoUrl(task.workspace) && task.sourceCommitSha
+        ? {
+            sandboxRoot: getSandboxRoot(workspaceRoot),
+            runId: runSandboxId,
+            commitSha: task.sourceCommitSha,
+          }
+        : isPublicGitHubRepoUrl(task.workspace)
+          ? { sandboxRoot: getSandboxRoot(workspaceRoot), runId: runSandboxId }
+          : {};
+
+    const repoPath = await resolveWorkspacePathAsync(task.workspace, workspaceRoot, cloneOptions);
     const gitBaseline = (await captureGitBaseline(repoPath)) ?? undefined;
+
+    if (task.sourceCommitSha && gitBaseline && gitBaseline.headSha !== task.sourceCommitSha) {
+      throw new Error("Repository baseline tidak cocok dengan source commit SHA task.");
+    }
 
     const orchestrator = new ProductOrchestrator(workspaceRoot);
     const result = await orchestrator.execute({
@@ -44,6 +62,8 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       contractId: task.id,
       workspace: task.workspace,
       allowDirtyWorkspace: false,
+      ...(task.sourceCommitSha ? { sourceCommitSha: task.sourceCommitSha } : {}),
+      runSandboxId,
     });
 
     const nextStatus = mapRunStatus(result.run.status, result.run.verdict);

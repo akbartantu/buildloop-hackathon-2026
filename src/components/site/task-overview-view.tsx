@@ -6,7 +6,10 @@ import {
   DemoSectionLabel,
   DemoStatusBanner,
 } from "@/components/site/demo-ui";
-import { WORKSPACE_NAME } from "@/lib/task-contract";
+import {
+  abbreviateCommitSha,
+  taskWorkspaceLabel,
+} from "@/lib/repository/task-source-display";
 import {
   getContractHandoff,
   type ContractHandoffAction,
@@ -76,7 +79,8 @@ export function TaskOverviewView({
             {task.goal}
           </h1>
           <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">
-            {taskRef} · {WORKSPACE_NAME} · {contractVersionLabel(task)}
+            {taskRef} · {taskWorkspaceLabel(task)} · {contractVersionLabel(task)}
+            {task.sourceCommitSha ? ` · ${abbreviateCommitSha(task.sourceCommitSha)}` : ""}
           </p>
         </div>
         <dl className="flex flex-wrap gap-x-6 gap-y-2 text-sm">

@@ -21,7 +21,13 @@ import {
   DemoSectionLabel,
   DemoStatusBanner,
 } from "./demo-ui";
-import { WORKSPACE_NAME } from "@/lib/task-contract";
+import {
+  abbreviateCommitSha,
+  isPublicGitHubTask,
+  taskSourceBranch,
+  taskSourceCommitSha,
+  taskWorkspaceLabel,
+} from "@/lib/repository/task-source-display";
 import {
   CONTRACT_NEXT_STEPS_COPY,
   getContractHandoff,
@@ -474,6 +480,20 @@ function OrchestrationView({
           })}
         </ol>
       </DemoPanel>
+
+      {isPublicGitHubTask(task) ? (
+        <DemoPanel title="Repository source">
+          <DemoKeyValueTable
+            rows={[
+              { label: "Repository", value: taskWorkspaceLabel(task) },
+              { label: "Source", value: "Public GitHub" },
+              { label: "Branch", value: taskSourceBranch(task) },
+              { label: "Commit SHA", value: abbreviateCommitSha(taskSourceCommitSha(task)) },
+              { label: "Worker", value: runner?.workerId ?? "—" },
+            ]}
+          />
+        </DemoPanel>
+      ) : null}
 
       {lifecycle.hasRun ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -14,7 +14,11 @@ import {
   createIsolatedWorktree,
   removeWorktree,
   summarizeGitDiff,
+  cleanupSandboxDirectory,
+  publicGitHubRunClonePath,
 } from "../workspace/git-workspace";
+import { getSandboxRoot } from "../workspace/sandbox-root";
+import { isPublicGitHubRepoUrl, validatePublicGitHubUrl } from "@/lib/repository/public-github-url";
 import {
   PASS_DEMO_ACCEPTANCE,
   PASS_DEMO_GOAL,
@@ -47,6 +51,8 @@ export type BootstrapOrchestratorOptions = {
   worker?: CodingWorker;
   store?: RuntimeRunStore;
   checkpointStore?: CheckpointStore;
+  sourceCommitSha?: string;
+  runSandboxId?: string;
 };
 
 export class BootstrapOrchestrator {
@@ -58,6 +64,8 @@ export class BootstrapOrchestrator {
   private readonly decisionLog = new DecisionLog();
   private readonly checkpointStore: CheckpointStore;
   private readonly runtimeStore: RuntimeRunStore | null;
+  private readonly sourceCommitSha?: string;
+  private readonly runSandboxId?: string;
 
   constructor(options: BootstrapOrchestratorOptions) {
     this.workspaceRoot = options.workspaceRoot;
@@ -66,6 +74,12 @@ export class BootstrapOrchestrator {
     this.worker = options.worker ?? new DemoPassWorker();
     this.checkpointStore = options.checkpointStore ?? new CheckpointStore(options.workspaceRoot);
     this.runtimeStore = options.store ?? null;
+    if (options.sourceCommitSha) {
+      this.sourceCommitSha = options.sourceCommitSha;
+    }
+    if (options.runSandboxId) {
+      this.runSandboxId = options.runSandboxId;
+    }
   }
 
   async executeContractRun(contract: LockedContract): Promise<BootstrapRunResult> {
@@ -121,10 +135,38 @@ export class BootstrapOrchestrator {
     scenario: "pass" | "blocked" | "real";
   }): Promise<BootstrapRunResult> {
     const runId = crypto.randomUUID();
-    let sandboxRoot = path.join(this.workspaceRoot, ".buildloop", "sandbox", runId);
+    let sandboxRoot = isPublicGitHubRepoUrl(this.workspaceName)
+      ? path.join(getSandboxRoot(this.workspaceRoot), "sandbox", runId)
+      : path.join(this.workspaceRoot, ".buildloop", "sandbox", runId);
     let gitRepoPath: string | null = null;
+    let runClonePath: string | null = null;
     await rm(sandboxRoot, { recursive: true, force: true });
     await mkdir(sandboxRoot, { recursive: true });
+
+    const cloneOptions =
+      isPublicGitHubRepoUrl(this.workspaceName) && this.sourceCommitSha
+        ? {
+            sandboxRoot: getSandboxRoot(this.workspaceRoot),
+            runId: this.runSandboxId ?? runId,
+            commitSha: this.sourceCommitSha,
+          }
+        : isPublicGitHubRepoUrl(this.workspaceName)
+          ? {
+              sandboxRoot: getSandboxRoot(this.workspaceRoot),
+              runId: this.runSandboxId ?? runId,
+            }
+          : {};
+
+    if (cloneOptions.runId && isPublicGitHubRepoUrl(this.workspaceName)) {
+      const validated = validatePublicGitHubUrl(this.workspaceName);
+      if (validated.ok) {
+        runClonePath = publicGitHubRunClonePath(
+          validated.normalizedUrl,
+          getSandboxRoot(this.workspaceRoot),
+          cloneOptions.runId,
+        );
+      }
+    }
 
     const { revision: sourceRevisionAtStart } = await computeManifestRevision(this.workspaceRoot);
     let status: RunStatus = "APPROVED_FOR_EXECUTION";
@@ -145,6 +187,7 @@ export class BootstrapOrchestrator {
       workspaceRoot: this.workspaceRoot,
       workspaceName: this.workspaceName,
       allowDirty: this.allowDirtyWorkspace,
+      cloneOptions,
     });
     evidence.push(...workspacePreflight.evidence);
 
@@ -155,7 +198,7 @@ export class BootstrapOrchestrator {
 
     if (workspacePreflight.baseline) {
       gitRepoPath = workspacePreflight.baseline.repoPath;
-      const worktreePath = defaultWorktreePath(this.workspaceRoot, runId);
+      const worktreePath = defaultWorktreePath(this.workspaceRoot, runId, this.workspaceName);
       try {
         sandboxRoot = await createIsolatedWorktree(gitRepoPath, worktreePath, runId);
         workspacePreflight.baseline.worktreePath = sandboxRoot;
@@ -205,6 +248,9 @@ export class BootstrapOrchestrator {
     verdictReason = decision.verdictReason;
 
     if (decision.verdict === "BLOCKED") {
+      if (runClonePath) {
+        await cleanupSandboxDirectory(runClonePath).catch(() => undefined);
+      }
       return this.finish({
         runId,
         contract: input.contract,
@@ -359,6 +405,10 @@ export class BootstrapOrchestrator {
 
     if (gitRepoPath && workspacePreflight.baseline?.worktreePath) {
       await removeWorktree(gitRepoPath, workspacePreflight.baseline.worktreePath).catch(() => undefined);
+    }
+
+    if (runClonePath) {
+      await cleanupSandboxDirectory(runClonePath).catch(() => undefined);
     }
 
     return this.finish({

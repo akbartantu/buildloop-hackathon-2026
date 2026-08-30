@@ -18,7 +18,7 @@ export function useWorkspaceTasks() {
   });
 
   const createMutation = useMutation({
-    mutationFn: (input: string | { goal: string; workspace?: string }) => {
+    mutationFn: (input: string | { goal: string; workspace?: string; projectId?: string }) => {
       const payload = typeof input === "string" ? { goal: input } : input;
       return submitTask({ data: payload });
     },

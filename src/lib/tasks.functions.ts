@@ -17,6 +17,7 @@ export const createTask = createServerFn({ method: "POST" })
       userId: context.auth.userId,
       goal: data.goal,
       ...(data.workspace ? { workspace: data.workspace } : {}),
+      ...(data.projectId ? { projectId: data.projectId } : {}),
     });
   });
 

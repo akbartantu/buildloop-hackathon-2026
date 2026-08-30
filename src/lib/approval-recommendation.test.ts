@@ -38,6 +38,8 @@ function baseTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     lockedAt: new Date().toISOString(),
+    projectId: null,
+    sourceCommitSha: null,
     ...overrides,
   };
 }

@@ -13,6 +13,8 @@ export type TaskRowShape = {
   created_at: string;
   updated_at: string;
   locked_at: string | null;
+  project_id?: string | null;
+  source_commit_sha?: string | null;
 };
 
 export function toTaskRecord(row: TaskRowShape): TaskRecord {
@@ -27,5 +29,7 @@ export function toTaskRecord(row: TaskRowShape): TaskRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lockedAt: row.locked_at,
+    projectId: row.project_id ?? null,
+    sourceCommitSha: row.source_commit_sha ?? null,
   };
 }

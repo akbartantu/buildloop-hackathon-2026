@@ -22,6 +22,8 @@ export type ProductRunRequest = {
   workspace?: string;
   allowDirtyWorkspace?: boolean;
   executionMode?: WorkerExecutionMode;
+  sourceCommitSha?: string;
+  runSandboxId?: string;
 };
 
 export class ProductOrchestrator {
@@ -45,10 +47,12 @@ export class ProductOrchestrator {
       allowDirtyWorkspace: request.allowDirtyWorkspace ?? false,
       worker: workerSelection.worker,
       store: this.store,
+      ...(request.sourceCommitSha ? { sourceCommitSha: request.sourceCommitSha } : {}),
+      ...(request.runSandboxId ? { runSandboxId: request.runSandboxId } : {}),
     });
 
     let result;
-    if (isDemoGoal(normalizedGoal)) {
+    if (isDemoGoal(normalizedGoal) && mode === "demo") {
       result = await bootstrap.runPassDemo();
     } else if (detectSensitiveIntent(normalizedGoal).length > 0) {
       result = await bootstrap.runBlockedDemoForGoal(normalizedGoal);

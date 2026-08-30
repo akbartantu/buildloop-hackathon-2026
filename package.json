@@ -25,6 +25,8 @@
     "rolldown": "1.2.1"
   },
   "dependencies": {
+    "@a2a-js/sdk": "^1.1.0",
+    "@colors/colors": "^1.6.0",
     "@google/adk": "^2.0.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",

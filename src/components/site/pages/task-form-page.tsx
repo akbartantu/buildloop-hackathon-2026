@@ -4,14 +4,15 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DemoPageHeader, DemoPanel } from "@/components/site/demo-ui";
-import { useConnectedRepository } from "@/hooks/use-connected-repository";
+import { useProjects } from "@/hooks/use-projects";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { abbreviateCommitSha } from "@/lib/repository/task-source-display";
 import { MAX_ATTEMPTS, PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
 
 export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   const navigate = useNavigate();
   const { tasks, createMutation } = useWorkspaceTasks();
-  const { source } = useConnectedRepository();
+  const { source, activeProject } = useProjects();
   const sourceTask = fromTaskId ? (tasks.find((task) => task.id === fromTaskId) ?? null) : null;
   const [taskGoal, setTaskGoal] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -28,7 +29,11 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
     try {
       const task = await createMutation.mutateAsync({
         goal: taskGoal,
-        ...(source ? { workspace: source.url } : {}),
+        ...(activeProject?.id
+          ? { projectId: activeProject.id }
+          : source
+            ? { workspace: source.url }
+            : {}),
       });
       navigate({
         to: "/app/tasks/$taskId",
@@ -67,6 +72,16 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
             </dt>
             <dd className="mt-1 font-mono text-sm text-foreground">{workspaceLabel}</dd>
           </div>
+          {source ? (
+            <div>
+              <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+                Source commit
+              </dt>
+              <dd className="mt-1 font-mono text-sm text-foreground">
+                {abbreviateCommitSha(source.commitSha)}
+              </dd>
+            </div>
+          ) : null}
           <div>
             <dt className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
               Maks. percobaan koreksi

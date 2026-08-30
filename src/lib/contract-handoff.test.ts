@@ -23,6 +23,8 @@ function taskWithStatus(status: TaskRecord["status"], overrides: Partial<TaskRec
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
     lockedAt: status === "APPROVED_FOR_EXECUTION" ? "2026-01-01T00:00:00.000Z" : null,
+    projectId: null,
+    sourceCommitSha: null,
     ...overrides,
   };
 }

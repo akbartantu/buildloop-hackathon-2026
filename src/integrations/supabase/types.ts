@@ -143,7 +143,9 @@ export type Database = {
           goal: string
           id: string
           locked_at: string | null
+          project_id: string | null
           runner_state: Json | null
+          source_commit_sha: string | null
           status: string
           updated_at: string
           user_id: string
@@ -156,7 +158,9 @@ export type Database = {
           goal: string
           id?: string
           locked_at?: string | null
+          project_id?: string | null
           runner_state?: Json | null
+          source_commit_sha?: string | null
           status?: string
           updated_at?: string
           user_id: string
@@ -169,11 +173,63 @@ export type Database = {
           goal?: string
           id?: string
           locked_at?: string | null
+          project_id?: string | null
           runner_state?: Json | null
+          source_commit_sha?: string | null
           status?: string
           updated_at?: string
           user_id?: string
           workspace?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          connected_commit_sha: string | null
+          created_at: string
+          default_branch: string | null
+          id: string
+          name: string
+          repository_name: string
+          repository_owner: string
+          repository_url: string
+          source_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connected_commit_sha?: string | null
+          created_at?: string
+          default_branch?: string | null
+          id?: string
+          name: string
+          repository_name: string
+          repository_owner: string
+          repository_url: string
+          source_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connected_commit_sha?: string | null
+          created_at?: string
+          default_branch?: string | null
+          id?: string
+          name?: string
+          repository_name?: string
+          repository_owner?: string
+          repository_url?: string
+          source_type?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

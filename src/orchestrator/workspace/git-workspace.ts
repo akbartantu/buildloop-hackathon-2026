@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdir, rm, symlink } from "node:fs/promises";
 import path from "node:path";
@@ -8,8 +8,11 @@ import {
   isPublicGitHubRepoUrl,
   validatePublicGitHubUrl,
 } from "@/lib/repository/public-github-url";
+import { getSandboxRoot } from "./sandbox-root";
 
 const execFileAsync = promisify(execFile);
+
+const BLOCKED_GIT_SUBCOMMANDS = new Set(["push"]);
 
 export type GitBaseline = {
   repoPath: string;
@@ -25,6 +28,12 @@ export type GitDiffSummary = {
   addedFiles: string[];
   deletedFiles: string[];
   modifiedFiles: string[];
+};
+
+export type PublicGitHubCloneOptions = {
+  sandboxRoot?: string;
+  runId?: string;
+  commitSha?: string;
 };
 
 const DEPENDENCY_MANIFESTS = new Set([
@@ -44,7 +53,24 @@ const DEPENDENCY_MANIFESTS = new Set([
   "Cargo.lock",
 ]);
 
+export function assertPathWithinRoot(root: string, target: string): void {
+  const resolvedRoot = path.resolve(root);
+  const resolvedTarget = path.resolve(target);
+  const rootWithSep = resolvedRoot.endsWith(path.sep) ? resolvedRoot : `${resolvedRoot}${path.sep}`;
+  if (resolvedTarget !== resolvedRoot && !resolvedTarget.startsWith(rootWithSep)) {
+    throw new Error("Path escapes sandbox root.");
+  }
+}
+
 export async function runGit(cwd: string, args: string[]): Promise<string> {
+  const subcommand = args[0];
+  if (subcommand && BLOCKED_GIT_SUBCOMMANDS.has(subcommand)) {
+    throw new Error("Remote git mutations are not permitted in BuildLoop sandbox execution.");
+  }
+  if (subcommand === "remote" && args.includes("set-url")) {
+    throw new Error("Remote git mutations are not permitted in BuildLoop sandbox execution.");
+  }
+
   const { stdout } = await execFileAsync("git", args, {
     cwd,
     maxBuffer: 10 * 1024 * 1024,
@@ -96,6 +122,11 @@ export async function captureGitBaseline(repoPath: string): Promise<GitBaseline 
   }
 }
 
+export async function verifyRepositoryHeadSha(repoPath: string, expectedSha: string): Promise<boolean> {
+  const baseline = await captureGitBaseline(repoPath);
+  return baseline?.headSha === expectedSha;
+}
+
 export async function createIsolatedWorktree(
   repoPath: string,
   worktreePath: string,
@@ -129,6 +160,10 @@ export async function removeWorktree(repoPath: string, worktreePath: string): Pr
   } catch {
     await rm(worktreePath, { recursive: true, force: true });
   }
+}
+
+export async function cleanupSandboxDirectory(targetPath: string): Promise<void> {
+  await rm(targetPath, { recursive: true, force: true });
 }
 
 export async function summarizeGitDiff(
@@ -171,7 +206,7 @@ export function resolveWorkspacePath(workspace: string, defaultRoot: string): st
   if (isPublicGitHubRepoUrl(workspace)) {
     const validated = validatePublicGitHubUrl(workspace);
     if (validated.ok) {
-      return publicGitHubCloneCachePath(validated.normalizedUrl, defaultRoot);
+      return publicGitHubCloneCachePath(validated.normalizedUrl, getSandboxRoot(defaultRoot));
     }
   }
 
@@ -185,21 +220,62 @@ export function resolveWorkspacePath(workspace: string, defaultRoot: string): st
   return candidate;
 }
 
-export function publicGitHubCloneCachePath(normalizedUrl: string, workspaceRoot: string): string {
+export function publicGitHubCloneCachePath(normalizedUrl: string, sandboxRoot: string): string {
   const cacheKey = createHash("sha256").update(normalizedUrl).digest("hex").slice(0, 16);
-  return path.join(workspaceRoot, ".buildloop", "repos", cacheKey);
+  return path.join(sandboxRoot, "repos", cacheKey);
+}
+
+export function publicGitHubRunClonePath(
+  normalizedUrl: string,
+  sandboxRoot: string,
+  runId: string,
+): string {
+  const cacheKey = createHash("sha256").update(normalizedUrl).digest("hex").slice(0, 16);
+  return path.join(sandboxRoot, "runs", runId, cacheKey);
 }
 
 export async function ensurePublicGitHubClone(
   repoUrl: string,
   workspaceRoot: string,
+  options: PublicGitHubCloneOptions = {},
 ): Promise<string> {
   const validated = validatePublicGitHubUrl(repoUrl);
   if (!validated.ok) {
     throw new Error(validated.reason);
   }
 
-  const cloneDir = publicGitHubCloneCachePath(validated.normalizedUrl, workspaceRoot);
+  const sandboxRoot = options.sandboxRoot ?? getSandboxRoot(workspaceRoot);
+  const cloneDir = options.runId
+    ? publicGitHubRunClonePath(validated.normalizedUrl, sandboxRoot, options.runId)
+    : publicGitHubCloneCachePath(validated.normalizedUrl, sandboxRoot);
+
+  assertPathWithinRoot(sandboxRoot, cloneDir);
+
+  if (options.commitSha) {
+    await rm(cloneDir, { recursive: true, force: true });
+    await mkdir(path.dirname(cloneDir), { recursive: true });
+    await execFileAsync("git", ["clone", "--depth", "1", validated.normalizedUrl, cloneDir], {
+      maxBuffer: 10 * 1024 * 1024,
+    });
+
+    if (!(await isGitRepository(cloneDir))) {
+      throw new Error("Cloned repository is not a valid Git workspace.");
+    }
+
+    const headBefore = await runGit(cloneDir, ["rev-parse", "HEAD"]);
+    if (headBefore !== options.commitSha) {
+      await runGit(cloneDir, ["fetch", "origin", options.commitSha, "--depth", "1"]);
+      await runGit(cloneDir, ["checkout", "--force", options.commitSha]);
+    }
+
+    const verified = await verifyRepositoryHeadSha(cloneDir, options.commitSha);
+    if (!verified) {
+      throw new Error("Repository HEAD does not match the captured source commit SHA.");
+    }
+
+    return cloneDir;
+  }
+
   if (await isGitRepository(cloneDir)) {
     return cloneDir;
   }
@@ -220,10 +296,16 @@ export async function ensurePublicGitHubClone(
 export async function resolveWorkspacePathAsync(
   workspace: string,
   defaultRoot: string,
+  options: PublicGitHubCloneOptions = {},
 ): Promise<string> {
   if (isPublicGitHubRepoUrl(workspace)) {
-    return ensurePublicGitHubClone(workspace, defaultRoot);
+    return ensurePublicGitHubClone(workspace, defaultRoot, options);
   }
 
   return resolveWorkspacePath(workspace, defaultRoot);
+}
+
+export function createRunSandboxId(taskId?: string): string {
+  const suffix = randomUUID().slice(0, 8);
+  return taskId ? `${taskId.slice(0, 8)}-${suffix}` : suffix;
 }

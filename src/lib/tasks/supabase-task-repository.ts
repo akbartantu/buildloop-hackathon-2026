@@ -15,13 +15,43 @@ import {
 } from "@/lib/human-approval";
 
 const SELECT_COLUMNS =
-  "id, workspace, goal, status, contract, blocked_reasons, runner_state, created_at, updated_at, locked_at";
+  "id, workspace, goal, status, contract, blocked_reasons, runner_state, created_at, updated_at, locked_at, project_id, source_commit_sha";
 
 export type SupabaseTaskRepository = ReturnType<typeof createSupabaseTaskRepository>;
 
-export function createSupabaseTaskRepository(supabase: SupabaseClient<Database>) {
+export function createSupabaseTaskRepository(
+  supabase: SupabaseClient<Database>,
+  projectLookup?: {
+    getProject(id: string, userId: string): Promise<{ repositoryUrl: string; connectedCommitSha: string | null } | null>;
+  },
+) {
   return {
-    async createTask(input: { userId: string; goal: string; workspace?: string }): Promise<TaskRecord> {
+    async createTask(input: {
+      userId: string;
+      goal: string;
+      workspace?: string;
+      projectId?: string;
+    }): Promise<TaskRecord> {
+      let workspace = input.workspace ?? WORKSPACE_NAME;
+      let projectId: string | null = null;
+      let sourceCommitSha: string | null = null;
+
+      if (input.projectId) {
+        if (!projectLookup) {
+          throw new Error("Project tidak dapat diverifikasi.");
+        }
+        const project = await projectLookup.getProject(input.projectId, input.userId);
+        if (!project) {
+          throw new Error("Project tidak ditemukan.");
+        }
+        workspace = project.repositoryUrl;
+        projectId = input.projectId;
+        sourceCommitSha = project.connectedCommitSha;
+        if (!sourceCommitSha) {
+          throw new Error("Project belum memiliki commit SHA yang tercatat.");
+        }
+      }
+
       const contract = buildContract(input.goal);
       const blockedReasons = detectSensitiveIntent(input.goal);
       const blocked = blockedReasons.length > 0;
@@ -36,12 +66,14 @@ export function createSupabaseTaskRepository(supabase: SupabaseClient<Database>)
         .from("tasks")
         .insert({
           user_id: input.userId,
-          workspace: input.workspace ?? WORKSPACE_NAME,
+          workspace,
           goal: contract.goal,
           status: blocked ? "BLOCKED" : "CONTRACT_READY",
           contract,
           blocked_reasons: blockedReasons,
           runner_state: runnerState,
+          project_id: projectId,
+          source_commit_sha: sourceCommitSha,
         })
         .select(SELECT_COLUMNS)
         .single();

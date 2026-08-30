@@ -4,6 +4,7 @@ import {
   publicGitHubCloneCachePath,
   resolveWorkspacePath,
 } from "@/orchestrator/workspace/git-workspace";
+import { getSandboxRoot } from "@/orchestrator/workspace/sandbox-root";
 import { validatePublicGitHubUrl } from "@/lib/repository/public-github-url";
 
 describe("public repository workspace resolution", () => {
@@ -14,9 +15,10 @@ describe("public repository workspace resolution", () => {
       return;
     }
 
-    const cachePath = publicGitHubCloneCachePath(validated.normalizedUrl, "/app");
+    const sandboxRoot = getSandboxRoot("/app");
+    const cachePath = publicGitHubCloneCachePath(validated.normalizedUrl, sandboxRoot);
     expect(resolveWorkspacePath(validated.normalizedUrl, "/app")).toBe(cachePath);
-    expect(cachePath).toContain(path.join(".buildloop", "repos"));
+    expect(cachePath).toContain(path.join("repos"));
   });
 
   test("keeps local demo workspace mapping unchanged", () => {

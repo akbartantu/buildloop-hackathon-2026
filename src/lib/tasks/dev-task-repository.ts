@@ -48,6 +48,8 @@ type DevTaskStore = {
     createdAt: string;
     updatedAt: string;
     lockedAt: string | null;
+    projectId: string | null;
+    sourceCommitSha: string | null;
   }>;
   approvals: StoredApproval[];
 };
@@ -83,15 +85,46 @@ function toRecord(task: DevTaskStore["tasks"][number]): TaskRecord {
     createdAt: task.createdAt,
     updatedAt: task.updatedAt,
     lockedAt: task.lockedAt,
+    projectId: task.projectId,
+    sourceCommitSha: task.sourceCommitSha,
   };
 }
 
 export type DevTaskRepository = ReturnType<typeof createDevTaskRepository>;
 
-export function createDevTaskRepository() {
+export function createDevTaskRepository(
+  projectLookup?: {
+    getProject(id: string, userId: string): Promise<{ repositoryUrl: string; connectedCommitSha: string | null } | null>;
+  },
+) {
   return {
-    async createTask(input: { userId: string; goal: string; workspace?: string }): Promise<TaskRecord> {
+    async createTask(input: {
+      userId: string;
+      goal: string;
+      workspace?: string;
+      projectId?: string;
+    }): Promise<TaskRecord> {
       const store = await readStore();
+      let workspace = input.workspace ?? WORKSPACE_NAME;
+      let projectId: string | null = null;
+      let sourceCommitSha: string | null = null;
+
+      if (input.projectId) {
+        if (!projectLookup) {
+          throw new Error("Project tidak dapat diverifikasi.");
+        }
+        const project = await projectLookup.getProject(input.projectId, input.userId);
+        if (!project) {
+          throw new Error("Project tidak ditemukan.");
+        }
+        workspace = project.repositoryUrl;
+        projectId = input.projectId;
+        sourceCommitSha = project.connectedCommitSha;
+        if (!sourceCommitSha) {
+          throw new Error("Project belum memiliki commit SHA yang tercatat.");
+        }
+      }
+
       const contract = buildContract(input.goal);
       const blockedReasons = detectSensitiveIntent(input.goal);
       const blocked = blockedReasons.length > 0;
@@ -100,7 +133,7 @@ export function createDevTaskRepository() {
       const task = {
         id: randomUUID(),
         userId: input.userId,
-        workspace: input.workspace ?? WORKSPACE_NAME,
+        workspace,
         goal: contract.goal,
         status: (blocked ? "BLOCKED" : "CONTRACT_READY") as TaskStatus,
         contract,
@@ -113,6 +146,8 @@ export function createDevTaskRepository() {
         createdAt: now,
         updatedAt: now,
         lockedAt: null,
+        projectId,
+        sourceCommitSha,
       };
 
       store.tasks.unshift(task);

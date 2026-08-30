@@ -10,20 +10,24 @@ import {
   DemoPageHeader,
   DemoPanel,
 } from "@/components/site/demo-ui";
-import { useConnectedRepository } from "@/hooks/use-connected-repository";
+import { useProjects } from "@/hooks/use-projects";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { abbreviateCommitSha } from "@/lib/repository/task-source-display";
 import { formatTaskRef } from "@/lib/task-display";
 import { PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
 
 export function ProjectsPage() {
   const { tasks, isLoading } = useWorkspaceTasks();
-  const { source, connect, isHydrated } = useConnectedRepository();
+  const { source, activeProject, connect, isHydrated } = useProjects();
   const [repoUrl, setRepoUrl] = useState("");
   const [connectError, setConnectError] = useState<string | null>(null);
   const [connecting, setConnecting] = useState(false);
-  const latestRun = tasks.find((task) => task.runnerState?.runnerInvoked) ?? null;
-  const activeSource = source;
-  const repositoryLabel = activeSource?.repoName ?? WORKSPACE_NAME;
+  const projectTasks = activeProject
+    ? tasks.filter((task) => task.projectId === activeProject.id)
+    : tasks.filter((task) => !task.projectId);
+  const latestRun =
+    projectTasks.find((task) => task.runnerState?.runnerInvoked) ?? null;
+  const repositoryLabel = source?.repoName ?? WORKSPACE_NAME;
 
   async function handleConnect(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -53,21 +57,24 @@ export function ProjectsPage() {
     <div className="space-y-6">
       <DemoPageHeader
         title="Projects"
-        description="Connect a public GitHub repository for hosted demo execution, or continue with the controlled local workspace."
+        description="Connect a public GitHub repository for hosted execution, or continue with the controlled local demo workspace."
       />
 
-      <DemoPanel title="Connect public repository">
+      <DemoPanel title="Connect repository">
         <form onSubmit={handleConnect} className="space-y-4">
           <div>
-            <Label htmlFor="repository-url">Repository URL</Label>
+            <Label htmlFor="repository-url">Public GitHub repository URL</Label>
             <Input
               id="repository-url"
               name="repositoryUrl"
-              placeholder="https://github.com/example/example-repo"
+              placeholder="https://github.com/owner/repository"
               value={repoUrl}
               onChange={(event) => setRepoUrl(event.target.value)}
               className="mt-2"
             />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Example: https://github.com/owner/repository
+            </p>
           </div>
           {connectError ? <p className="text-sm text-destructive">{connectError}</p> : null}
           <Button type="submit" disabled={connecting || !isHydrated}>
@@ -80,15 +87,18 @@ export function ProjectsPage() {
         title={repositoryLabel}
         badge={
           <span className="rounded border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-            {activeSource ? "Public GitHub repository" : "Controlled sandbox"}
+            {source ? "Public GitHub" : "Controlled sandbox"}
           </span>
         }
       >
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <DemoMetricCard label="Repository" value={repositoryLabel} />
-          <DemoMetricCard label="Branch" value={activeSource?.branch ?? "main"} />
+          <DemoMetricCard label="Branch" value={source?.branch ?? "main"} />
           <DemoMetricCard label="Safety" value="Protected" tone="pass" />
-          <DemoMetricCard label="Tasks" value={isLoading ? "…" : String(tasks.length)} />
+          <DemoMetricCard
+            label="Tasks"
+            value={isLoading ? "…" : String(projectTasks.length)}
+          />
         </div>
 
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -97,9 +107,9 @@ export function ProjectsPage() {
               Source
             </p>
             <p className="mt-2 text-sm text-foreground">
-              {activeSource
-                ? `Public GitHub repository · ${activeSource.url}`
-                : "Workspace lokal terkontrol — bukan koneksi GitHub langsung."}
+              {source
+                ? `Public GitHub · ${source.url}`
+                : "Controlled local workspace — not a direct GitHub connection."}
             </p>
           </div>
           <div>
@@ -107,17 +117,17 @@ export function ProjectsPage() {
               Commit SHA
             </p>
             <p className="mt-2 break-all font-mono text-sm text-foreground">
-              {activeSource?.commitSha ?? "—"}
+              {source?.commitSha ? abbreviateCommitSha(source.commitSha) : "—"}
             </p>
           </div>
           <div>
             <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-              Run terakhir
+              Latest run
             </p>
             <p className="mt-2 text-sm text-foreground">
               {latestRun
                 ? `${formatTaskRef(latestRun.id)} · ${latestRun.status}`
-                : "Belum ada run orchestrator"}
+                : "No orchestrator run yet"}
             </p>
           </div>
         </div>
@@ -128,7 +138,7 @@ export function ProjectsPage() {
             Protected scope
           </p>
           <DemoBulletList
-            items={[...PROTECTED_PATHS.map((path) => `${path} — tidak dapat diubah otomatis`)]}
+            items={[...PROTECTED_PATHS.map((path) => `${path} — cannot be changed automatically`)]}
           />
         </div>
 
@@ -142,7 +152,7 @@ export function ProjectsPage() {
           {latestRun ? (
             <Button variant="outline" asChild>
               <Link to="/app/tasks/$taskId" params={{ taskId: latestRun.id }}>
-                Lihat run terakhir
+                View latest run
               </Link>
             </Button>
           ) : null}

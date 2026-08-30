@@ -2,11 +2,14 @@ import path from "node:path";
 
 import type { CheckerEvidence } from "../types";
 import type { LockedContract } from "../contract/schema";
+import { isPublicGitHubRepoUrl } from "@/lib/repository/public-github-url";
+import { getSandboxRoot } from "../workspace/sandbox-root";
 import {
   captureGitBaseline,
   pathExists,
   resolveWorkspacePathAsync,
   type GitBaseline,
+  type PublicGitHubCloneOptions,
 } from "../workspace/git-workspace";
 
 export type WorkspacePreflightResult = {
@@ -22,8 +25,13 @@ export async function runWorkspacePreflight(input: {
   workspaceRoot: string;
   workspaceName: string;
   allowDirty?: boolean;
+  cloneOptions?: PublicGitHubCloneOptions;
 }): Promise<WorkspacePreflightResult> {
-  const repoPath = await resolveWorkspacePathAsync(input.workspaceName, input.workspaceRoot);
+  const repoPath = await resolveWorkspacePathAsync(
+    input.workspaceName,
+    input.workspaceRoot,
+    input.cloneOptions ?? {},
+  );
   const now = new Date().toISOString();
   const evidence: CheckerEvidence[] = [];
   const blockedReasons: Array<{ rule: string; explanation: string }> = [];
@@ -99,6 +107,14 @@ export async function runWorkspacePreflight(input: {
   };
 }
 
-export function defaultWorktreePath(workspaceRoot: string, runId: string): string {
-  return path.join(workspaceRoot, ".buildloop", "worktrees", runId);
+export function defaultWorktreePath(
+  workspaceRoot: string,
+  runId: string,
+  workspaceName?: string,
+): string {
+  const root =
+    workspaceName && isPublicGitHubRepoUrl(workspaceName)
+      ? getSandboxRoot(workspaceRoot)
+      : workspaceRoot;
+  return path.join(root, ".buildloop", "worktrees", runId);
 }

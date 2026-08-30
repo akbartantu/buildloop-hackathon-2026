@@ -7,6 +7,7 @@ import {
   captureGitBaseline,
   ensurePublicGitHubClone,
 } from "@/orchestrator/workspace/git-workspace";
+import { getSandboxRoot } from "@/orchestrator/workspace/sandbox-root";
 import { getWorkspaceRoot } from "@/orchestrator/product/orchestrator";
 import { z } from "zod";
 
@@ -15,14 +16,14 @@ const connectRepositorySchema = z.object({
 });
 
 export type ConnectRepositoryResult =
-  | { status: "ok"; source: ConnectedRepositorySource }
+  | { status: "ok"; source: ConnectedRepositorySource; projectId: string }
   | { status: "invalid"; message: string }
   | { status: "error"; message: string };
 
 export const connectPublicRepository = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((input: unknown) => connectRepositorySchema.parse(input))
-  .handler(async ({ data }): Promise<ConnectRepositoryResult> => {
+  .handler(async ({ data, context }): Promise<ConnectRepositoryResult> => {
     const validation = validatePublicGitHubUrl(data.url);
     if (!validation.ok) {
       return { status: "invalid", message: validation.reason };
@@ -30,21 +31,36 @@ export const connectPublicRepository = createServerFn({ method: "POST" })
 
     try {
       const workspaceRoot = getWorkspaceRoot();
-      const repoPath = await ensurePublicGitHubClone(validation.normalizedUrl, workspaceRoot);
+      const sandboxRoot = getSandboxRoot(workspaceRoot);
+      const repoPath = await ensurePublicGitHubClone(validation.normalizedUrl, workspaceRoot, {
+        sandboxRoot,
+      });
       const baseline = await captureGitBaseline(repoPath);
 
       if (!baseline) {
         return { status: "error", message: "Repository could not be inspected." };
       }
 
+      const project = await context.projects.upsertPublicGitHubProject({
+        userId: context.auth.userId,
+        name: validation.repoName,
+        repositoryUrl: validation.normalizedUrl,
+        repositoryOwner: validation.owner,
+        repositoryName: validation.repo,
+        defaultBranch: baseline.branch,
+        connectedCommitSha: baseline.headSha,
+      });
+
       return {
         status: "ok",
+        projectId: project.id,
         source: {
           url: validation.normalizedUrl,
           repoName: validation.repoName,
           branch: baseline.branch,
           commitSha: baseline.headSha,
           sourceType: "public_github",
+          projectId: project.id,
         },
       };
     } catch {

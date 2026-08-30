@@ -5,7 +5,6 @@ import {
   CircleHelp,
   FolderKanban,
   Home,
-  Infinity,
   Puzzle,
   Search,
   Settings,
@@ -13,6 +12,7 @@ import {
   Play,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { BuildLoopBrandMark } from "@/components/site/buildloop-brand-mark";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -114,7 +114,7 @@ export function AppLayout() {
             to="/app"
             className="flex items-center gap-2 rounded-md px-1 py-0.5 text-[15px] font-semibold tracking-[-0.01em] text-sidebar-foreground"
           >
-            <Infinity className="size-5 shrink-0 text-foreground" aria-hidden="true" />
+            <BuildLoopBrandMark />
             <span>BuildLoop</span>
           </Link>
           <div className="rounded-md border border-sidebar-border bg-background px-3 py-2" data-tour="workspace">

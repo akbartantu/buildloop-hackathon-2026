@@ -2,6 +2,16 @@ import { z } from "zod";
 
 export const AUTH_EMAIL_MAX = 255;
 export const AUTH_PASSWORD_MIN = 6;
+export const AUTH_FULL_NAME_MAX = 100;
+
+export const authFullNameSchema = z
+  .string()
+  .trim()
+  .min(1, { message: "Full name is required." })
+  .max(AUTH_FULL_NAME_MAX, {
+    message: `Full name must be at most ${AUTH_FULL_NAME_MAX} characters.`,
+  })
+  .transform((value) => value.replace(/\s+/g, " "));
 
 export const authEmailSchema = z
   .string()
@@ -25,6 +35,7 @@ export const signInSchema = z.object({
 
 export const signUpSchema = z
   .object({
+    fullName: authFullNameSchema,
     email: authEmailSchema,
     password: authPasswordSchema,
     confirmPassword: z.string().min(1, { message: "Please confirm your password." }),

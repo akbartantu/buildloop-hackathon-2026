@@ -32,15 +32,30 @@ describe("signInSchema", () => {
 describe("signUpSchema", () => {
   test("accepts matching passwords", () => {
     const result = signUpSchema.safeParse({
+      fullName: "Akbar Tantu",
       email: "builder@example.com",
       password: "secret123",
       confirmPassword: "secret123",
     });
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.fullName).toBe("Akbar Tantu");
+    }
+  });
+
+  test("requires full name", () => {
+    const result = signUpSchema.safeParse({
+      fullName: "",
+      email: "builder@example.com",
+      password: "secret123",
+      confirmPassword: "secret123",
+    });
+    expect(result.success).toBe(false);
   });
 
   test("rejects password mismatch", () => {
     const result = signUpSchema.safeParse({
+      fullName: "Akbar Tantu",
       email: "builder@example.com",
       password: "secret123",
       confirmPassword: "different",
@@ -53,6 +68,7 @@ describe("signUpSchema", () => {
 
   test("rejects short password", () => {
     const result = signUpSchema.safeParse({
+      fullName: "Akbar Tantu",
       email: "builder@example.com",
       password: "12345",
       confirmPassword: "12345",

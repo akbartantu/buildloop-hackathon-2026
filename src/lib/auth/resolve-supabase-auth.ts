@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Database } from "@/integrations/supabase/types";
 import type { AuthPrincipal } from "./principal";
+import { resolveUserDisplayName } from "./user-display";
 
 function isNewSupabaseApiKey(value: string): boolean {
   return value.startsWith("sb_publishable_") || value.startsWith("sb_secret_");
@@ -97,13 +98,11 @@ export async function resolveSupabaseAuthFromRequest(): Promise<SupabaseAuthCont
 
   const email =
     typeof data.claims.email === "string" ? data.claims.email : "authenticated@buildloop.local";
-  const displayName =
-    typeof data.claims.user_metadata === "object" &&
-    data.claims.user_metadata !== null &&
-    "full_name" in data.claims.user_metadata &&
-    typeof (data.claims.user_metadata as { full_name?: unknown }).full_name === "string"
-      ? (data.claims.user_metadata as { full_name: string }).full_name
-      : email.split("@")[0] ?? "Pengguna";
+  const metadata =
+    typeof data.claims.user_metadata === "object" && data.claims.user_metadata !== null
+      ? (data.claims.user_metadata as { full_name?: string; name?: string })
+      : undefined;
+  const displayName = resolveUserDisplayName({ email, userMetadata: metadata });
 
   return {
     principal: {

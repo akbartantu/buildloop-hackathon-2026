@@ -28,6 +28,7 @@ describe("performSignupPrecheck", () => {
     setBlocklistCheckerForTests(async () => true);
 
     const result = await performSignupPrecheck({
+      fullName: "Akbar Tantu",
       email: "temp@mailinator.com",
       password: "secret123",
       confirmPassword: "secret123",
@@ -41,6 +42,7 @@ describe("performSignupPrecheck", () => {
     setBlocklistCheckerForTests(async () => false);
 
     const result = await performSignupPrecheck({
+      fullName: "Akbar Tantu",
       email: "builder@example.com",
       password: "secret123",
       confirmPassword: "secret123",
@@ -59,6 +61,7 @@ describe("performSignupPrecheck", () => {
     });
 
     const result = await performSignupPrecheck({
+      fullName: "Akbar Tantu",
       email: "builder@example.com",
       password: "secret123",
       confirmPassword: "secret123",

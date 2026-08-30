@@ -18,6 +18,7 @@ import { precheckEmailSignup } from "@/lib/auth/auth.functions";
 import { signUpSchema } from "@/lib/auth/auth-schema";
 import { DISPOSABLE_EMAIL_MESSAGE } from "@/lib/auth/disposable-email";
 import { interpretSignupResponse } from "@/lib/auth/signup-flow";
+import { normalizeFullName } from "@/lib/auth/user-display";
 
 export const Route = createFileRoute("/auth/sign-up")({
   ssr: false,
@@ -30,12 +31,13 @@ export const Route = createFileRoute("/auth/sign-up")({
   }),
 });
 
-type FieldErrors = Partial<Record<"email" | "password" | "confirmPassword", string>>;
+type FieldErrors = Partial<Record<"fullName" | "email" | "password" | "confirmPassword", string>>;
 
 function SignUpPage() {
   const navigate = useNavigate();
   const precheckSignup = useServerFn(precheckEmailSignup);
 
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -48,12 +50,17 @@ function SignUpPage() {
     event.preventDefault();
     if (loading) return;
 
-    const parsed = signUpSchema.safeParse({ email, password, confirmPassword });
+    const parsed = signUpSchema.safeParse({ fullName, email, password, confirmPassword });
     if (!parsed.success) {
       const next: FieldErrors = {};
       for (const issue of parsed.error.issues) {
         const key = issue.path[0];
-        if (key === "email" || key === "password" || key === "confirmPassword") {
+        if (
+          key === "fullName" ||
+          key === "email" ||
+          key === "password" ||
+          key === "confirmPassword"
+        ) {
           next[key] = next[key] ?? issue.message;
         }
       }
@@ -89,6 +96,9 @@ function SignUpPage() {
         password: parsed.data.password,
         options: {
           emailRedirectTo: precheck.emailRedirectTo,
+          data: {
+            full_name: normalizeFullName(parsed.data.fullName),
+          },
         },
       });
 
@@ -171,6 +181,23 @@ function SignUpPage() {
       {formError ? <AuthErrorBanner message={formError} /> : null}
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
+        <div>
+          <Label htmlFor="sign-up-full-name">Full name</Label>
+          <Input
+            id="sign-up-full-name"
+            name="fullName"
+            autoComplete="name"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            aria-invalid={errors.fullName ? true : undefined}
+            aria-describedby={errors.fullName ? "sign-up-full-name-error" : undefined}
+            className="mt-2"
+          />
+          {errors.fullName ? (
+            <AuthFieldError id="sign-up-full-name-error" message={errors.fullName} />
+          ) : null}
+        </div>
+
         <div>
           <Label htmlFor="sign-up-email">Email</Label>
           <Input

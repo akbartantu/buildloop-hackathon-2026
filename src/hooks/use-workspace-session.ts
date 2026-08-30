@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
+import { resolveUserDisplayName } from "@/lib/auth/user-display";
 import { isDevAuthBypassEnabled } from "@/lib/dev-auth-bypass";
 
 export function useWorkspaceSession() {
@@ -9,11 +10,10 @@ export function useWorkspaceSession() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
-  const displayName =
-    (user?.user_metadata?.["full_name"] as string | undefined) ||
-    (user?.user_metadata?.["name"] as string | undefined) ||
-    user?.email?.split("@")[0] ||
-    "Pengguna";
+  const displayName = resolveUserDisplayName({
+    email: user?.email,
+    userMetadata: user?.user_metadata as { full_name?: string; name?: string } | undefined,
+  });
   const email = user?.email;
   const avatarUrl = user?.user_metadata?.["avatar_url"] as string | undefined;
 

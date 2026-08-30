@@ -67,3 +67,8 @@ export type ForgotPasswordInput = z.input<typeof forgotPasswordSchema>;
 export type ForgotPasswordParsed = z.output<typeof forgotPasswordSchema>;
 export type ResetPasswordInput = z.input<typeof resetPasswordSchema>;
 export type ResetPasswordParsed = z.output<typeof resetPasswordSchema>;
+
+/** Same validation as reset-password flow; used for authenticated password changes. */
+export const changePasswordSchema = resetPasswordSchema;
+export type ChangePasswordInput = ResetPasswordInput;
+export type ChangePasswordParsed = ResetPasswordParsed;

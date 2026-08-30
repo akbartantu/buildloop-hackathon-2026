@@ -1,7 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import {
+  canChangePassword,
   formatLastSignIn,
+  isValidPhone,
   normalizeFullName,
+  normalizePhone,
   resolveAuthProviderLabel,
   resolveUserDisplayName,
 } from "@/lib/auth/user-display";
@@ -57,6 +60,32 @@ describe("normalizeFullName", () => {
   });
 });
 
+describe("normalizePhone", () => {
+  test("trims surrounding whitespace", () => {
+    expect(normalizePhone("  +62 812 3456 7890  ")).toBe("+62 812 3456 7890");
+  });
+});
+
+describe("isValidPhone", () => {
+  test("allows empty phone", () => {
+    expect(isValidPhone("")).toBe(true);
+  });
+
+  test("rejects invalid characters", () => {
+    expect(isValidPhone("phone#123")).toBe(false);
+  });
+});
+
+describe("canChangePassword", () => {
+  test("returns true for email provider accounts", () => {
+    expect(canChangePassword({ app_metadata: { provider: "email" } })).toBe(true);
+  });
+
+  test("returns false for google-only accounts", () => {
+    expect(canChangePassword({ identities: [{ provider: "google" }] })).toBe(false);
+  });
+});
+
 describe("signup metadata wiring", () => {
   test("sign-up route stores full_name in auth.signUp metadata", async () => {
     const source = await Bun.file(new URL("../../routes/auth/sign-up.tsx", import.meta.url)).text();
@@ -73,6 +102,7 @@ describe("settings profile wiring", () => {
 
     expect(source).toContain("supabase.auth.updateUser");
     expect(source).toContain("full_name:");
+    expect(source).toContain("phone:");
     expect(source).toContain("readOnly");
   });
 });

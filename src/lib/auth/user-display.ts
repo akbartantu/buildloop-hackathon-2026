@@ -1,6 +1,9 @@
+export const AUTH_PHONE_MAX = 30;
+
 type UserMetadataLike = {
   full_name?: string;
   name?: string;
+  phone?: string;
   avatar_url?: string;
 };
 
@@ -74,4 +77,40 @@ export function formatLastSignIn(value: string | null | undefined): string {
 
 export function normalizeFullName(value: string): string {
   return value.trim().replace(/\s+/g, " ");
+}
+
+/** Profile contact phone — metadata only, not phone-auth identity. */
+export function normalizePhone(value: string): string {
+  return value.trim();
+}
+
+export function isValidPhone(value: string): boolean {
+  const trimmed = normalizePhone(value);
+  if (!trimmed) {
+    return true;
+  }
+
+  if (trimmed.length > AUTH_PHONE_MAX) {
+    return false;
+  }
+
+  return /^\+?[\d\s\-().]+$/.test(trimmed) && /\d/.test(trimmed);
+}
+
+export function canChangePassword(user: AuthUserLike): boolean {
+  const providers = new Set<string>();
+
+  const appProvider = user.app_metadata?.provider?.trim().toLowerCase();
+  if (appProvider) {
+    providers.add(appProvider);
+  }
+
+  for (const identity of user.identities ?? []) {
+    const provider = identity.provider?.trim().toLowerCase();
+    if (provider) {
+      providers.add(provider);
+    }
+  }
+
+  return providers.has("email");
 }

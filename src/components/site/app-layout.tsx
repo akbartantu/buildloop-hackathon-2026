@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useWorkspaceSession } from "@/hooks/use-workspace-session";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { useWorkspaceLabel } from "@/hooks/use-workspace-label";
 import { ProductTour, useProductTourController } from "@/components/site/product-tour";
 import {
   APP_NAV_ITEMS,
@@ -46,7 +47,6 @@ import {
   type AppNavItem,
 } from "@/lib/app-nav";
 import { isDevAuthBypassEnabled } from "@/lib/dev-auth-bypass";
-import { WORKSPACE_NAME } from "@/lib/task-contract";
 
 const NAV_ICONS: Record<AppNavItem["key"], LucideIcon> = {
   home: Home,
@@ -100,6 +100,7 @@ function NavLink({ item, isActive }: { item: AppNavItem; isActive: boolean }) {
 export function AppLayout() {
   const { displayName, email, avatarUrl, handleSignOut } = useWorkspaceSession();
   const { tasks } = useWorkspaceTasks();
+  const { label: workspaceLabel } = useWorkspaceLabel();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const activeNav = resolveActiveNav(pathname);
   const latestTask = tasks[0] ?? null;
@@ -121,7 +122,7 @@ export function AppLayout() {
             <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
               Workspace
             </p>
-            <p className="mt-1 truncate text-sm font-medium text-foreground">{WORKSPACE_NAME}</p>
+            <p className="mt-1 truncate text-sm font-medium text-foreground">{workspaceLabel}</p>
           </div>
         </SidebarHeader>
 

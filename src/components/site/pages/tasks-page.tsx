@@ -3,18 +3,19 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DemoPageHeader, DemoPanel } from "@/components/site/demo-ui";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { useWorkspaceLabel } from "@/hooks/use-workspace-label";
 import { formatTaskRef, nextActionLabel } from "@/lib/task-display";
-import { WORKSPACE_NAME } from "@/lib/task-contract";
 
 export function TasksPage() {
   const { tasks, isLoading } = useWorkspaceTasks();
+  const { label: workspaceLabel } = useWorkspaceLabel();
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <DemoPageHeader
           title="Tasks"
-          description={`Bounded work di workspace ${WORKSPACE_NAME}. Setiap task menghasilkan contract deterministik sebelum orchestrator dijalankan.`}
+          description={`Bounded work di workspace ${workspaceLabel}. Setiap task menghasilkan contract deterministik sebelum orchestrator dijalankan.`}
         />
         <Button asChild className="shrink-0">
           <Link to="/app/tasks/new">

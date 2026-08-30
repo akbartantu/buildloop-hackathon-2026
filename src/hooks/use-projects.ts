@@ -46,6 +46,7 @@ export function useProjects() {
       if (result.status === "ok") {
         setSelectedProjectId(result.projectId);
         await queryClient.invalidateQueries({ queryKey: ["projects"] });
+        await queryClient.refetchQueries({ queryKey: ["projects"] });
       }
       return result;
     },

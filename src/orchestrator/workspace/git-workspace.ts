@@ -97,6 +97,28 @@ export async function isGitRepository(repoPath: string): Promise<boolean> {
   }
 }
 
+export async function assertGitAvailable(): Promise<void> {
+  try {
+    await execFileAsync("git", ["--version"], { maxBuffer: 1024 * 1024 });
+  } catch (error) {
+    throw new Error("Git executable is unavailable.", { cause: error });
+  }
+}
+
+export async function probePublicRepositoryRefs(normalizedUrl: string): Promise<string[]> {
+  try {
+    const { stdout } = await execFileAsync("git", ["ls-remote", "--heads", normalizedUrl], {
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return stdout
+      .split("\n")
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch (error) {
+    throw new Error("Repository is not publicly accessible.", { cause: error });
+  }
+}
+
 export async function captureGitBaseline(repoPath: string): Promise<GitBaseline | null> {
   const resolved = path.resolve(repoPath);
   if (!(await pathExists(resolved))) {

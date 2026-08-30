@@ -4,8 +4,15 @@ import { requireAuth } from "@/lib/auth/require-auth";
 import type { ConnectedRepositorySource } from "@/lib/repository/repository-source";
 import { validatePublicGitHubUrl } from "@/lib/repository/public-github-url";
 import {
+  classifyRepositoryConnectionError,
+  logRepositoryConnectionError,
+  repositoryConnectionMessage,
+} from "@/lib/repository/repository-connection-errors";
+import {
+  assertGitAvailable,
   captureGitBaseline,
   ensurePublicGitHubClone,
+  probePublicRepositoryRefs,
 } from "@/orchestrator/workspace/git-workspace";
 import { getSandboxRoot } from "@/orchestrator/workspace/sandbox-root";
 import { getWorkspaceRoot } from "@/orchestrator/product/orchestrator";
@@ -30,17 +37,62 @@ export const connectPublicRepository = createServerFn({ method: "POST" })
     }
 
     try {
+      await assertGitAvailable();
+    } catch (error) {
+      logRepositoryConnectionError("git availability", error);
+      return {
+        status: "error",
+        message: repositoryConnectionMessage("git_unavailable"),
+      };
+    }
+
+    try {
+      const refs = await probePublicRepositoryRefs(validation.normalizedUrl);
+      if (refs.length === 0) {
+        return {
+          status: "error",
+          message: repositoryConnectionMessage("inspection_failed"),
+        };
+      }
+    } catch (error) {
+      logRepositoryConnectionError("repository accessibility", error);
+      return {
+        status: "error",
+        message: repositoryConnectionMessage("not_accessible"),
+      };
+    }
+
+    let repoPath: string;
+    try {
       const workspaceRoot = getWorkspaceRoot();
       const sandboxRoot = getSandboxRoot(workspaceRoot);
-      const repoPath = await ensurePublicGitHubClone(validation.normalizedUrl, workspaceRoot, {
+      repoPath = await ensurePublicGitHubClone(validation.normalizedUrl, workspaceRoot, {
         sandboxRoot,
       });
-      const baseline = await captureGitBaseline(repoPath);
+    } catch (error) {
+      logRepositoryConnectionError("clone", error);
+      const category = classifyRepositoryConnectionError(error);
+      return {
+        status: "error",
+        message: repositoryConnectionMessage(
+          category === "unexpected" ? "clone_failed" : category,
+        ),
+      };
+    }
 
-      if (!baseline) {
-        return { status: "error", message: "Repository could not be inspected." };
-      }
+    const baseline = await captureGitBaseline(repoPath);
+    if (!baseline) {
+      logRepositoryConnectionError(
+        "baseline capture",
+        new Error("captureGitBaseline returned null"),
+      );
+      return {
+        status: "error",
+        message: repositoryConnectionMessage("inspection_failed"),
+      };
+    }
 
+    try {
       const project = await context.projects.upsertPublicGitHubProject({
         userId: context.auth.userId,
         name: validation.repoName,
@@ -63,7 +115,14 @@ export const connectPublicRepository = createServerFn({ method: "POST" })
           projectId: project.id,
         },
       };
-    } catch {
-      return { status: "error", message: "Repository could not be connected." };
+    } catch (error) {
+      logRepositoryConnectionError("project persistence", error);
+      const category = classifyRepositoryConnectionError(error);
+      return {
+        status: "error",
+        message: repositoryConnectionMessage(
+          category === "unexpected" ? "persistence_failed" : category,
+        ),
+      };
     }
   });

@@ -8,8 +8,8 @@ import {
   DemoPanel,
 } from "@/components/site/demo-ui";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { useWorkspaceLabel } from "@/hooks/use-workspace-label";
 import { formatTaskRef } from "@/lib/task-display";
-import { WORKSPACE_NAME } from "@/lib/task-contract";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import { isPendingHumanApproval } from "@/lib/human-approval";
 
@@ -27,6 +27,7 @@ function latestRunTask(tasks: TaskRecord[]): TaskRecord | null {
 
 export function HomePage() {
   const { tasks, isLoading } = useWorkspaceTasks();
+  const { label: workspaceLabel } = useWorkspaceLabel();
   const latestTask = tasks[0] ?? null;
   const recentRun = latestRunTask(tasks);
   const pendingApprovals = countPendingApprovals(tasks);
@@ -35,11 +36,11 @@ export function HomePage() {
     <div className="space-y-6">
       <DemoPageHeader
         title="Ringkasan operasional"
-        description={`Workspace ${WORKSPACE_NAME} — lihat apa yang sedang berjalan di BuildLoop.`}
+        description={`Workspace ${workspaceLabel} — lihat apa yang sedang berjalan di BuildLoop.`}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DemoMetricCard label="Workspace" value={WORKSPACE_NAME} />
+        <DemoMetricCard label="Workspace" value={workspaceLabel} />
         <DemoMetricCard
           label="Task aktif"
           value={isLoading ? "…" : String(tasks.length)}

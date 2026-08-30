@@ -4,10 +4,14 @@ type AuthErrorLike = {
   status?: number | undefined;
 };
 
-export type RegistrationCreateUserResult =
+export type SignupErrorResult =
   | { status: "email_taken" }
   | { status: "weak_password" }
+  | { status: "rate_limited" }
   | { status: "error" };
+
+/** @deprecated Use SignupErrorResult */
+export type RegistrationCreateUserResult = SignupErrorResult;
 
 const SENSITIVE_LOG_PATTERNS = [
   /@/,
@@ -27,9 +31,7 @@ export function isSafeAuthErrorMessageForLogging(message: string): boolean {
   return !SENSITIVE_LOG_PATTERNS.some((pattern) => pattern.test(trimmed));
 }
 
-export function mapRegistrationCreateUserError(
-  error: AuthErrorLike,
-): RegistrationCreateUserResult {
+export function mapSignupError(error: AuthErrorLike): SignupErrorResult {
   const message = (error.message ?? "").toLowerCase();
   const code = (error.code ?? "").toLowerCase();
 
@@ -52,7 +54,30 @@ export function mapRegistrationCreateUserError(
     return { status: "weak_password" };
   }
 
+  if (
+    code === "over_email_send_rate_limit" ||
+    code === "over_request_rate_limit" ||
+    message.includes("rate limit") ||
+    message.includes("too many requests")
+  ) {
+    return { status: "rate_limited" };
+  }
+
+  if (
+    code === "unexpected_failure" ||
+    message.includes("error sending confirmation email") ||
+    message.includes("email delivery") ||
+    message.includes("failed to send")
+  ) {
+    return { status: "error" };
+  }
+
   return { status: "error" };
+}
+
+/** @deprecated Use mapSignupError */
+export function mapRegistrationCreateUserError(error: AuthErrorLike): RegistrationCreateUserResult {
+  return mapSignupError(error);
 }
 
 export function mapAuthError(error: AuthErrorLike | null | undefined): string {

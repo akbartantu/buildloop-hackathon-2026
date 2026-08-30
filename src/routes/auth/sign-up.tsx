@@ -13,10 +13,11 @@ import {
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button";
 import { PasswordField } from "@/components/auth/password-field";
 import { supabase } from "@/integrations/supabase/client";
-import { mapAuthError } from "@/lib/auth/auth-errors";
+import { mapSignupError } from "@/lib/auth/auth-errors";
+import { precheckEmailSignup } from "@/lib/auth/auth.functions";
 import { signUpSchema } from "@/lib/auth/auth-schema";
-import { registerWithEmail } from "@/lib/auth/auth.functions";
 import { DISPOSABLE_EMAIL_MESSAGE } from "@/lib/auth/disposable-email";
+import { interpretSignupResponse } from "@/lib/auth/signup-flow";
 
 export const Route = createFileRoute("/auth/sign-up")({
   ssr: false,
@@ -33,7 +34,7 @@ type FieldErrors = Partial<Record<"email" | "password" | "confirmPassword", stri
 
 function SignUpPage() {
   const navigate = useNavigate();
-  const register = useServerFn(registerWithEmail);
+  const precheckSignup = useServerFn(precheckEmailSignup);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -66,42 +67,69 @@ function SignUpPage() {
     setLoading(true);
 
     try {
-      const result = await register({ data: parsed.data });
+      const precheck = await precheckSignup({ data: parsed.data });
 
-      if (result.status === "disposable_email") {
+      if (precheck.status === "disposable_email") {
         setErrors({ email: DISPOSABLE_EMAIL_MESSAGE });
         return;
       }
 
-      if (result.status === "email_taken") {
-        setFormError("An account with this email already exists. Sign in or use a different email.");
-        return;
-      }
-
-      if (result.status === "weak_password") {
-        setErrors({
-          password: "Password does not meet the minimum requirements. Use at least 6 characters.",
-        });
-        return;
-      }
-
-      if (result.status === "needs_email_confirmation") {
-        setNeedsConfirmation(true);
-        return;
-      }
-
-      if (result.status === "error") {
+      if (precheck.status === "error") {
         setFormError("Could not create your account. Please try again.");
         return;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      if (precheck.status !== "ok") {
+        setFormError("Could not create your account. Please try again.");
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
         email: parsed.data.email,
         password: parsed.data.password,
+        options: {
+          emailRedirectTo: precheck.emailRedirectTo,
+        },
       });
 
       if (error) {
-        setFormError(mapAuthError(error));
+        const mapped = mapSignupError(error);
+
+        if (mapped.status === "email_taken") {
+          setFormError("An account with this email already exists. Sign in or use a different email.");
+          return;
+        }
+
+        if (mapped.status === "weak_password") {
+          setErrors({
+            password: "Password does not meet the minimum requirements. Use at least 6 characters.",
+          });
+          return;
+        }
+
+        if (mapped.status === "rate_limited") {
+          setFormError("Too many attempts. Please wait a moment and try again.");
+          return;
+        }
+
+        setFormError("Could not create your account. Please try again.");
+        return;
+      }
+
+      const completion = interpretSignupResponse(data);
+
+      if (completion.status === "email_taken") {
+        setFormError("An account with this email already exists. Sign in or use a different email.");
+        return;
+      }
+
+      if (completion.status === "needs_email_confirmation") {
+        setNeedsConfirmation(true);
+        return;
+      }
+
+      if (completion.status === "error") {
+        setFormError("Could not create your account. Please try again.");
         return;
       }
 

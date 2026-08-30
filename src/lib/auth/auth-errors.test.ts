@@ -3,6 +3,7 @@ import {
   isSafeAuthErrorMessageForLogging,
   mapAuthError,
   mapRegistrationCreateUserError,
+  mapSignupError,
 } from "@/lib/auth/auth-errors";
 
 describe("mapAuthError", () => {
@@ -24,6 +25,38 @@ describe("mapAuthError", () => {
     expect(mapAuthError({ message: "unexpected upstream failure" })).toBe(
       "Something went wrong. Please try again.",
     );
+  });
+});
+
+describe("mapSignupError", () => {
+  test("maps existing user by error code", () => {
+    expect(mapSignupError({ code: "user_already_exists" })).toEqual({
+      status: "email_taken",
+    });
+    expect(mapSignupError({ code: "email_exists" })).toEqual({
+      status: "email_taken",
+    });
+  });
+
+  test("maps weak password by error code", () => {
+    expect(mapSignupError({ code: "weak_password" })).toEqual({
+      status: "weak_password",
+    });
+  });
+
+  test("maps rate limiting safely", () => {
+    expect(mapSignupError({ code: "over_email_send_rate_limit" })).toEqual({
+      status: "rate_limited",
+    });
+    expect(mapSignupError({ message: "Email rate limit exceeded" })).toEqual({
+      status: "rate_limited",
+    });
+  });
+
+  test("returns generic error for unknown failures", () => {
+    expect(mapSignupError({ message: "unexpected upstream failure" })).toEqual({
+      status: "error",
+    });
   });
 });
 

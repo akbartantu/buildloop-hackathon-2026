@@ -6,6 +6,10 @@ import type { HumanGateDecision, SensitiveApprovalAction } from "@/lib/human-app
 import { useProjects } from "@/hooks/use-projects";
 import { shouldPollTaskStatus, TASK_RUN_POLL_INTERVAL_MS } from "@/lib/lifecycle-progress";
 
+export function workspaceTasksQueryKey(projectScope: string | null) {
+  return ["tasks", projectScope] as const;
+}
+
 export function useWorkspaceTasks() {
   const queryClient = useQueryClient();
   const { activeProject } = useProjects();
@@ -21,7 +25,7 @@ export function useWorkspaceTasks() {
   const protectedPathApprovalFn = useServerFn(respondToProtectedPathApproval);
 
   const tasksQuery = useQuery({
-    queryKey: ["tasks", projectScope],
+    queryKey: workspaceTasksQueryKey(projectScope),
     queryFn: () => fetchTasks({ data: { projectId: projectScope } }),
     refetchInterval: (query) => {
       const list = query.state.data ?? [];
@@ -151,10 +155,13 @@ export function useWorkspaceTasks() {
     },
   });
 
+  const isScopePending = tasksQuery.isPending;
+
   return {
-    tasks: tasksQuery.data ?? [],
+    tasks: isScopePending ? [] : (tasksQuery.data ?? []),
     projectScope,
-    isLoading: tasksQuery.isLoading,
+    isLoading: isScopePending,
+    isFetching: tasksQuery.isFetching,
     isError: tasksQuery.isError,
     createMutation,
     lockMutation,

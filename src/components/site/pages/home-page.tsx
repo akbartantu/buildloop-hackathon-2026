@@ -51,19 +51,23 @@ export function HomePage() {
         />
         <DemoMetricCard
           label={t("home.latestRun")}
-          value={recentRun ? taskStatusLabel(recentRun.status) : t("home.noneYet")}
+          value={
+            isLoading ? "…" : recentRun ? taskStatusLabel(recentRun.status) : t("home.noneYet")
+          }
           tone={
-            recentRun?.status === "PASS" || recentRun?.status === "AWAITING_APPROVAL"
-              ? "pass"
-              : recentRun?.status === "BLOCKED" || recentRun?.status === "FAILED"
-                ? "blocked"
-                : "neutral"
+            isLoading
+              ? "neutral"
+              : recentRun?.status === "PASS" || recentRun?.status === "AWAITING_APPROVAL"
+                ? "pass"
+                : recentRun?.status === "BLOCKED" || recentRun?.status === "FAILED"
+                  ? "blocked"
+                  : "neutral"
           }
         />
         <DemoMetricCard
           label={t("home.pendingApprovals")}
-          value={String(pendingApprovals)}
-          tone={pendingApprovals > 0 ? "review" : "neutral"}
+          value={isLoading ? "…" : String(pendingApprovals)}
+          tone={!isLoading && pendingApprovals > 0 ? "review" : "neutral"}
         />
       </div>
 
@@ -96,7 +100,9 @@ export function HomePage() {
         </DemoPanel>
 
         <DemoPanel title={t("home.latestRun")}>
-          {recentRun ? (
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          ) : recentRun ? (
             <div className="space-y-3">
               <DemoBulletList
                 items={[

@@ -36,6 +36,7 @@ import {
   SidebarProvider,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
+import { ProjectsProvider } from "@/hooks/use-projects";
 import { useWorkspaceSession } from "@/hooks/use-workspace-session";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
 import { WorkspaceSwitcher } from "@/components/site/workspace-switcher";
@@ -102,6 +103,14 @@ function NavLink({ item, isActive }: { item: AppNavItem; isActive: boolean }) {
 }
 
 export function AppLayout() {
+  return (
+    <ProjectsProvider>
+      <AppLayoutContent />
+    </ProjectsProvider>
+  );
+}
+
+function AppLayoutContent() {
   const { displayName, email, avatarUrl, handleSignOut } = useWorkspaceSession();
   const { tasks } = useWorkspaceTasks();
   const { t } = useI18n();

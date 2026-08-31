@@ -1,6 +1,10 @@
 import { discoverCandidatePaths } from "@/orchestrator/contract/discover-candidate-paths";
 import { isAmbiguousGoal } from "@/orchestrator/contract/derive-task-contract";
 import type { PlanningSpecificationEntry } from "@/lib/specifications/specification-set-record";
+import {
+  filterRepositoryPathsAtRoot,
+  formatRepositorySourceLabel,
+} from "@/lib/planning/resolve-planning-repository";
 import type { PlanningSource } from "./planning-source";
 
 const GOAL_TOKEN_PATTERN = /\b[a-z][a-z0-9_-]{2,}\b/gi;
@@ -157,36 +161,40 @@ export function specificationSourcesForGoal(
 
 export async function repositorySourcesForGoal(
   goal: string,
-  workspaceRoot: string,
+  repositoryRoot: string | null,
   sourceCommitSha?: string | null,
+  repositoryUrl?: string | null,
 ): Promise<PlanningSource[]> {
-  if (isReadmeGoal(goal) || isAmbiguousGoal(goal)) {
-    return sourceCommitSha
-      ? [
-          {
-            sourceType: "source_commit" as const,
-            displayName: sourceCommitSha.slice(0, 7),
-            sourceCommitSha,
-          },
-        ]
-      : [];
+  const provenanceVerified = Boolean(repositoryRoot && sourceCommitSha);
+
+  if (!provenanceVerified) {
+    return [];
   }
 
-  const discovered = await discoverCandidatePaths(goal, workspaceRoot);
-  const sources: PlanningSource[] = discovered.candidates.slice(0, 4).map((candidatePath) => ({
+  if (isReadmeGoal(goal) || isAmbiguousGoal(goal)) {
+    return [
+      {
+        sourceType: "source_commit" as const,
+        displayName: sourceCommitSha!.slice(0, 7),
+        sourceCommitSha: sourceCommitSha!,
+      },
+    ];
+  }
+
+  const discovered = await discoverCandidatePaths(goal, repositoryRoot!);
+  const provenPaths = await filterRepositoryPathsAtRoot(repositoryRoot!, discovered.candidates);
+  const sources: PlanningSource[] = provenPaths.slice(0, 4).map((candidatePath) => ({
     sourceType: "repository_file" as const,
-    displayName: candidatePath,
+    displayName: formatRepositorySourceLabel(candidatePath, repositoryUrl, sourceCommitSha),
     path: candidatePath,
-    ...(sourceCommitSha ? { sourceCommitSha } : {}),
+    sourceCommitSha: sourceCommitSha!,
   }));
 
-  if (sourceCommitSha) {
-    sources.push({
-      sourceType: "source_commit",
-      displayName: sourceCommitSha.slice(0, 7),
-      sourceCommitSha,
-    });
-  }
+  sources.push({
+    sourceType: "source_commit",
+    displayName: sourceCommitSha!.slice(0, 7),
+    sourceCommitSha: sourceCommitSha!,
+  });
 
   return sources;
 }
@@ -199,15 +207,17 @@ export type PlanningContextBundle = {
 export async function buildPlanningContext(input: {
   goal: string;
   specifications: PlanningSpecificationEntry[];
-  workspaceRoot: string;
+  repositoryRoot: string | null;
   sourceCommitSha?: string | null;
+  repositoryUrl?: string | null;
 }): Promise<PlanningContextBundle> {
   const relevantSpecifications = selectRelevantSpecifications(input.goal, input.specifications);
   const specSources = specificationSourcesForGoal(input.goal, relevantSpecifications);
   const repoSources = await repositorySourcesForGoal(
     input.goal,
-    input.workspaceRoot,
+    input.repositoryRoot,
     input.sourceCommitSha,
+    input.repositoryUrl,
   );
 
   const sourcesUsed = [...specSources, ...repoSources];

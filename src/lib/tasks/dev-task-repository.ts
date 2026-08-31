@@ -155,6 +155,7 @@ export function createDevTaskRepository(
         {
           id: taskId,
           goal: input.goal,
+          workspace,
           projectId,
           sourceCommitSha,
           contract: {},

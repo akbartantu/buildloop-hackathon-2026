@@ -56,7 +56,11 @@ export type TaskGoalAnalysis = {
 export type TaskPlanningInput = {
   goal: string;
   taskId: string;
+  /** BuildLoop application root — used for governance policy loading. */
   workspaceRoot: string;
+  /** Isolated connected repository checkout at source commit — used for repository evidence. */
+  repositoryRoot?: string | null;
+  repositoryUrl?: string | null;
   acceptanceCriteria?: string[];
   contractVersion?: number;
   contractHistory?: ContractHistoryEntry[];
@@ -141,8 +145,9 @@ async function resolvePlanning(input: TaskPlanningInput) {
   const planningContext = await buildPlanningContext({
     goal: input.goal,
     specifications,
-    workspaceRoot: input.workspaceRoot,
+    repositoryRoot: input.repositoryRoot ?? null,
     sourceCommitSha: input.sourceCommitSha ?? null,
+    repositoryUrl: input.repositoryUrl ?? null,
   });
 
   const evaluation = evaluateClarificationPolicy({
@@ -165,7 +170,7 @@ async function resolvePlanning(input: TaskPlanningInput) {
   const workPlan = await planWork({
     goal: input.goal,
     taskId: input.taskId ?? "preview",
-    workspaceRoot: input.workspaceRoot,
+    ...(input.repositoryRoot ? { workspaceRoot: input.repositoryRoot } : {}),
     ...(effectiveCriteria.length ? { acceptanceCriteria: effectiveCriteria } : {}),
   });
 
@@ -178,16 +183,16 @@ async function resolvePlanning(input: TaskPlanningInput) {
       .filter((source) => source.sourceType === "repository_file" && source.path)
       .map((source) => source.path!)
       .slice(0, 4);
-    const fallbackScope =
-      repositoryScope.length > 0 ? repositoryScope : ["src/routes/auth.tsx", "src/lib/auth"];
-    for (const contract of workPlan.contracts) {
-      if (contract.status === "blocked" && contract.expectedScope.length === 0) {
-        contract.expectedScope = fallbackScope;
-        contract.status = "pending";
-        contract.acceptanceCriteria = mergeUserAndGeneratedCriteria(
-          contract.acceptanceCriteria,
-          evaluation.inferredCriteria,
-        );
+    if (repositoryScope.length > 0) {
+      for (const contract of workPlan.contracts) {
+        if (contract.status === "blocked" && contract.expectedScope.length === 0) {
+          contract.expectedScope = repositoryScope;
+          contract.status = "pending";
+          contract.acceptanceCriteria = mergeUserAndGeneratedCriteria(
+            contract.acceptanceCriteria,
+            evaluation.inferredCriteria,
+          );
+        }
       }
     }
   }

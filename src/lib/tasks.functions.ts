@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { getWorkspaceRoot } from "@/orchestrator/product/orchestrator";
 import { analyzeTaskGoal } from "@/lib/task-planning";
+import { resolvePlanningRepositoryRoot } from "@/lib/planning/resolve-planning-repository";
 import {
   analyzeTaskGoalSchema,
   answerTaskClarificationSchema,
@@ -110,17 +111,35 @@ export const analyzeTaskGoalPreview = createServerFn({ method: "POST" })
       ? await context.specifications.listPlanningSpecifications(data.projectId, context.auth.userId)
       : [];
     let sourceCommitSha: string | null = null;
+    let repositoryUrl: string | null = null;
     if (data.projectId) {
       const project = await context.projects.getProject(data.projectId, context.auth.userId);
       sourceCommitSha = project?.connectedCommitSha ?? null;
+      repositoryUrl = project?.repositoryUrl ?? null;
     }
+
+    const appWorkspaceRoot = getWorkspaceRoot();
+    const repositoryResolution = repositoryUrl
+      ? await resolvePlanningRepositoryRoot({
+          appWorkspaceRoot,
+          repositoryUrl,
+          sourceCommitSha,
+        })
+      : {
+          repositoryRoot: null,
+          repositoryUrl: null,
+          sourceCommitSha: null,
+          provenanceVerified: false,
+        };
 
     return analyzeTaskGoal({
       goal: data.goal,
       taskId: "preview",
-      workspaceRoot: getWorkspaceRoot(),
+      workspaceRoot: appWorkspaceRoot,
+      repositoryRoot: repositoryResolution.repositoryRoot,
+      repositoryUrl: repositoryResolution.repositoryUrl,
       specifications,
-      sourceCommitSha,
+      sourceCommitSha: repositoryResolution.provenanceVerified ? sourceCommitSha : null,
       ...(data.acceptanceCriteria ? { acceptanceCriteria: data.acceptanceCriteria } : {}),
       ...(data.clarificationAnswer ? { clarificationAnswer: data.clarificationAnswer } : {}),
     });

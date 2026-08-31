@@ -105,6 +105,7 @@ export function createSupabaseTaskRepository(
         {
           id: taskId,
           goal: input.goal,
+          workspace,
           projectId,
           sourceCommitSha,
           contract: {},

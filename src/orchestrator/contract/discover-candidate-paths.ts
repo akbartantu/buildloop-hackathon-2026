@@ -4,6 +4,14 @@ const SOURCE_EXTENSIONS = /\.(tsx?|jsx?|ts|js|md|css|html|json|ya?ml)$/i;
 
 const manifestCache = new Map<string, Promise<Array<{ path: string }>>>();
 
+export function clearDiscoverCandidatePathsCache(): void {
+  manifestCache.clear();
+}
+
+export function invalidateDiscoverCandidatePathsCache(workspaceRoot: string): void {
+  manifestCache.delete(workspaceRoot);
+}
+
 const GOAL_TOKEN_PATTERN = /\b[a-z][a-z0-9_-]{2,}\b/gi;
 
 const STOP_WORDS = new Set([

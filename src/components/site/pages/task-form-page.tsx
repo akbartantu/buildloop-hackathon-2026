@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { Plus } from "lucide-react";
@@ -9,20 +9,17 @@ import { DemoPageHeader, DemoPanel } from "@/components/site/demo-ui";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
 import { useI18n } from "@/i18n/context";
+import {
+  countAcceptanceCriteria,
+  mergeSuggestedIntoCriteriaText,
+  parseAcceptanceCriteria,
+  prepareTextareaForNewCriterion,
+} from "@/lib/acceptance-criteria-form";
 import { analyzeTaskGoalPreview } from "@/lib/tasks.functions";
 import { abbreviateCommitSha } from "@/lib/repository/task-source-display";
 import { formatPlanningSourceLabel } from "@/lib/planning/planning-source";
 import { MAX_ATTEMPTS, PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
 import type { TaskGoalAnalysis } from "@/lib/task-planning";
-
-function parseAcceptanceCriteria(raw: string): string[] | undefined {
-  const criteria = raw
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length >= 3);
-
-  return criteria.length > 0 ? criteria : undefined;
-}
 
 export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   const navigate = useNavigate();
@@ -30,6 +27,8 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   const { tasks, createMutation } = useWorkspaceTasks();
   const { source, activeProject } = useProjects();
   const analyzeGoal = useServerFn(analyzeTaskGoalPreview);
+  const criteriaTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const suggestedNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sourceTask = fromTaskId ? (tasks.find((task) => task.id === fromTaskId) ?? null) : null;
   const [taskGoal, setTaskGoal] = useState("");
   const [acceptanceCriteriaText, setAcceptanceCriteriaText] = useState("");
@@ -38,7 +37,9 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   const [analyzing, setAnalyzing] = useState(false);
   const [userEditedCriteria, setUserEditedCriteria] = useState(false);
   const [clarificationAnswer, setClarificationAnswer] = useState("");
+  const [suggestedAddedNotice, setSuggestedAddedNotice] = useState(false);
   const workspaceLabel = source?.repoName ?? WORKSPACE_NAME;
+  const criteriaCount = countAcceptanceCriteria(acceptanceCriteriaText);
 
   useEffect(() => {
     if (sourceTask) {
@@ -47,6 +48,26 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
       setUserEditedCriteria(true);
     }
   }, [sourceTask]);
+
+  useEffect(() => {
+    return () => {
+      if (suggestedNoticeTimerRef.current) {
+        clearTimeout(suggestedNoticeTimerRef.current);
+      }
+    };
+  }, []);
+
+  const focusCriteriaTextareaAtEnd = useCallback(() => {
+    requestAnimationFrame(() => {
+      const textarea = criteriaTextareaRef.current;
+      if (!textarea) {
+        return;
+      }
+      textarea.focus();
+      const caret = textarea.value.length;
+      textarea.setSelectionRange(caret, caret);
+    });
+  }, []);
 
   async function handleAnalyze() {
     setFormError(null);
@@ -73,15 +94,29 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   }
 
   function handleAcceptSuggested() {
-    if (analysis?.acceptanceCriteria.length) {
-      setAcceptanceCriteriaText(analysis.acceptanceCriteria.join("\n"));
-      setUserEditedCriteria(true);
+    if (!analysis?.acceptanceCriteria.length) {
+      return;
     }
+
+    setAcceptanceCriteriaText((current) =>
+      mergeSuggestedIntoCriteriaText(current, analysis.acceptanceCriteria),
+    );
+    setUserEditedCriteria(true);
+    setSuggestedAddedNotice(true);
+    if (suggestedNoticeTimerRef.current) {
+      clearTimeout(suggestedNoticeTimerRef.current);
+    }
+    suggestedNoticeTimerRef.current = setTimeout(() => {
+      setSuggestedAddedNotice(false);
+      suggestedNoticeTimerRef.current = null;
+    }, 3000);
+    focusCriteriaTextareaAtEnd();
   }
 
   function handleAddCriterion() {
-    setAcceptanceCriteriaText((current) => (current.trim() ? `${current.trim()}\n` : ""));
+    setAcceptanceCriteriaText((current) => prepareTextareaForNewCriterion(current));
     setUserEditedCriteria(true);
+    focusCriteriaTextareaAtEnd();
   }
 
   async function handleSubmit() {
@@ -200,7 +235,7 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
                 <li key={criterion}>· {criterion}</li>
               ))}
             </ul>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={handleAcceptSuggested}>
                 {t("tasks.acceptSuggested")}
               </Button>
@@ -208,14 +243,25 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
                 <Plus className="mr-1 size-3.5" />
                 {t("tasks.addCriterion")}
               </Button>
+              {suggestedAddedNotice ? (
+                <span className="text-xs text-status-pass" role="status" aria-live="polite">
+                  {t("tasks.suggestedCriteriaAdded")}
+                </span>
+              ) : null}
             </div>
           </div>
         ) : null}
 
         <div className="mt-6 space-y-2">
-          <Label htmlFor="task-criteria">{t("tasks.criteriaLabel")}</Label>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <Label htmlFor="task-criteria">{t("tasks.criteriaLabel")}</Label>
+            <span className="text-xs text-muted-foreground" aria-live="polite">
+              {t("tasks.criteriaReadyCount", { count: criteriaCount })}
+            </span>
+          </div>
           <Textarea
             id="task-criteria"
+            ref={criteriaTextareaRef}
             value={acceptanceCriteriaText}
             onChange={(event) => {
               setAcceptanceCriteriaText(event.target.value);
@@ -224,7 +270,7 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
             placeholder={t("tasks.criteriaPlaceholder")}
             rows={6}
           />
-          <p className="text-xs text-muted-foreground">{t("tasks.criteriaOptional")}</p>
+          <p className="text-xs text-muted-foreground">{t("tasks.criteriaEditingHelp")}</p>
           {formError ? <p className="text-sm text-status-blocked">{formError}</p> : null}
         </div>
 

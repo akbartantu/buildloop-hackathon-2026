@@ -162,6 +162,10 @@ export const id = {
     criteriaPlaceholder:
       "Satu kriteria per baris. Contoh:\nOnly README.md is modified.\nAdd one concise sentence describing BuildLoop as a governed autonomous software-delivery agent.",
     criteriaHelp: "Setiap baris menjadi acceptance criterion yang terkunci di contract.",
+    criteriaEditingHelp:
+      "Satu kriteria per baris. Perubahan Anda akan disimpan saat task dibuat.",
+    criteriaReadyCount: "{count} kriteria siap",
+    suggestedCriteriaAdded: "Kriteria yang disarankan ditambahkan",
     workspace: "Workspace",
     sourceCommit: "Source commit",
     maxCorrections: "Maks. percobaan koreksi",

@@ -159,6 +159,10 @@ export const en = {
     criteriaPlaceholder:
       "One criterion per line. Example:\nOnly README.md is modified.\nAdd one concise sentence describing BuildLoop as a governed autonomous software-delivery agent.",
     criteriaHelp: "Each line becomes a locked acceptance criterion in the contract.",
+    criteriaEditingHelp:
+      "One criterion per line. Your edits will be saved when you create the task.",
+    criteriaReadyCount: "{count} criteria ready",
+    suggestedCriteriaAdded: "Suggested criteria added",
     workspace: "Workspace",
     sourceCommit: "Source commit",
     maxCorrections: "Max correction attempts",

@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdir, rm, symlink } from "node:fs/promises";
+import { mkdir, open, rm, symlink } from "node:fs/promises";
 import path from "node:path";
 import { promisify } from "node:util";
 
@@ -215,18 +215,132 @@ export async function cleanupSandboxDirectory(targetPath: string): Promise<void>
   await rm(targetPath, { recursive: true, force: true });
 }
 
+export function isBinaryDiff(raw: string): boolean {
+  return (
+    raw.includes("Binary files ") ||
+    raw.includes("GIT binary patch") ||
+    raw.includes("Binary files differ")
+  );
+}
+
+const BINARY_EXTENSIONS = new Set([
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".ico",
+  ".pdf",
+  ".zip",
+  ".gz",
+  ".wasm",
+  ".exe",
+  ".dll",
+  ".so",
+  ".dylib",
+  ".bin",
+]);
+
+export async function isBinaryFileAtPath(worktreePath: string, filePath: string): Promise<boolean> {
+  const normalized = normalizeRepoPath(filePath);
+  const extension = path.extname(normalized).toLowerCase();
+  if (BINARY_EXTENSIONS.has(extension)) {
+    return true;
+  }
+
+  const absolute = path.join(worktreePath, normalized);
+  const handle = await open(absolute, "r");
+  try {
+    const buffer = Buffer.alloc(8192);
+    const { bytesRead } = await handle.read(buffer, 0, 8192, 0);
+    return buffer.subarray(0, bytesRead).includes(0);
+  } finally {
+    await handle.close();
+  }
+}
+
+function normalizeRepoPath(filePath: string): string {
+  return filePath.replace(/\\/g, "/");
+}
+
+export async function listUntrackedFiles(worktreePath: string): Promise<string[]> {
+  const raw = await runGit(worktreePath, ["ls-files", "--others", "--exclude-standard"]);
+  return raw
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map(normalizeRepoPath);
+}
+
+export async function isUntrackedFile(worktreePath: string, filePath: string): Promise<boolean> {
+  const normalized = normalizeRepoPath(filePath);
+  const raw = await runGit(worktreePath, [
+    "ls-files",
+    "--others",
+    "--exclude-standard",
+    "--",
+    normalized,
+  ]);
+  return raw.trim().length > 0;
+}
+
+async function runGitDiff(cwd: string, args: string[]): Promise<string> {
+  await ensureGitRuntimeReady();
+  try {
+    const { stdout } = await execFileAsync("git", args, {
+      cwd,
+      ...buildGitExecOptions(10 * 1024 * 1024),
+    });
+    return stdout.trim();
+  } catch (error) {
+    const execError = error as { stdout?: string | Buffer; code?: number | string };
+    const stdout = execError.stdout ? String(execError.stdout).trim() : "";
+    if (stdout && (execError.code === 1 || execError.code === "1")) {
+      return stdout;
+    }
+    throw error;
+  }
+}
+
+export async function captureUntrackedFileUnifiedDiff(
+  worktreePath: string,
+  filePath: string,
+): Promise<{ diff: string; isBinary: boolean }> {
+  const normalized = normalizeRepoPath(filePath);
+  if (await isBinaryFileAtPath(worktreePath, normalized)) {
+    return { diff: "", isBinary: true };
+  }
+  const nullPath = process.platform === "win32" ? "NUL" : "/dev/null";
+  const raw = await runGitDiff(worktreePath, [
+    "diff",
+    "--no-index",
+    "--no-color",
+    "--",
+    nullPath,
+    normalized,
+  ]);
+  return { diff: raw, isBinary: isBinaryDiff(raw) };
+}
+
 export async function captureFileUnifiedDiff(
   worktreePath: string,
   baselineSha: string,
   filePath: string,
 ): Promise<{ diff: string; isBinary: boolean }> {
-  const normalized = filePath.replace(/\\/g, "/");
-  const raw = await runGit(worktreePath, ["diff", baselineSha, "--", normalized]);
-  const isBinary =
-    raw.includes("Binary files ") ||
-    raw.includes("GIT binary patch") ||
-    raw.includes("Binary files differ");
-  return { diff: raw, isBinary };
+  const normalized = normalizeRepoPath(filePath);
+  if (await isBinaryFileAtPath(worktreePath, normalized)) {
+    return { diff: "", isBinary: true };
+  }
+  const raw = await runGitDiff(worktreePath, ["diff", "--no-color", baselineSha, "--", normalized]);
+  if (raw.trim()) {
+    return { diff: raw, isBinary: isBinaryDiff(raw) };
+  }
+
+  if (await isUntrackedFile(worktreePath, normalized)) {
+    return captureUntrackedFileUnifiedDiff(worktreePath, normalized);
+  }
+
+  return { diff: "", isBinary: false };
 }
 
 export async function summarizeGitDiff(
@@ -239,15 +353,24 @@ export async function summarizeGitDiff(
   const addedFiles: string[] = [];
   const deletedFiles: string[] = [];
   const modifiedFiles: string[] = [];
+  const seen = new Set<string>();
 
   for (const line of raw.split("\n").filter(Boolean)) {
     const [status, ...rest] = line.split("\t");
     const file = rest.join("\t").replace(/\\/g, "/");
-    if (!file) continue;
+    if (!file || seen.has(file)) continue;
+    seen.add(file);
     changedFiles.push(file);
     if (status === "A" || status?.startsWith("A")) addedFiles.push(file);
     else if (status === "D" || status?.startsWith("D")) deletedFiles.push(file);
     else modifiedFiles.push(file);
+  }
+
+  for (const file of await listUntrackedFiles(worktreePath)) {
+    if (seen.has(file)) continue;
+    seen.add(file);
+    changedFiles.push(file);
+    addedFiles.push(file);
   }
 
   return {

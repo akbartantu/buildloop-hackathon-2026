@@ -531,6 +531,39 @@ export class BootstrapOrchestrator {
           createdAt: new Date().toISOString(),
         });
 
+        const lastWorkerFiles =
+          workerReports.at(-1)?.filesChanged.map((file) => file.replace(/\\/g, "/")) ?? [];
+        const gitChangedSet = new Set(diff.changedFiles);
+        const unverifiedWorkerFiles = lastWorkerFiles.filter((file) => !gitChangedSet.has(file));
+        let workspaceDiffVerified = true;
+
+        if (verdict === "PASS" && lastWorkerFiles.length > 0) {
+          if (diff.changedFiles.length === 0 || unverifiedWorkerFiles.length > 0) {
+            workspaceDiffVerified = false;
+            verdict = "FAILED";
+            status = "FAILED";
+            verdictReason =
+              "Worker reported file changes that Git could not verify against the workspace baseline.";
+            evidence.push({
+              id: crypto.randomUUID(),
+              runId,
+              attemptNumber,
+              category: "scope",
+              name: "workspace_diff_verification",
+              status: "fail",
+              summary: "Worker-reported file changes could not be verified in the final workspace diff.",
+              details: JSON.stringify({
+                workerFiles: lastWorkerFiles,
+                verifiedFiles: diff.changedFiles,
+                unverifiedFiles: unverifiedWorkerFiles,
+              }),
+              affectedFiles: unverifiedWorkerFiles,
+              severity: "error",
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+
         if (diff.changedFiles.length > 0) {
           changeArtifact = await buildChangeArtifact({
             worktreePath: sandboxRoot,
@@ -542,7 +575,7 @@ export class BootstrapOrchestrator {
             checkerVerified: verdict === "PASS",
           });
 
-          if (verdict === "PASS") {
+          if (verdict === "PASS" && workspaceDiffVerified) {
             deliveryHandoff = await buildDeliveryHandoff({
               taskId: input.contract.taskId,
               runId,

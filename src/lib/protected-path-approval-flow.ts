@@ -24,6 +24,21 @@ const PATH_FROM_QUOTED_POLICY =
   /protected path "([^"]+)" requires(?: explicit human approval)?/i;
 const PATH_FROM_DETAILS_CODE =
   /PROTECTED_PATH_APPROVAL_REQUIRED(?::\s*)?(?:Protected path approval required before writing:\s*)?(.+?)$/i;
+const PATH_FROM_FORBIDDEN_PATCH =
+  /patch rejected for out-of-scope or protected path:\s*(.+)$/i;
+
+export type WorkerReportStopInput = {
+  error?: {
+    code: string;
+    message: string;
+    path?: string;
+    operation?: "create" | "modify";
+  };
+  filesChanged?: string[];
+};
+
+const PATH_FROM_STRUCTURED_EVIDENCE =
+  /"path"\s*:\s*"([^"]+)"/i;
 
 const PROTECTED_PATH_EVIDENCE_NAMES = new Set([
   "protected_path_approval_required",
@@ -37,7 +52,12 @@ export function parseProtectedPathFromStopMessage(message: string): string | nul
     return null;
   }
 
-  const patterns = [PATH_FROM_STOP_MESSAGE, PATH_FROM_QUOTED_POLICY, PATH_FROM_DETAILS_CODE];
+  const patterns = [
+    PATH_FROM_STOP_MESSAGE,
+    PATH_FROM_QUOTED_POLICY,
+    PATH_FROM_DETAILS_CODE,
+    PATH_FROM_FORBIDDEN_PATCH,
+  ];
   for (const pattern of patterns) {
     const match = trimmed.match(pattern);
     const candidate = match?.[1]?.replace(/\\/g, "/").trim();
@@ -51,6 +71,68 @@ export function parseProtectedPathFromStopMessage(message: string): string | nul
 
 export function parseProtectedPathFromWorkerError(text: string): string | null {
   return parseProtectedPathFromStopMessage(text);
+}
+
+export function isProtectedPathWorkerErrorCode(code: string | undefined): boolean {
+  return code === "PROTECTED_PATH_APPROVAL_REQUIRED";
+}
+
+export function extractProtectedPathStopFromWorkerReports(
+  workerReports: WorkerReportStopInput[] | undefined,
+  runId?: string | null,
+): ProtectedPathApprovalEvidence | null {
+  if (!workerReports?.length) {
+    return null;
+  }
+
+  for (const report of [...workerReports].reverse()) {
+    const error = report.error;
+    if (!error) {
+      continue;
+    }
+
+    if (isProtectedPathWorkerErrorCode(error.code)) {
+      const path =
+        error.path?.replace(/\\/g, "/") ?? parseProtectedPathFromStopMessage(error.message);
+      if (path) {
+        return {
+          path,
+          reason: error.message,
+          ...(runId ? { runId } : {}),
+        };
+      }
+    }
+
+    const fallbackPath = parseProtectedPathFromWorkerError(error.message);
+    if (fallbackPath) {
+      return {
+        path: fallbackPath,
+        reason: error.message,
+        ...(runId ? { runId } : {}),
+      };
+    }
+  }
+
+  return null;
+}
+
+export function isProtectedPathApprovalPause(task: {
+  runnerState: RunnerState | null;
+  status?: TaskStatus;
+}): boolean {
+  if (isPendingProtectedPathApproval(task)) {
+    return true;
+  }
+  if (task.runnerState?.rejected) {
+    return false;
+  }
+  if (task.status !== "AWAITING_APPROVAL") {
+    return false;
+  }
+  if ((task.runnerState?.filesChanged ?? 0) > 0) {
+    return false;
+  }
+  return Boolean(findProtectedPathApprovalEvidence(task.runnerState?.evidence, task.runnerState?.runId));
 }
 
 function evidenceItemIndicatesProtectedPathStop(item: PersistedEvidenceItem): boolean {
@@ -95,15 +177,35 @@ export function summarizeEvidenceForTaskPersistence(
 }
 
 function extractPathFromEvidenceEntry(entry: PersistedEvidenceItem): string | null {
-  const candidates = [
-    entry.summary ?? "",
-    "details" in entry ? String(entry.details ?? "") : "",
-  ];
+  const details = "details" in entry ? String(entry.details ?? "") : "";
+  const structuredPath = parseProtectedPathFromStructuredEvidence(details);
+  if (structuredPath) {
+    return structuredPath;
+  }
+
+  const candidates = [entry.summary ?? "", details];
   for (const candidate of candidates) {
     const path = parseProtectedPathFromWorkerError(candidate);
     if (path) {
       return path;
     }
+  }
+  return null;
+}
+
+function parseProtectedPathFromStructuredEvidence(details: string): string | null {
+  const trimmed = details.trim();
+  if (!trimmed.startsWith("{")) {
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(trimmed) as { code?: string; path?: string };
+    if (parsed.code === "PROTECTED_PATH_APPROVAL_REQUIRED" && parsed.path?.trim()) {
+      return parsed.path.replace(/\\/g, "/");
+    }
+  } catch {
+    const match = trimmed.match(PATH_FROM_STRUCTURED_EVIDENCE);
+    return match?.[1]?.replace(/\\/g, "/") ?? null;
   }
   return null;
 }
@@ -339,6 +441,7 @@ export function mergeProtectedPathApprovalRunState(input: {
   runId?: string | null;
   contractGoal: string;
   preserveExistingPending?: boolean;
+  explicitStop?: ProtectedPathApprovalEvidence | null;
 }): RunnerState {
   const next: RunnerState = {
     ...input.runnerState,
@@ -347,7 +450,8 @@ export function mergeProtectedPathApprovalRunState(input: {
       : {}),
   };
 
-  const stopEvidence = findProtectedPathApprovalEvidence(input.evidence, input.runId);
+  const stopEvidence =
+    input.explicitStop ?? findProtectedPathApprovalEvidence(input.evidence, input.runId);
   if (!stopEvidence) {
     if (!input.preserveExistingPending && next.pendingProtectedPathApproval) {
       const { pendingProtectedPathApproval: _pending, ...rest } = next;
@@ -391,9 +495,16 @@ export function finalizeRunnerStateAfterOrchestration(input: {
   }>;
   contractGoal: string;
   blockedPreflightNote?: string;
+  workerReports?: WorkerReportStopInput[];
 }): RunnerState {
   const evidenceSummary = summarizeEvidenceForTaskPersistence(input.evidence);
-  const protectedPathStop = Boolean(findProtectedPathApprovalEvidence(input.evidence, input.baseRunner.runId));
+  const workerReportStop = extractProtectedPathStopFromWorkerReports(
+    input.workerReports,
+    input.baseRunner.runId,
+  );
+  const evidenceStop = findProtectedPathApprovalEvidence(input.evidence, input.baseRunner.runId);
+  const resolvedStop = workerReportStop ?? evidenceStop;
+  const protectedPathStop = Boolean(resolvedStop);
 
   const seededRunner: RunnerState =
     input.verdict === "BLOCKED" && !protectedPathStop
@@ -416,6 +527,7 @@ export function finalizeRunnerStateAfterOrchestration(input: {
     ...(input.baseRunner.runId ? { runId: input.baseRunner.runId } : {}),
     contractGoal: input.contractGoal,
     preserveExistingPending: false,
+    explicitStop: resolvedStop,
   });
 }
 

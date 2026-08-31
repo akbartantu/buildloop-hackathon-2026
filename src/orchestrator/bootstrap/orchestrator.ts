@@ -33,12 +33,13 @@ import {
   BLOCKED_DEMO_GOAL,
 } from "../scenarios/pass";
 import { createDraftContract, lockContract } from "../contract/schema";
-import type {
-  CheckerEvidence,
-  RunSnapshot,
-  RunStatus,
-  Verdict,
-  WorkerReport,
+import {
+  formatProtectedPathApprovalEvidenceDetails,
+  type CheckerEvidence,
+  type RunSnapshot,
+  type RunStatus,
+  type Verdict,
+  type WorkerReport,
 } from "../types";
 import { countUniqueChangedFiles } from "../run-files";
 import type { CodingWorker } from "../worker/types";
@@ -415,6 +416,8 @@ export class BootstrapOrchestrator {
 
       if (workerReport.error?.code === "PROTECTED_PATH_APPROVAL_REQUIRED") {
         runtimeEscalation = "AWAITING_APPROVAL";
+        const protectedPath = workerReport.error.path?.replace(/\\/g, "/");
+        const protectedOperation = workerReport.error.operation;
         evidence.push({
           id: crypto.randomUUID(),
           runId,
@@ -423,8 +426,14 @@ export class BootstrapOrchestrator {
           name: "protected_path_approval_required",
           status: "fail",
           summary: workerReport.error.message,
-          details: "PROTECTED_PATH_APPROVAL_REQUIRED",
-          affectedFiles: changedFiles,
+          details:
+            protectedPath !== undefined
+              ? formatProtectedPathApprovalEvidenceDetails({
+                  path: protectedPath,
+                  ...(protectedOperation ? { operation: protectedOperation } : {}),
+                })
+              : "PROTECTED_PATH_APPROVAL_REQUIRED",
+          affectedFiles: protectedPath ? [protectedPath] : changedFiles,
           severity: "warning",
           createdAt: new Date().toISOString(),
         });

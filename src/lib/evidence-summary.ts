@@ -1,7 +1,7 @@
 import type { TaskStatus } from "@/lib/task-contract";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import {
-  isProtectedPathApprovalStop,
+  isProtectedPathApprovalPause,
   shouldPreferProtectedPathApprovalSurface,
 } from "@/lib/protected-path-approval-flow";
 import { translate, DEFAULT_LOCALE, type Locale } from "@/i18n";
@@ -141,7 +141,7 @@ export function classifyFailure(
   task: TaskRecord,
   rows: EvidenceRow[],
 ): FailureClassification {
-  if (isProtectedPathApprovalStop(task)) {
+  if (isProtectedPathApprovalPause(task)) {
     return "protected";
   }
   if (task.status === "BLOCKED") {
@@ -321,7 +321,7 @@ export function buildEvidenceSummaryViewModel(
 
   const passedRows = rows.filter((row) => row.status === "pass");
   const failedRows = rows.filter((row) => row.status === "fail" || row.status === "blocked");
-  const semanticFailedRows = isProtectedPathApprovalStop(task)
+  const semanticFailedRows = isProtectedPathApprovalPause(task)
     ? failedRows.filter(
         (row) =>
           row.name !== "worker_error" &&
@@ -336,7 +336,7 @@ export function buildEvidenceSummaryViewModel(
   const whatFailed =
     task.status === "BLOCKED" && task.blockedReasons.length > 0
       ? formatBlockedReasonExplanationList(task.blockedReasons, locale)
-      : isProtectedPathApprovalStop(task)
+      : isProtectedPathApprovalPause(task)
         ? [
             translate(locale, "lifecycle.approvalRecommendation.descProtectedPathPending"),
             ...(task.runnerState?.pendingProtectedPathApproval?.paths ?? []).map(
@@ -376,16 +376,16 @@ export function buildEvidenceSummaryViewModel(
     headline = t(locale, "evidence.summary.headline.failed");
     intro = t(locale, "evidence.summary.intro.failed");
   } else if (task.status === "AWAITING_APPROVAL") {
-    headline = isProtectedPathApprovalStop(task)
+    headline = isProtectedPathApprovalPause(task)
       ? t(locale, "taskDetail.approval.protectedPath.title")
       : t(locale, "evidence.summary.headline.approval");
-    intro = isProtectedPathApprovalStop(task)
+    intro = isProtectedPathApprovalPause(task)
       ? t(locale, "lifecycle.approvalRecommendation.descProtectedPathPending")
       : t(locale, "evidence.summary.intro.approval");
   }
 
   const whatThisMeans: string[] = [];
-  if (isProtectedPathApprovalStop(task)) {
+  if (isProtectedPathApprovalPause(task)) {
     whatThisMeans.push(t(locale, "lifecycle.approvalRecommendation.descProtectedPathPending"));
   } else if (task.status === "FAILED") {
     whatThisMeans.push(t(locale, "evidence.meaning.failedUnsafe"));

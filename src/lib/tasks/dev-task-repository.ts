@@ -557,17 +557,19 @@ export function createDevTaskRepository(
         throw new Error("Unauthorized protected-path approval request.");
       }
 
-      if (!task.runnerState?.pendingProtectedPathApproval) {
+      const hydrated = toRecord(task);
+
+      if (!hydrated.runnerState?.pendingProtectedPathApproval) {
         if (input.decision === "APPROVE") {
-          return { task: toRecord(task), resumeOrchestration: false, idempotent: true };
+          return { task: hydrated, resumeOrchestration: false, idempotent: true };
         }
-        if (task.runnerState?.rejected || task.status === "BLOCKED") {
-          return { task: toRecord(task), resumeOrchestration: false, idempotent: true };
+        if (hydrated.runnerState?.rejected || hydrated.status === "BLOCKED") {
+          return { task: hydrated, resumeOrchestration: false, idempotent: true };
         }
       }
 
       const result = applyProtectedPathApprovalAction({
-        task: toRecord(task),
+        task: hydrated,
         decision: input.decision,
         actorUserId: input.userId,
         ...(input.note ? { note: input.note } : {}),

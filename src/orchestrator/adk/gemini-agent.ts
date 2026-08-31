@@ -8,6 +8,8 @@ import {
   extractApprovedProtectedPaths,
   resolvePatchProtectedPathDecision,
 } from "@/lib/protected-path-approval";
+import { inferProtectedPathOperation } from "@/lib/protected-path-approval-flow";
+import { PROTECTED_PATH_APPROVAL_REQUIRED_CODE, type ProtectedPathOperation } from "../types";
 import {
   GeminiClientError,
   parseWorkerStructuredOutput,
@@ -161,7 +163,12 @@ export class AdkGeminiWorker implements CodingWorker {
       };
     } catch (error) {
       if (error instanceof ProtectedPathApprovalRequiredError) {
+        const path = error.path.replace(/\\/g, "/");
         const message = error.message;
+        const operation: ProtectedPathOperation = inferProtectedPathOperation(
+          path,
+          input.contract.goal,
+        );
         return {
           workerId: this.id,
           attemptNumber: input.attemptNumber,
@@ -170,7 +177,12 @@ export class AdkGeminiWorker implements CodingWorker {
           commandsExecuted: [],
           summary: message,
           patchSummary: message,
-          error: { code: "PROTECTED_PATH_APPROVAL_REQUIRED", message },
+          error: {
+            code: PROTECTED_PATH_APPROVAL_REQUIRED_CODE,
+            message,
+            path,
+            operation,
+          },
         };
       }
       const rawCode = error instanceof GeminiClientError ? error.code : "WORKER_ERROR";

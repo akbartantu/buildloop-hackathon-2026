@@ -2,6 +2,7 @@ import type { TaskStatus } from "@/lib/task-contract";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import { translate, type Locale, DEFAULT_LOCALE } from "@/i18n";
 import { formatChecksFriendlySummary } from "@/lib/lifecycle-presentations";
+import { isProtectedPathApprovalPause } from "@/lib/protected-path-approval-flow";
 
 export type EvidenceRow = {
   category: string;
@@ -67,11 +68,21 @@ export function analyzeFinalChecks(task: TaskRecord, locale: Locale = DEFAULT_LO
       ? all.filter((row) => (row.attemptNumber ?? attempt) === attempt)
       : all;
 
-  const passed = items.filter((item) => item.status === "pass").length;
-  const failed = items.filter((item) => item.status === "fail").length;
-  const skipped = items.filter((item) => item.status === "skipped").length;
-  const blocked = items.filter((item) => item.status === "blocked").length;
-  const total = items.length;
+  const pauseItems = isProtectedPathApprovalPause(task)
+    ? items.filter(
+        (row) =>
+          row.name !== "worker_error" &&
+          !row.name.startsWith("scope_") &&
+          row.name !== "zero_file_changes" &&
+          row.name !== "runtime_escalation_approval",
+      )
+    : items;
+
+  const passed = pauseItems.filter((item) => item.status === "pass").length;
+  const failed = pauseItems.filter((item) => item.status === "fail").length;
+  const skipped = pauseItems.filter((item) => item.status === "skipped").length;
+  const blocked = pauseItems.filter((item) => item.status === "blocked").length;
+  const total = pauseItems.length;
   const allRequiredSatisfied = failed === 0 && blocked === 0;
 
   const friendlySummary = formatChecksFriendlySummary(

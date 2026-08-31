@@ -115,6 +115,9 @@ export class DeterministicChecker {
     const changedFiles = input.workerReport?.filesChanged ?? [];
 
     if (input.workerReport?.error) {
+      if (input.workerReport.error.code === "PROTECTED_PATH_APPROVAL_REQUIRED") {
+        // Governance approval pause — not a coding failure.
+      } else {
       const operational = isOperationalWorkerError(
         input.workerReport.error.code,
         input.workerReport.error.message,
@@ -147,6 +150,7 @@ export class DeterministicChecker {
         affectedFiles: changedFiles,
         severity: "error",
       });
+      }
     }
 
     if (input.workerReport && changedFiles.length === 0 && !input.workerReport.error) {

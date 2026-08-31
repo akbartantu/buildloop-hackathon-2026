@@ -253,6 +253,7 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       verdict: result.run.verdict,
       evidence: result.evidence,
       contractGoal: workingTask.goal,
+      workerReports: result.workerReports,
       ...(result.run.verdict === "BLOCKED"
         ? {
             blockedPreflightNote:

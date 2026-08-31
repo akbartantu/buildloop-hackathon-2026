@@ -31,6 +31,7 @@ import { formatPrimaryBlockedExplanation } from "@/lib/blocked-reason-presentati
 import { isCommitApprovedForCurrentRun } from "@/lib/delivery-artifact-gate";
 import {
   isPendingProtectedPathApproval,
+  isProtectedPathApprovalPause,
   isProtectedPathApprovalStop,
 } from "@/lib/protected-path-approval-flow";
 
@@ -167,7 +168,7 @@ export function analyzeChecks(task: TaskRecord, locale: Locale = DEFAULT_LOCALE)
 }
 
 function deriveImplementationVerdict(task: TaskRecord, checks: CheckBreakdown): ImplementationVerdict {
-  if (isPendingProtectedPathApproval(task) || isProtectedPathApprovalStop(task)) {
+  if (isPendingProtectedPathApproval(task) || isProtectedPathApprovalPause(task)) {
     return null;
   }
   if (task.status === "BLOCKED") {
@@ -287,7 +288,7 @@ function buildOrchestrationSteps(
     );
   }
 
-  if (isPendingProtectedPathApproval(task) || isProtectedPathApprovalStop(task)) {
+  if (isPendingProtectedPathApproval(task) || isProtectedPathApprovalPause(task)) {
     return ORCHESTRATION_STEPS.map((step) => {
       const workerDetail =
         step.key === "worker"
@@ -334,7 +335,7 @@ function buildOrchestrationSteps(
   })();
 
   const securityState: LifecycleStepState = (() => {
-    if (isProtectedPathApprovalStop(task)) return "not_run";
+    if (isProtectedPathApprovalPause(task)) return "not_run";
     if (!securityInvoked) return runFinished ? "not_needed" : "not_run";
     if (runFinished || task.status === "AWAITING_APPROVAL" || task.status === "PASS") return "complete";
     if (task.status === "CHECKING") return "active";
@@ -342,7 +343,7 @@ function buildOrchestrationSteps(
   })();
 
   const decisionState: LifecycleStepState = (() => {
-    if (isProtectedPathApprovalStop(task)) return "not_run";
+    if (isProtectedPathApprovalPause(task)) return "not_run";
     if (verdict === "FAILED") return "failed";
     if (verdict === "BLOCKED") return "blocked";
     if (verdict === "PASS" || runFinished) return "complete";
@@ -358,11 +359,11 @@ function buildOrchestrationSteps(
       if (task.status === "INSPECTING") state = "active";
       else if (hasRun) state = "complete";
     } else if (step.key === "worker") {
-      if (isProtectedPathApprovalStop(task)) state = "active";
+      if (isProtectedPathApprovalPause(task)) state = "active";
       else if (task.status === "RUNNING" || task.status === "NEEDS_CORRECTION") state = "active";
       else if (workerDone) state = "complete";
     } else if (step.key === "checker") {
-      if (isProtectedPathApprovalStop(task)) state = "not_run";
+      if (isProtectedPathApprovalPause(task)) state = "not_run";
       else if (task.status === "CHECKING") state = "active";
       else if (checkingOrLater) state = "complete";
     } else if (step.key === "security") {

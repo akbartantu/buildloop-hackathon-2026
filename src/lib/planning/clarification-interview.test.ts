@@ -12,10 +12,28 @@ import {
   resolveInterviewAnswers,
   validateClarificationContractConsistency,
 } from "@/lib/planning/clarification-interview";
-import { analyzeTaskGoal } from "@/lib/task-planning";
+import { analyzeTaskGoal, planAndEvaluateTask } from "@/lib/task-planning";
 import { evaluateProtectedPathPolicy } from "@/lib/contract-governance";
 import { applyDraftUpdate } from "@/lib/tasks/task-mutations";
 import { createDevTaskRepository } from "@/lib/tasks/dev-task-repository";
+import { documentToPlanningEntry } from "@/lib/specifications/specification-planning";
+
+const CLEVIA_GOAL =
+  "CLEVIA-001 — Initialize the Clevia frontend foundation and responsive dashboard shell using mock data only.";
+
+const CLEVIA_PRD = documentToPlanningEntry({
+  id: "00000000-0000-4000-8000-000000000001",
+  userId: "00000000-0000-4000-8000-000000000099",
+  projectId: "00000000-0000-4000-8000-000000000010",
+  filename: "PRD.md",
+  originalPath: null,
+  documentType: "prd",
+  content: "Clevia uses Next.js and TypeScript for the frontend. Dashboard uses mock data only.",
+  parseStatus: "ready",
+  summary: null,
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
 
 const workspaceRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -74,13 +92,49 @@ describe("adaptive clarification interview", () => {
     expect(interview.questions.length).toBeLessThanOrEqual(MAX_CLARIFICATION_QUESTIONS);
   });
 
-  test("custom answer is persisted and converted into acceptance criteria", () => {
+  test("Clevia visible-disabled answer produces explicit nav behavior criterion", () => {
+    const interview = generateClarificationInterview({
+      goal: CLEVIA_GOAL,
+      specifications: [],
+    });
+    const answers = resolveInterviewAnswers(interview.questions, [
+      {
+        questionId: "nav-placeholder-behavior",
+        selectedOptionId: "visible-disabled",
+      },
+    ]);
+    const criteria = criteriaFromClarificationAnswers(interview.questions, answers);
+    expect(
+      criteria.some((item) =>
+        /Audits, Content Calendar, Business Profile, Settings.*visible but disabled/i.test(item),
+      ),
+    ).toBe(true);
+  });
+
+  test("contract consistency rejects generic-only criteria after visible-disabled decision", () => {
+    const interview = generateClarificationInterview({
+      goal: CLEVIA_GOAL,
+      specifications: [],
+    });
+    const answers = resolveInterviewAnswers(interview.questions, [
+      {
+        questionId: "nav-placeholder-behavior",
+        selectedOptionId: "visible-disabled",
+      },
+    ]);
+    const result = validateClarificationContractConsistency({
+      acceptanceCriteria: ["Responsive shell, navigation, and dashboard use mock data only."],
+      questions: interview.questions,
+      answers,
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  test("FocusPad custom answer is persisted and converted into acceptance criteria", () => {
     const interview = generateClarificationInterview({
       goal: "FOCUS-001 — Add a 15-minute Long Break after every four completed Focus sessions.",
       specifications: [],
     });
-    const question = interview.questions.find((entry) => entry.id === "focus-session-cycle");
-    expect(question).toBeDefined();
     const answers = resolveInterviewAnswers(interview.questions, [
       {
         questionId: "focus-session-cycle",
@@ -90,6 +144,21 @@ describe("adaptive clarification interview", () => {
     ]);
     const criteria = criteriaFromClarificationAnswers(interview.questions, answers);
     expect(criteria.some((item) => /Pause the cycle/i.test(item))).toBe(true);
+  });
+
+  test("FocusPad ignore-manual decision maps to deterministic criterion", () => {
+    const interview = generateClarificationInterview({
+      goal: "FOCUS-001 — Add a 15-minute Long Break after every four completed Focus sessions.",
+      specifications: [],
+    });
+    const answers = resolveInterviewAnswers(interview.questions, [
+      {
+        questionId: "focus-session-cycle",
+        selectedOptionId: "ignore-manual",
+      },
+    ]);
+    const criteria = criteriaFromClarificationAnswers(interview.questions, answers);
+    expect(criteria.some((item) => /manual switching does not count/i.test(item))).toBe(true);
   });
 
   test("back navigation preserves earlier answers through adaptive filtering", () => {
@@ -178,7 +247,7 @@ describe("adaptive clarification interview", () => {
 describe("analyzeTaskGoal interview integration", () => {
   test("completed interview regenerates suggested acceptance criteria", async () => {
     const analysis = await analyzeTaskGoal({
-      goal: "CLEVIA-001 — Initialize the Clevia frontend foundation and responsive dashboard shell using mock data only.",
+      goal: CLEVIA_GOAL,
       taskId: "preview-clevia",
       workspaceRoot,
       acceptanceCriteria: ["Dashboard shell renders with mock navigation data."],
@@ -205,6 +274,69 @@ describe("analyzeTaskGoal interview integration", () => {
       analysis.acceptanceCriteria.some((item) => /visible but disabled/i.test(item)),
     ).toBe(true);
     expect(analysis.clarificationDecisions?.length).toBeGreaterThan(0);
+  });
+
+  test("planAndEvaluateTask contract preserves Clevia clarification criterion", async () => {
+    const planned = await planAndEvaluateTask({
+      goal: CLEVIA_GOAL,
+      taskId: "00000000-0000-4000-8000-000000000040",
+      workspaceRoot,
+      repositoryRoot: null,
+      specifications: [CLEVIA_PRD],
+      sourceCommitSha: "a10183eb66a20fa0df619233b3e85231d2c193d9",
+      acceptanceCriteria: ["Dashboard shell renders with mock navigation data."],
+      clarificationAnswers: [
+        {
+          questionId: "nav-placeholder-behavior",
+          selectedOptionId: "visible-disabled",
+        },
+      ],
+    });
+
+    expect(
+      planned.contract.acceptanceCriteria.some((item) => /visible but disabled/i.test(item)),
+    ).toBe(true);
+    expect(
+      planned.contract.acceptanceCriteria.some((item) =>
+        /Responsive shell, navigation, and dashboard/i.test(item),
+      ),
+    ).toBe(true);
+    expect(planned.contract.acceptanceCriteria).toContain(
+      "Dashboard shell renders with mock navigation data.",
+    );
+  });
+
+  test("replanning preserves persisted clarification answers without resubmitting them", async () => {
+    const first = await planAndEvaluateTask({
+      goal: CLEVIA_GOAL,
+      taskId: "00000000-0000-4000-8000-000000000041",
+      workspaceRoot,
+      repositoryRoot: null,
+      specifications: [CLEVIA_PRD],
+      sourceCommitSha: "a10183eb66a20fa0df619233b3e85231d2c193d9",
+      clarificationAnswers: [
+        {
+          questionId: "nav-placeholder-behavior",
+          selectedOptionId: "visible-disabled",
+        },
+      ],
+    });
+
+    const replanned = await planAndEvaluateTask({
+      goal: CLEVIA_GOAL,
+      taskId: "00000000-0000-4000-8000-000000000041",
+      workspaceRoot,
+      repositoryRoot: null,
+      specifications: [CLEVIA_PRD],
+      sourceCommitSha: "a10183eb66a20fa0df619233b3e85231d2c193d9",
+      acceptanceCriteria: first.contract.acceptanceCriteria,
+      existingClarification: first.contract.clarification,
+      contractVersion: 2,
+    });
+
+    expect(
+      replanned.contract.acceptanceCriteria.some((item) => /visible but disabled/i.test(item)),
+    ).toBe(true);
   });
 
   test("EN and ID interview strings render", () => {

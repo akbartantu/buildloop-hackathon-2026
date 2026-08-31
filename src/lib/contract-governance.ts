@@ -1,4 +1,5 @@
 import { PROTECTED_PATHS } from "@/lib/task-contract";
+import { mergeUserAndGeneratedCriteria } from "@/lib/planning/clarification-policy";
 import type { PlanningSpecificationEntry } from "@/lib/specifications/specification-set-record";
 import type { DerivedTaskContractFields } from "@/orchestrator/contract/derive-task-contract";
 
@@ -179,18 +180,21 @@ export function appendGovernanceCriterion(
   return [...normalized, resolveGovernanceCriterion(useApprovalRequired)];
 }
 
+export const GREENFIELD_BASE_ACCEPTANCE_CRITERIA = [
+  "Approved frontend baseline is initialized within the approved task scope.",
+  "Responsive shell, navigation, and dashboard use mock data only.",
+  "No authentication, backend, database, deployment, or external API integration is introduced.",
+] as const;
+
 function deriveGreenfieldAcceptanceCriteria(
-  goal: string,
   useApprovalRequired: boolean,
+  userCriteria?: string[],
 ): string[] {
-  return appendGovernanceCriterion(
-    [
-      "Approved frontend baseline is initialized within the approved task scope.",
-      "Responsive shell, navigation, and dashboard use mock data only.",
-      "No authentication, backend, database, deployment, or external API integration is introduced.",
-    ],
-    useApprovalRequired,
+  const merged = mergeUserAndGeneratedCriteria(
+    userCriteria,
+    [...GREENFIELD_BASE_ACCEPTANCE_CRITERIA],
   );
+  return appendGovernanceCriterion(merged, useApprovalRequired);
 }
 
 export function classifyProtectedPathForTask(
@@ -247,7 +251,7 @@ export function deriveContractGovernance(input: ContractGovernanceInput): Contra
   return {
     inScope: greenfieldScope.length > 0 ? greenfieldScope : input.derived.expectedScope,
     outOfScope: deriveGreenfieldOutOfScope(),
-    acceptanceCriteria: deriveGreenfieldAcceptanceCriteria(input.goal, true),
+    acceptanceCriteria: deriveGreenfieldAcceptanceCriteria(true, input.userCriteria),
     approvalRequiredPaths,
     executionAllowedPaths: [...GREENFIELD_EXECUTION_ALLOWED_PATHS],
     useApprovalGovernance: true,

@@ -59,6 +59,30 @@ describe("contract governance", () => {
     expect(plan.outOfScope.some((item) => /dependency and lockfile/i.test(item))).toBe(true);
   });
 
+  test("greenfield bootstrap merges clarification-derived acceptance criteria", () => {
+    const navCriterion =
+      "Audits, Content Calendar, Business Profile, Settings, and other unimplemented navigation items remain visible but disabled and do not navigate to placeholder functionality.";
+    const derived = deriveTaskContractFields({ goal: CLEVIA_GOAL });
+    const plan = deriveContractGovernance({
+      goal: CLEVIA_GOAL,
+      specifications: [CLEVIA_PRD],
+      repositoryManifestPaths: ["README.md"],
+      derived,
+      userCriteria: [
+        navCriterion,
+        "Dashboard shell renders with mock navigation data.",
+      ],
+    });
+
+    expect(plan.isGreenfieldBootstrap).toBe(true);
+    expect(plan.acceptanceCriteria).toContain(navCriterion);
+    expect(plan.acceptanceCriteria.some((item) => /Responsive shell, navigation, and dashboard/i.test(item))).toBe(
+      true,
+    );
+    expect(plan.acceptanceCriteria).toContain("Dashboard shell renders with mock navigation data.");
+    expect(plan.acceptanceCriteria).toContain(GOVERNANCE_CRITERION_APPROVAL_REQUIRED);
+  });
+
   test("greenfield bootstrap marks dependency paths approval-required", () => {
     const derived = deriveTaskContractFields({ goal: CLEVIA_GOAL });
     const plan = deriveContractGovernance({
@@ -88,6 +112,12 @@ describe("contract governance", () => {
       repositoryRoot: null,
       specifications: [CLEVIA_PRD],
       sourceCommitSha: "a10183eb66a20fa0df619233b3e85231d2c193d9",
+      clarificationAnswers: [
+        {
+          questionId: "nav-placeholder-behavior",
+          selectedOptionId: "visible-disabled",
+        },
+      ],
     });
 
     expect(planned.contract.inScope).toContain("Next.js + TypeScript frontend baseline");
@@ -96,6 +126,7 @@ describe("contract governance", () => {
     expect(planned.contract.outOfScope).toContain("Authentication");
     expect(planned.contract.outOfScope).toContain("Unrelated dependency or configuration changes");
     expect(planned.contract.acceptanceCriteria.join("\n")).toContain("explicit human approval");
+    expect(planned.contract.acceptanceCriteria.join("\n")).toContain("visible but disabled");
     expect(planned.contract.acceptanceCriteria.join("\n")).not.toContain("No protected paths are modified.");
     expect(planned.contract.approvalRequiredPaths).toEqual(["package.json", "bun.lock"]);
     expect(planned.contract.executionAllowedPaths?.length).toBeGreaterThan(0);

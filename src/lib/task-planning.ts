@@ -200,6 +200,23 @@ async function listRepositoryManifestPaths(repositoryRoot: string | null | undef
   }
 }
 
+function clarificationAnswersForPlanning(input: TaskPlanningInput): ClarificationAnswerInput[] {
+  if (input.clarificationAnswers?.length) {
+    return input.clarificationAnswers;
+  }
+
+  const persisted = input.existingClarification?.interview?.answers;
+  if (!persisted?.length) {
+    return [];
+  }
+
+  return persisted.map((entry) => ({
+    questionId: entry.questionId,
+    selectedOptionId: entry.selectedOptionId,
+    ...(entry.customAnswer ? { customAnswer: entry.customAnswer } : {}),
+  }));
+}
+
 async function resolvePlanning(input: TaskPlanningInput) {
   const sensitiveBlocked = detectSensitiveIntent(input.goal);
   const specifications = input.specifications ?? [];
@@ -258,7 +275,7 @@ async function resolvePlanning(input: TaskPlanningInput) {
 
   let resolvedAnswers = resolveInterviewAnswers(
     interviewEvaluation.questions,
-    input.clarificationAnswers ?? [],
+    clarificationAnswersForPlanning(input),
   );
 
   if (input.proceedWithAssumption && interviewEvaluation.mode === "recommended") {

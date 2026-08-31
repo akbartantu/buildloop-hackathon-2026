@@ -477,7 +477,7 @@ export function criteriaFromClarificationAnswers(
       case "nav-placeholder-behavior":
         if (selected?.value === "visible_disabled") {
           criteria.push(
-            "Unimplemented navigation items remain visible but disabled and do not navigate to placeholder functionality.",
+            "Audits, Content Calendar, Business Profile, Settings, and other unimplemented navigation items remain visible but disabled and do not navigate to placeholder functionality.",
           );
         } else if (selected?.value === "hidden") {
           criteria.push("Navigation shows only modules implemented in this task.");
@@ -538,6 +538,16 @@ export function validateClarificationContractConsistency(input: {
       return {
         ok: false,
         reason: "Contract acceptance criteria contradict the clarification decision to keep navigation placeholders visible but disabled.",
+      };
+    }
+    if (
+      selected?.value === "visible_disabled" &&
+      !/(visible but disabled|remain visible.*disabled|disabled.*nav|do not navigate)/i.test(criteriaText)
+    ) {
+      return {
+        ok: false,
+        reason:
+          "Contract acceptance criteria omit the clarification decision to keep unimplemented navigation items visible but disabled.",
       };
     }
   }

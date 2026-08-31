@@ -333,6 +333,45 @@ export function createDevSpecificationRepository() {
       return true;
     },
 
+    async getSpecificationDownload(input: {
+      id: string;
+      projectId: string;
+      userId: string;
+    }): Promise<{ filename: string; content: string } | null> {
+      const store = await readStore();
+      const item = store.specifications.find(
+        (spec) =>
+          spec.id === input.id && spec.projectId === input.projectId && spec.userId === input.userId,
+      );
+      if (!item) {
+        return null;
+      }
+      return { filename: item.filename, content: item.content };
+    },
+
+    async getSpecificationSetFileDownload(input: {
+      fileId: string;
+      setId: string;
+      projectId: string;
+      userId: string;
+    }): Promise<{ filename: string; content: string } | null> {
+      const store = await readStore();
+      const setItem = store.specificationSets.find(
+        (set) =>
+          set.id === input.setId && set.projectId === input.projectId && set.userId === input.userId,
+      );
+      if (!setItem) {
+        return null;
+      }
+      const file = store.specificationSetFiles.find(
+        (item) => item.id === input.fileId && item.setId === input.setId,
+      );
+      if (!file) {
+        return null;
+      }
+      return { filename: file.filename, content: file.content };
+    },
+
     async resetForTests(): Promise<void> {
       await writeStore(emptyStore());
     },

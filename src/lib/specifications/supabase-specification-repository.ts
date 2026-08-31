@@ -258,5 +258,70 @@ export function createSupabaseSpecificationRepository(supabase: SupabaseClient<D
 
       return (count ?? 0) > 0;
     },
+
+    async getSpecificationDownload(input: {
+      id: string;
+      projectId: string;
+      userId: string;
+    }): Promise<{ filename: string; content: string } | null> {
+      const { data: row, error } = await supabase
+        .from("project_specifications")
+        .select("filename, content")
+        .eq("id", input.id)
+        .eq("project_id", input.projectId)
+        .eq("user_id", input.userId)
+        .maybeSingle();
+
+      if (error) {
+        console.error("getSpecificationDownload failed", error.code);
+        throw new Error("Specification could not be downloaded.");
+      }
+
+      if (!row) {
+        return null;
+      }
+
+      return { filename: row.filename, content: row.content };
+    },
+
+    async getSpecificationSetFileDownload(input: {
+      fileId: string;
+      setId: string;
+      projectId: string;
+      userId: string;
+    }): Promise<{ filename: string; content: string } | null> {
+      const { data: setRow, error: setError } = await supabase
+        .from("project_specification_sets")
+        .select("id")
+        .eq("id", input.setId)
+        .eq("project_id", input.projectId)
+        .eq("user_id", input.userId)
+        .maybeSingle();
+
+      if (setError) {
+        console.error("getSpecificationSetFileDownload set lookup failed", setError.code);
+        throw new Error("Specification file could not be downloaded.");
+      }
+      if (!setRow) {
+        return null;
+      }
+
+      const { data: fileRow, error: fileError } = await supabase
+        .from("project_specification_set_files")
+        .select("filename, content")
+        .eq("id", input.fileId)
+        .eq("set_id", input.setId)
+        .maybeSingle();
+
+      if (fileError) {
+        console.error("getSpecificationSetFileDownload file lookup failed", fileError.code);
+        throw new Error("Specification file could not be downloaded.");
+      }
+      if (!fileRow) {
+        return null;
+      }
+
+      return { filename: fileRow.filename, content: fileRow.content };
+    },
   };
 }

@@ -6,6 +6,7 @@ import { isProjectRepositoryConnected } from "@/lib/projects/project-record";
 import { validateSpecificationBundleUpload } from "@/lib/specifications/specification-bundle-upload";
 import { SPECIFICATION_DOCUMENT_TYPES } from "@/lib/specifications/specification-record";
 import { validateSpecificationUpload } from "@/lib/specifications/specification-upload";
+import { buildSpecificationDownloadArtifact } from "@/lib/specifications/specification-download";
 
 const projectIdSchema = z.object({
   projectId: z.string().uuid(),
@@ -41,6 +42,17 @@ const deleteSpecificationSchema = z.object({
 const deleteSpecificationSetSchema = z.object({
   projectId: z.string().uuid(),
   setId: z.string().uuid(),
+});
+
+const downloadSpecificationSchema = z.object({
+  projectId: z.string().uuid(),
+  specificationId: z.string().uuid(),
+});
+
+const downloadSpecificationSetFileSchema = z.object({
+  projectId: z.string().uuid(),
+  setId: z.string().uuid(),
+  fileId: z.string().uuid(),
 });
 
 export const listProjectSpecifications = createServerFn({ method: "POST" })
@@ -168,4 +180,53 @@ export const deleteProjectSpecificationSet = createServerFn({ method: "POST" })
       userId: context.auth.userId,
     });
     return { status: deleted ? ("ok" as const) : ("not_found" as const) };
+  });
+
+export const downloadProjectSpecification = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) => downloadSpecificationSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const project = await context.projects.getProject(data.projectId, context.auth.userId);
+    if (!project) {
+      throw new Error("Project not found.");
+    }
+
+    const artifact = await context.specifications.getSpecificationDownload({
+      id: data.specificationId,
+      projectId: data.projectId,
+      userId: context.auth.userId,
+    });
+    if (!artifact) {
+      return { status: "not_found" as const };
+    }
+
+    return {
+      status: "ok" as const,
+      download: buildSpecificationDownloadArtifact(artifact.filename, artifact.content),
+    };
+  });
+
+export const downloadProjectSpecificationSetFile = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) => downloadSpecificationSetFileSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const project = await context.projects.getProject(data.projectId, context.auth.userId);
+    if (!project) {
+      throw new Error("Project not found.");
+    }
+
+    const artifact = await context.specifications.getSpecificationSetFileDownload({
+      fileId: data.fileId,
+      setId: data.setId,
+      projectId: data.projectId,
+      userId: context.auth.userId,
+    });
+    if (!artifact) {
+      return { status: "not_found" as const };
+    }
+
+    return {
+      status: "ok" as const,
+      download: buildSpecificationDownloadArtifact(artifact.filename, artifact.content),
+    };
   });

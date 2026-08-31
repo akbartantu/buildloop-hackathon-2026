@@ -3,25 +3,15 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { TaskRecord } from "@/lib/tasks-schema";
-import { buildTaskListItemViewModel, type TaskListStatusTone } from "@/lib/task-list";
+import { buildTaskListItemViewModel } from "@/lib/task-list";
+import { taskStatusPresentation } from "@/lib/status-presentation";
+import { SemanticStatusBadge } from "@/components/site/semantic-status-badge";
 import { useI18n } from "@/i18n/context";
-
-function statusBadgeClass(tone: TaskListStatusTone): string {
-  switch (tone) {
-    case "pass":
-      return "border-status-pass/40 bg-status-pass/10 text-status-pass";
-    case "blocked":
-      return "border-status-blocked/40 bg-status-blocked/10 text-status-blocked";
-    case "review":
-      return "border-status-review/40 bg-status-review/10 text-status-review";
-    default:
-      return "border-border bg-muted/40 text-foreground";
-  }
-}
 
 export function TaskListRow({ task }: { task: TaskRecord }) {
   const { locale } = useI18n();
   const item = buildTaskListItemViewModel(task, locale);
+  const statusPresentation = taskStatusPresentation(task.status, locale);
 
   return (
     <article
@@ -38,14 +28,7 @@ export function TaskListRow({ task }: { task: TaskRecord }) {
           className="min-w-0 flex-1 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         >
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium tracking-wide",
-                statusBadgeClass(item.statusTone),
-              )}
-            >
-              {item.statusLabel}
-            </span>
+            <SemanticStatusBadge presentation={statusPresentation} />
             <span className="font-mono text-[11px] text-muted-foreground">{item.taskRef}</span>
           </div>
 

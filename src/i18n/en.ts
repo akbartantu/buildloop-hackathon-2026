@@ -194,6 +194,7 @@ export const en = {
         NEEDS_CORRECTION: "View orchestration",
         PASS: "Review evidence",
         FAILED: "View evidence",
+        FAILED_RERUN: "Re-run task",
         AWAITING_APPROVAL: "Review approval",
         BLOCKED: "Review reason",
         CLOSED: "Review approval",
@@ -561,6 +562,157 @@ export const en = {
       CLOSED: "Run completed",
       STALE: "Stale contract",
     },
+    semantic: {
+      passed: "Passed",
+      failed: "Failed",
+      blocked: "Blocked",
+      needsAttention: "Needs attention",
+      running: "Running",
+      waiting: "Waiting",
+      skipped: "Skipped",
+      task: {
+        DRAFT: "Draft",
+        CONTRACT_READY: "Awaiting contract approval",
+        APPROVED_FOR_EXECUTION: "Ready to run",
+        INSPECTING: "Preflight running",
+        RUNNING: "Running",
+        CHECKING: "Checking",
+        NEEDS_CORRECTION: "Correcting",
+        PASS: "Passed",
+        FAILED: "Failed",
+        AWAITING_APPROVAL: "Needs attention",
+        BLOCKED: "Blocked",
+        CLOSED: "Completed",
+        STALE: "Stale contract",
+      },
+    },
+  },
+  evidence: {
+    check: {
+      typecheck: {
+        title: "Project type check",
+        pass: "Project type validation passed.",
+        fail: "The project did not pass its code type validation.",
+        skipped: "Project type check was not required.",
+      },
+      test: {
+        title: "Automated tests",
+        pass: "Automated tests passed.",
+        fail: "One or more automated tests did not pass.",
+        skipped: "Automated tests were not required.",
+      },
+      scope: {
+        title: "Approved scope",
+        pass: "Only approved files were changed.",
+        fail: "Changes were outside the approved scope.",
+        skipped: "Scope check was not required.",
+      },
+      acceptance: {
+        title: "Acceptance criteria",
+        pass: "Acceptance criteria were satisfied.",
+        fail: "One or more acceptance criteria were not satisfied.",
+        skipped: "Acceptance criteria check was not required.",
+      },
+      protected_path: {
+        title: "Protected paths",
+        pass: "No protected paths were modified.",
+        fail: "A protected path was modified or touched.",
+        skipped: "Protected path check was not required.",
+      },
+      operational: {
+        title: "Worker service",
+        pass: "Worker service responded normally.",
+        fail: "The worker service was unavailable or returned an operational error.",
+        skipped: "Worker service check was not required.",
+      },
+      preflight: {
+        title: "Preflight checks",
+        pass: "Preflight checks passed.",
+        fail: "Preflight checks did not pass.",
+        skipped: "Preflight checks were not required.",
+      },
+      command: {
+        title: "Required command",
+        pass: "Required command checks passed.",
+        fail: "A required command check did not pass.",
+        skipped: "Required command check was not required.",
+      },
+      generic: {
+        title: "Verification check",
+        pass: "Check passed.",
+        fail: "Check did not pass.",
+        skipped: "Check was not required.",
+      },
+    },
+    classification: {
+      verification: "FAILED — Verification did not pass",
+      implementation: "FAILED — Implementation did not meet acceptance",
+      blocked: "BLOCKED — Protected action requested",
+      worker: "FAILED — Worker could not complete the task",
+      operational: "System issue — Service unavailable",
+    },
+    summary: {
+      headline: {
+        default: "Task status",
+        pass: "Task completed successfully",
+        failed: "Task could not be completed",
+        blocked: "Task was blocked",
+        operational: "Task stopped due to a system issue",
+        approval: "Task is ready for your review",
+      },
+      intro: {
+        default: "BuildLoop recorded the latest run results below.",
+        failed:
+          "BuildLoop kept the work inside the approved scope, but verification still found issues after the automatic correction limit was reached.",
+        blocked: "BuildLoop stopped before completing the task because of guardrails.",
+        operational:
+          "BuildLoop stopped because an external service was unavailable. This is not a coding failure.",
+        approval: "Changes match the contract. Sensitive actions still require your approval.",
+      },
+    },
+    meaning: {
+      pass: "The implementation appears safe to review for approval.",
+      failedUnsafe: "The implementation may not be safe to accept yet.",
+      failedStopped: "BuildLoop stopped instead of claiming success.",
+      blocked: "BuildLoop prevented an action that requires explicit approval.",
+      operational: "This issue is operational — retry may help once the service is available.",
+    },
+    nextStep: {
+      default: "Review the task details.",
+      failed: "Review technical evidence and revise the task where appropriate.",
+      blocked: "Review blocked action.",
+      approval: "Review and approve.",
+      operational: "Retry when the service is available.",
+      pass: "Review evidence and proceed with approval if appropriate.",
+    },
+    correction: {
+      exhausted:
+        "BuildLoop attempted {count} automatic corrections, but verification still failed.",
+      resolved: "BuildLoop fixed {count} issue(s) automatically during the run.",
+      notAttempted:
+        "No automatic correction was attempted because this issue requires a different action.",
+      notAttemptedBlocked:
+        "No automatic correction was attempted because the task was blocked by guardrails.",
+      notAttemptedOperational:
+        "No automatic correction was attempted because this was an operational service issue.",
+    },
+    remote: {
+      none: "No commit, push, merge, or deployment was performed.",
+      commitApprovedOnly: "Commit permission was recorded, but no Git commit was executed.",
+      executed: "Remote actions performed: {actions}.",
+      commit: "commit",
+      push: "push",
+      merge: "merge",
+      deploy: "deploy",
+    },
+    sections: {
+      whatPassed: "What passed",
+      whatFailed: "What failed",
+      whatThisMeans: "What this means",
+      recommendedNextStep: "Recommended next step",
+      automaticActions: "What BuildLoop did automatically",
+      remoteActions: "Remote actions",
+    },
   },
   language: {
     english: "English",
@@ -687,6 +839,8 @@ export const en = {
       filesChanged: "Files changed",
       checksFinal: "Checks (final)",
       runOrchestrator: "Run orchestrator",
+      rerunTask: "Re-run task",
+      runHistory: "Run history",
       running: "Running…",
       notStarted: "Orchestrator has not started. Approve the contract first.",
       technicalActivity: "View technical activity",
@@ -761,6 +915,8 @@ export const en = {
       running: "Running…",
       workingNote: "BuildLoop is working — status: {status}.",
       failedNote: "Orchestrator finished with FAILED after the correction limit.",
+      failedRerunNote: "Start a new run under this task. Previous run evidence is preserved.",
+      rerunTask: "Re-run task",
     },
     contractLimits: {
       maxCorrections: "Maximum {count} corrections",
@@ -855,6 +1011,7 @@ export const en = {
       applying: "BuildLoop is applying automatic correction {used} of {limit}.",
       verifying: "BuildLoop is re-verifying automatic correction {used} of {limit}.",
       verified: "{count} previous issue(s) were found and fixed automatically.",
+      unresolved: "Automatic correction has not resolved the issue yet.",
       stepNotNeeded: "Not needed",
       stepProgress: "{used} of {limit}",
     },
@@ -866,6 +1023,25 @@ export const en = {
       security: { label: "Security Review", detail: "Security reviewer when triggered" },
       correction: { label: "Correction", detail: "Bounded correction loop (max 2)" },
       decision: { label: "Decision", detail: "Decision engine determines verdict" },
+    },
+    progress: {
+      completed: "Completed",
+      active: "Running",
+      waiting: "Waiting",
+      skipped: "Not needed",
+      blocked: "Blocked",
+      failed: "Failed",
+      runSummary: "Running · {elapsed} elapsed · {used}/{limit} corrections",
+      lastActivity: "Last activity: {relative}",
+      autoRefresh: "Status updates automatically",
+      stillWorking: "Still working. No action is required.",
+      delayed: "Run may be delayed. Refresh status.",
+      workerRunning: "Worker — Running",
+      workerCompleted: "Worker — Completed",
+      workerWaiting: "Worker — Waiting",
+      checkerRunning: "Checker — Running",
+      checkerCompleted: "Checker — Completed",
+      checkerWaiting: "Checker — Waiting",
     },
     approvalRecommendation: {
       allFinalPassed: "All final checks passed.",
@@ -952,4 +1128,5 @@ export type TranslationKey =
   | `legal.${string}`
   | `footer.${string}`
   | `lifecycle.${string}`
-  | `verdict.${string}`;
+  | `verdict.${string}`
+  | `evidence.${string}`;

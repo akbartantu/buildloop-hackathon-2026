@@ -6,7 +6,7 @@ import { useI18n } from "@/i18n/context";
 import type { TranslationKey } from "@/i18n/en";
 import { formatTaskRef } from "@/lib/task-display";
 import type { TaskRecord } from "@/lib/tasks-schema";
-import type { TaskStatus } from "@/lib/task-contract";
+import { semanticToneIconClass, taskStatusSemanticTone } from "@/lib/status-presentation";
 
 function isRunTask(task: TaskRecord): boolean {
   if (task.runnerState?.runnerInvoked) return true;
@@ -34,13 +34,6 @@ function runDecision(
   }
   if (task.status === "APPROVED_FOR_EXECUTION") return t("runs.decision.ready");
   return t("runs.decision.none");
-}
-
-function statusTone(status: TaskStatus): "pass" | "blocked" | "review" | "neutral" {
-  if (status === "PASS" || status === "AWAITING_APPROVAL") return "pass";
-  if (status === "BLOCKED" || status === "FAILED") return "blocked";
-  if (["RUNNING", "CHECKING", "NEEDS_CORRECTION", "INSPECTING"].includes(status)) return "review";
-  return "neutral";
 }
 
 export function RunsPage() {
@@ -90,15 +83,7 @@ export function RunsPage() {
                     <td className="py-3 pr-4">
                       <TaskStatusLabel
                         status={task.status}
-                        className={`font-mono text-[11px] uppercase tracking-[0.1em] ${
-                          statusTone(task.status) === "pass"
-                            ? "text-status-pass"
-                            : statusTone(task.status) === "blocked"
-                              ? "text-status-blocked"
-                              : statusTone(task.status) === "review"
-                                ? "text-status-review"
-                                : "text-foreground"
-                        }`}
+                        className={`font-mono text-[11px] uppercase tracking-[0.1em] ${semanticToneIconClass(taskStatusSemanticTone(task.status))}`}
                       />
                     </td>
                     <td className="py-3 pr-4 font-mono text-xs text-foreground">

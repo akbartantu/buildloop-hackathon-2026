@@ -11,6 +11,12 @@ import { getSandboxRoot } from "@/orchestrator/workspace/sandbox-root";
 import { isPublicGitHubRepoUrl } from "@/lib/repository/public-github-url";
 import { assertTaskProjectExecutionSafe } from "@/lib/workspace/execution-guard";
 import { assertTaskOrchestrationEligible } from "@/lib/task-lifecycle-ops";
+import {
+  archiveCurrentRun,
+  assertRerunAllowed,
+  canRerunFailedTask,
+  captureContractInputs,
+} from "@/lib/task-rerun";
 
 export const executeTaskRun = createServerFn({ method: "POST" })
   .middleware([requireAuth])
@@ -24,12 +30,24 @@ export const executeTaskRun = createServerFn({ method: "POST" })
 
     assertTaskOrchestrationEligible(task);
 
-    const linkedProject = task.projectId
-      ? await context.projects.getProject(task.projectId, context.auth.userId)
+    let workingTask = task;
+    const isFailedRerun = canRerunFailedTask(task);
+    if (isFailedRerun) {
+      assertRerunAllowed(task);
+      const preparedRunner = archiveCurrentRun(task);
+      workingTask = await context.tasks.prepareForRerun({
+        id: data.id,
+        status: "APPROVED_FOR_EXECUTION",
+        runnerState: preparedRunner,
+      });
+    }
+
+    const linkedProject = workingTask.projectId
+      ? await context.projects.getProject(workingTask.projectId, context.auth.userId)
       : null;
 
     assertTaskProjectExecutionSafe({
-      task,
+      task: workingTask,
       project: linkedProject
         ? {
             repositoryUrl: linkedProject.repositoryUrl,
@@ -41,41 +59,42 @@ export const executeTaskRun = createServerFn({ method: "POST" })
     });
 
     const workspaceRoot = getWorkspaceRoot();
-    const runSandboxId = createRunSandboxId(task.id);
+    const runSandboxId = createRunSandboxId(workingTask.id);
     const cloneOptions =
-      isPublicGitHubRepoUrl(task.workspace) && task.sourceCommitSha
+      isPublicGitHubRepoUrl(workingTask.workspace) && workingTask.sourceCommitSha
         ? {
             sandboxRoot: getSandboxRoot(workspaceRoot),
             runId: runSandboxId,
-            commitSha: task.sourceCommitSha,
+            commitSha: workingTask.sourceCommitSha,
           }
-        : isPublicGitHubRepoUrl(task.workspace)
+        : isPublicGitHubRepoUrl(workingTask.workspace)
           ? { sandboxRoot: getSandboxRoot(workspaceRoot), runId: runSandboxId }
           : {};
 
-    const repoPath = await resolveWorkspacePathAsync(task.workspace, workspaceRoot, cloneOptions);
+    const repoPath = await resolveWorkspacePathAsync(workingTask.workspace, workspaceRoot, cloneOptions);
     const gitBaseline = (await captureGitBaseline(repoPath)) ?? undefined;
 
-    if (task.sourceCommitSha && gitBaseline && gitBaseline.headSha !== task.sourceCommitSha) {
+    if (workingTask.sourceCommitSha && gitBaseline && gitBaseline.headSha !== workingTask.sourceCommitSha) {
       throw new Error("Repository baseline tidak cocok dengan source commit SHA task.");
     }
 
     const orchestrator = new ProductOrchestrator(workspaceRoot);
     const result = await orchestrator.execute({
-      goal: task.goal,
-      taskId: task.id,
-      contractId: task.id,
-      workspace: task.workspace,
+      goal: workingTask.goal,
+      taskId: workingTask.id,
+      contractId: workingTask.id,
+      workspace: workingTask.workspace,
       allowDirtyWorkspace: false,
-      storedContract: task.contract,
-      projectId: task.projectId,
-      repositoryUrl: task.workspace,
-      ...(task.sourceCommitSha ? { sourceCommitSha: task.sourceCommitSha } : {}),
+      storedContract: workingTask.contract,
+      projectId: workingTask.projectId,
+      repositoryUrl: workingTask.workspace,
+      ...(workingTask.sourceCommitSha ? { sourceCommitSha: workingTask.sourceCommitSha } : {}),
       runSandboxId,
     });
 
     const nextStatus = mapRunStatus(result.run.status, result.run.verdict);
-    const isHumanRevision = Boolean(task.runnerState?.revisionRequested);
+    const isHumanRevision = Boolean(workingTask.runnerState?.revisionRequested);
+    const isRerun = isFailedRerun || Boolean(workingTask.runnerState?.rerunRequested);
     const resolvedBaseline = gitBaseline
       ? {
           repoPath: gitBaseline.repoPath,
@@ -83,7 +102,10 @@ export const executeTaskRun = createServerFn({ method: "POST" })
           headSha: gitBaseline.headSha,
           dirty: gitBaseline.dirty,
         }
-      : task.runnerState?.gitBaseline;
+      : workingTask.runnerState?.gitBaseline;
+    const priorHistory = workingTask.runnerState?.runHistory ?? [];
+    const lockedInputs =
+      workingTask.runnerState?.lockedContractInputs ?? captureContractInputs(workingTask.contract);
     const baseRunner: import("@/lib/task-contract").RunnerState = {
       runnerInvoked: result.run.counters.workerCalls > 0,
       filesChanged: result.run.counters.filesChanged,
@@ -93,9 +115,12 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       note: result.run.verdictReason ?? result.run.status,
       runId: result.run.id,
       workerId: result.run.workerId,
-      correctionCount: isHumanRevision ? 0 : result.run.counters.correctionCount,
-      humanRevisionCount: task.runnerState?.humanRevisionCount ?? 0,
+      correctionCount: isHumanRevision || isRerun ? 0 : result.run.counters.correctionCount,
+      humanRevisionCount: workingTask.runnerState?.humanRevisionCount ?? 0,
       revisionRequested: false,
+      rerunRequested: false,
+      runHistory: priorHistory,
+      lockedContractInputs: lockedInputs,
       evidence: summarizeEvidence(result.evidence),
       decisionLog: result.decisionLog.map((entry) => ({
         rule: entry.rule,
@@ -105,28 +130,28 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       })),
       orchestration: {
         phase: mapOrchestrationPhase(result.run.status, result.run.verdict),
-        ...(task.runnerState?.orchestration?.plannerOutput
-          ? { plannerOutput: task.runnerState.orchestration.plannerOutput }
+        ...(workingTask.runnerState?.orchestration?.plannerOutput
+          ? { plannerOutput: workingTask.runnerState.orchestration.plannerOutput }
           : {}),
-        ...(task.runnerState?.orchestration?.approvalType
-          ? { approvalType: task.runnerState.orchestration.approvalType }
+        ...(workingTask.runnerState?.orchestration?.approvalType
+          ? { approvalType: workingTask.runnerState.orchestration.approvalType }
           : {}),
-        ...(task.runnerState?.orchestration?.policyDecision
-          ? { policyDecision: task.runnerState.orchestration.policyDecision }
+        ...(workingTask.runnerState?.orchestration?.policyDecision
+          ? { policyDecision: workingTask.runnerState.orchestration.policyDecision }
           : {}),
         workerInvoked: result.run.counters.workerCalls > 0,
         securityReviewInvoked: result.orchestrationEvidence.securityReviewInvoked,
         securityFindings: result.orchestrationEvidence.securityFindings,
         correctionCount: result.run.counters.correctionCount,
         finalVerdict: result.run.verdict,
-        ...(task.contract.workPlan
+        ...(workingTask.contract.workPlan
           ? {
-              contracts: task.contract.workPlan.contracts.map((c) => ({
+              contracts: workingTask.contract.workPlan.contracts.map((c) => ({
                 id: c.id,
                 goal: c.goal,
                 status: mapWorkContractExecutionStatus(result.run.status, result.run.verdict),
                 approvalState: mapWorkContractApprovalState(
-                  task.runnerState?.orchestration?.approvalType ?? null,
+                  workingTask.runnerState?.orchestration?.approvalType ?? null,
                   result.run.verdict,
                 ),
               })),
@@ -135,6 +160,7 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       },
       ...(resolvedBaseline ? { gitBaseline: resolvedBaseline } : {}),
       ...(isHumanRevision ? { lastAction: "human_revision" as const } : {}),
+      ...(isRerun ? { lastAction: "worker" as const } : {}),
     };
     const runnerState =
       result.run.verdict === "BLOCKED"

@@ -21,6 +21,7 @@ import {
   type HumanGateDecision,
   type SensitiveApprovalAction,
 } from "@/lib/human-approval";
+import { captureContractInputs } from "@/lib/task-rerun";
 
 const SELECT_COLUMNS =
   "id, workspace, goal, status, contract, blocked_reasons, runner_state, created_at, updated_at, locked_at, project_id, source_commit_sha";
@@ -182,14 +183,20 @@ export function createSupabaseTaskRepository(
     },
 
     async lockContract(input: { id: string; userId: string }): Promise<TaskRecord> {
+      const existing = await this.getTask(input.id);
+      if (!existing) {
+        throw new Error("Contract cannot be locked in the current status.");
+      }
+
       const { data: row, error } = await supabase
         .from("tasks")
         .update({
           status: "APPROVED_FOR_EXECUTION",
           locked_at: new Date().toISOString(),
-          runner_state: zeroChangeRunnerState(
-            "Contract locked. Orchestrator is ready to run.",
-          ),
+          runner_state: {
+            ...zeroChangeRunnerState("Contract locked. Orchestrator is ready to run."),
+            lockedContractInputs: captureContractInputs(existing.contract),
+          },
         })
         .eq("id", input.id)
         .in("status", ["DRAFT", "CONTRACT_READY"])
@@ -447,6 +454,28 @@ export function createSupabaseTaskRepository(
         .select(SELECT_COLUMNS)
         .maybeSingle();
       if (error || !row) throw new Error("Clarification could not be saved.");
+      return toTaskRecord(row as TaskRowShape);
+    },
+
+    async prepareForRerun(input: {
+      id: string;
+      status: TaskStatus;
+      runnerState: RunnerState;
+    }): Promise<TaskRecord> {
+      const { data: row, error } = await supabase
+        .from("tasks")
+        .update({
+          status: input.status,
+          runner_state: input.runnerState,
+        })
+        .eq("id", input.id)
+        .select(SELECT_COLUMNS)
+        .maybeSingle();
+
+      if (error || !row) {
+        throw new Error("Failed to prepare task for re-run.");
+      }
+
       return toTaskRecord(row as TaskRowShape);
     },
 

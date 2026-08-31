@@ -4,6 +4,7 @@
  */
 
 import type { PlanningSource, TaskClarification } from "@/lib/planning/planning-source";
+import type { ContractInputsSnapshot, TaskRunSnapshot } from "@/lib/task-rerun";
 
 export const WORKSPACE_NAME = "buildloop-demo";
 export const MAX_ATTEMPTS = 2;
@@ -157,6 +158,12 @@ export type RunnerState = {
     outcome?: string;
   }>;
   orchestration?: OrchestrationEvidence;
+  /** Snapshot of contract inputs at lock time — used to detect silent contract drift before re-run. */
+  lockedContractInputs?: ContractInputsSnapshot;
+  /** Archived completed runs for this task. */
+  runHistory?: TaskRunSnapshot[];
+  /** Set while preparing a failed-task re-run (similar to revisionRequested). */
+  rerunRequested?: boolean;
 };
 
 /** Evidence nol-perubahan: dipakai untuk BLOCKED dan untuk status siap-runner. */

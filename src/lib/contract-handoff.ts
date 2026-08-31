@@ -2,6 +2,7 @@ import type { TaskRecord } from "@/lib/tasks-schema";
 import type { TaskStatus } from "@/lib/task-contract";
 import type { DemoTab } from "@/lib/task-display";
 import { isOrchestrationInProgress } from "@/lib/evidence-analysis";
+import { canRerunFailedTask } from "@/lib/task-rerun";
 import { translate, DEFAULT_LOCALE, type Locale } from "@/i18n";
 import type { TranslationKey } from "@/i18n/en";
 import { friendlyStatusLabel } from "@/lib/task-overview";
@@ -124,6 +125,17 @@ export function getContractHandoff(
   }
 
   if (status === "FAILED") {
+    if (canRerunFailedTask(task)) {
+      return {
+        primaryLabel: options.running ? t("taskDetail.handoff.running") : t("taskDetail.handoff.rerunTask"),
+        primaryAction: "run",
+        secondaryLabel: t("taskDetail.handoff.viewEvidence"),
+        secondaryAction: "view-evidence",
+        statusNote: t("taskDetail.handoff.failedRerunNote"),
+        showNextSteps: false,
+        showApproveActions: false,
+      };
+    }
     return {
       primaryLabel: t("taskDetail.handoff.viewEvidence"),
       primaryAction: "view-evidence",

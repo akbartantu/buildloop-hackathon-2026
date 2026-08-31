@@ -1,5 +1,6 @@
 import type { TaskContract, TaskStatus } from "@/lib/task-contract";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { canRerunFailedTask } from "@/lib/task-rerun";
 
 const ACTIVE_ORCHESTRATION_STATUSES: TaskStatus[] = [
   "INSPECTING",
@@ -58,10 +59,13 @@ export function isOrchestrationEligible(task: TaskRecord): boolean {
   if (isOrchestrationInProgressStatus(task.status)) {
     return false;
   }
+  if (canRerunFailedTask(task)) {
+    return true;
+  }
   if (task.status !== "APPROVED_FOR_EXECUTION") {
     return false;
   }
-  if (task.runnerState?.revisionRequested) {
+  if (task.runnerState?.revisionRequested || task.runnerState?.rerunRequested) {
     return true;
   }
   return !task.runnerState?.runnerInvoked;
@@ -71,10 +75,17 @@ export function assertTaskOrchestrationEligible(task: TaskRecord): void {
   if (isOrchestrationInProgressStatus(task.status)) {
     throw new Error("Orchestrator sudah berjalan untuk task ini.");
   }
+  if (canRerunFailedTask(task)) {
+    return;
+  }
   if (task.status !== "APPROVED_FOR_EXECUTION") {
     throw new Error("Task harus berstatus APPROVED_FOR_EXECUTION sebelum diorkestrasi.");
   }
-  if (task.runnerState?.runnerInvoked && !task.runnerState?.revisionRequested) {
+  if (
+    task.runnerState?.runnerInvoked &&
+    !task.runnerState?.revisionRequested &&
+    !task.runnerState?.rerunRequested
+  ) {
     throw new Error("Task sudah selesai dieksekusi. Orchestrasi ulang tidak diizinkan.");
   }
 }

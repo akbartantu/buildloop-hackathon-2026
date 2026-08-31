@@ -8,6 +8,13 @@ import {
 } from "@/components/ui/collapsible";
 import type { CheckStatus } from "./status-pill";
 import { StatusMark } from "./status-pill";
+import { SemanticStatusBadge } from "@/components/site/semantic-status-badge";
+import {
+  progressVisualPresentation,
+  taskStatusPresentation,
+  verdictPresentation,
+} from "@/lib/status-presentation";
+import { DEFAULT_LOCALE, type Locale } from "@/i18n";
 
 export function DemoPanel({
   title,
@@ -93,37 +100,43 @@ export function DemoStatusBanner({
   status,
   title,
   description,
+  locale = DEFAULT_LOCALE,
 }: {
   status: CheckStatus | "RUNNING" | "FAILED" | "AWAITING_APPROVAL";
   title: string;
   description?: string;
+  locale?: Locale;
 }) {
-  const toneClass: Record<string, string> = {
-    PASS: "border-status-pass/30 bg-status-pass/5",
-    BLOCKED: "border-status-blocked/30 bg-status-blocked/5",
-    "NEEDS HUMAN REVIEW": "border-status-review/30 bg-status-review/5",
-    STALE: "border-status-stale/30 bg-muted/40",
-    RUNNING: "border-status-review/30 bg-status-review/5",
-    FAILED: "border-destructive/30 bg-destructive/5",
-    AWAITING_APPROVAL: "border-status-review/30 bg-status-review/5",
-  };
+  const presentation = (() => {
+    if (status === "PASS" || status === "BLOCKED" || status === "FAILED") {
+      return verdictPresentation(status, locale);
+    }
+    if (status === "AWAITING_APPROVAL") {
+      return taskStatusPresentation("AWAITING_APPROVAL", locale);
+    }
+    if (status === "RUNNING") {
+      return progressVisualPresentation("active", locale);
+    }
+    if (status === "NEEDS HUMAN REVIEW") {
+      return taskStatusPresentation("AWAITING_APPROVAL", locale);
+    }
+    if (status === "STALE") {
+      return progressVisualPresentation("skipped", locale);
+    }
+    return verdictPresentation("PASS", locale);
+  })();
 
-  const markStatus: CheckStatus | null =
-    status === "RUNNING" || status === "FAILED" || status === "AWAITING_APPROVAL"
-      ? null
-      : status;
+  const toneClass = presentation?.bannerClass ?? "border-border bg-card";
 
   return (
-    <div className={cn("rounded-lg border px-5 py-4 sm:px-6", toneClass[status] ?? "border-border bg-card")}>
+    <div className={cn("rounded-lg border px-5 py-4 sm:px-6", toneClass)}>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
-            {markStatus ? (
-              <StatusMark status={markStatus} />
+            {presentation ? (
+              <SemanticStatusBadge presentation={presentation} />
             ) : (
-              <span className="inline-flex items-center rounded-full border border-status-review/40 bg-background px-2.5 py-0.5 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-status-review">
-                {status}
-              </span>
+              <StatusMark status={status as CheckStatus} />
             )}
             <h2 className="text-lg font-semibold tracking-tight text-foreground">{title}</h2>
           </div>

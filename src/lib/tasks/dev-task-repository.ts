@@ -22,6 +22,7 @@ import {
   type HumanGateDecision,
   type SensitiveApprovalAction,
 } from "@/lib/human-approval";
+import { captureContractInputs } from "@/lib/task-rerun";
 
 function projectRoot(): string {
   return path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
@@ -245,9 +246,10 @@ export function createDevTaskRepository(
       task.status = "APPROVED_FOR_EXECUTION";
       task.lockedAt = now;
       task.updatedAt = now;
-      task.runnerState = zeroChangeRunnerState(
-        "Contract locked. Orchestrator is ready to run.",
-      );
+      task.runnerState = {
+        ...zeroChangeRunnerState("Contract locked. Orchestrator is ready to run."),
+        lockedContractInputs: captureContractInputs(task.contract),
+      };
 
       store.approvals.push({
         taskId: input.id,
@@ -455,6 +457,27 @@ export function createDevTaskRepository(
       store.tasks[index] = updated;
       await writeStore(store);
       return toRecord(updated);
+    },
+
+    async prepareForRerun(input: {
+      id: string;
+      status: TaskStatus;
+      runnerState: RunnerState;
+    }): Promise<TaskRecord> {
+      const store = await readStore();
+      const index = store.tasks.findIndex((task) => task.id === input.id);
+      if (index === -1) {
+        throw new Error("Task not found.");
+      }
+      const task = store.tasks[index];
+      if (!task) {
+        throw new Error("Task not found.");
+      }
+      task.status = input.status;
+      task.runnerState = input.runnerState;
+      task.updatedAt = new Date().toISOString();
+      await writeStore(store);
+      return toRecord(task);
     },
 
     async updateAfterRun(input: {

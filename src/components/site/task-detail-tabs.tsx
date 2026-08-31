@@ -7,7 +7,6 @@ import {
   Layers,
   Shield,
   ShieldCheck,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -52,9 +51,6 @@ import type { TaskRecord } from "@/lib/tasks-schema";
 import type { HumanGateDecision } from "@/lib/human-approval";
 import {
   buildTaskLifecycleViewModel,
-  formatLifecycleStepLabel,
-  formatLifecycleStepStatus,
-  lifecycleStepIconState,
   type TaskLifecycleViewModel,
 } from "@/lib/task-lifecycle";
 import { shouldRenderTabIcon } from "@/lib/approval-recommendation";
@@ -64,8 +60,14 @@ import {
   isPendingHumanApproval,
 } from "@/lib/human-approval";
 import { isApprovalGateOpen, isOrchestrationInProgress } from "@/lib/evidence-analysis";
+import { canRerunFailedTask, formatRunHistoryLabel, listTaskRunHistory } from "@/lib/task-rerun";
+import { isOrchestrationEligible } from "@/lib/task-lifecycle-ops";
 import { cn } from "@/lib/utils";
 import { TaskOverviewView } from "@/components/site/task-overview-view";
+import { LifecycleProgressPanel } from "@/components/site/lifecycle-progress-panel";
+import { EvidenceSummaryPanel } from "@/components/site/evidence-summary-panel";
+import { SemanticStatusBadge } from "@/components/site/semantic-status-badge";
+import { checkEvidencePresentation, verdictPresentation } from "@/lib/status-presentation";
 import { formatPlanningSourceLabel } from "@/lib/planning/planning-source";
 import { friendlyStatusLabel } from "@/lib/task-overview";
 import { useI18n } from "@/i18n/context";
@@ -129,7 +131,7 @@ export function TaskDetailTabs({
   const [tab, setTab] = useState<DemoTab>(() => initialTab ?? suggestedTab(task.status));
   const blocked = task.status === "BLOCKED";
   const locked = task.status === "APPROVED_FOR_EXECUTION" || Boolean(task.lockedAt);
-  const canRun = task.status === "APPROVED_FOR_EXECUTION";
+  const canRun = isOrchestrationEligible(task);
   const sourceCommitDrift = detectSourceCommitDrift(task, source?.commitSha);
   const showRevise = canReviseTask(task) && !taskHasExecuted(task);
   const lifecycle = buildTaskLifecycleViewModel(task, locale);
@@ -525,11 +527,16 @@ function OrchestrationView({
         <DemoStatusBanner
           status="RUNNING"
           title={
-            lifecycle.correction.kind === "human"
+            lifecycle.progress.runSummary ??
+            (lifecycle.correction.kind === "human"
               ? t("taskDetail.orchestration.revisionFromYou")
-              : t("taskDetail.orchestration.autoCorrection")
+              : t("taskDetail.orchestration.autoCorrection"))
           }
-          description={lifecycle.orchestrationUserSummary}
+          description={
+            lifecycle.progress.longRunningMessage ??
+            lifecycle.progress.delayedWarning ??
+            lifecycle.orchestrationUserSummary
+          }
         />
       ) : lifecycle.implementationVerdict === "PASS" ? (
         <DemoStatusBanner
@@ -553,41 +560,7 @@ function OrchestrationView({
       </div>
 
       <DemoPanel title={t("taskDetail.orchestration.lifecycle")}>
-        <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-          {lifecycle.orchestrationSteps.map((step) => {
-            const icon = lifecycleStepIconState(step.state);
-            const suffix = formatLifecycleStepStatus(step.state, locale);
-            return (
-              <li
-                key={step.key}
-                className={cn(
-                  "rounded-lg border px-3 py-3",
-                  icon === "done" && "border-status-pass/30 bg-status-pass/5",
-                  icon === "active" && "border-status-review/40 bg-accent/50",
-                  icon === "blocked" && "border-status-blocked/40 bg-status-blocked/5",
-                  icon === "neutral" && "border-border bg-muted/20",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  {icon === "done" ? (
-                    <CheckCircle2 className="size-4 text-status-pass" />
-                  ) : icon === "active" ? (
-                    <Sparkles className="size-4 text-status-review" />
-                  ) : icon === "blocked" ? (
-                    <Circle className="size-4 text-status-blocked" />
-                  ) : (
-                    <Circle className="size-4 text-muted-foreground" />
-                  )}
-                  <span className="text-xs font-medium uppercase tracking-[0.08em]">{step.label}</span>
-                </div>
-                <p className="mt-2 text-xs leading-relaxed text-muted-foreground">{step.detail}</p>
-                {suffix ? (
-                  <p className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">{suffix}</p>
-                ) : null}
-              </li>
-            );
-          })}
-        </ol>
+        <LifecycleProgressPanel progress={lifecycle.progress} />
       </DemoPanel>
 
       {task.contract.workPlan && task.contract.workPlan.contracts.length > 0 ? (
@@ -690,11 +663,28 @@ function OrchestrationView({
       {canRun ? (
         <div className="flex flex-wrap gap-3">
           <Button onClick={onRun} disabled={running}>
-            {running ? t("taskDetail.orchestration.running") : t("taskDetail.orchestration.runOrchestrator")}
+            {running
+              ? t("taskDetail.orchestration.running")
+              : canRerunFailedTask(task)
+                ? t("taskDetail.orchestration.rerunTask")
+                : t("taskDetail.orchestration.runOrchestrator")}
           </Button>
         </div>
       ) : lifecycle.showOrchestratorNotStarted ? (
         <p className="text-sm text-muted-foreground">{t("taskDetail.orchestration.notStarted")}</p>
+      ) : null}
+
+      {listTaskRunHistory(task).length > 0 ? (
+        <DemoPanel title={t("taskDetail.orchestration.runHistory")}>
+          <ul className="space-y-2 text-sm">
+            {listTaskRunHistory(task).map((entry) => (
+              <li key={entry.runId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
+                <span className="font-medium text-foreground">{formatRunHistoryLabel(entry, locale)}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">{entry.runId.slice(0, 8)}</span>
+              </li>
+            ))}
+          </ul>
+        </DemoPanel>
       ) : null}
 
       {runner?.decisionLog?.length ? (
@@ -744,7 +734,15 @@ function EvidenceView({
           description={
             task.blockedReasons[0]?.explanation ?? t("taskDetail.evidence.blockedFallback")
           }
+          locale={locale}
         />
+        {lifecycle.evidenceSummary ? (
+          <EvidenceSummaryPanel
+            summary={lifecycle.evidenceSummary}
+            verdict="BLOCKED"
+            locale={locale}
+          />
+        ) : null}
         <div className="grid gap-4 lg:grid-cols-2">
           <DemoPanel title={t("taskDetail.evidence.summary")}>
             <DemoKeyValueTable
@@ -783,6 +781,14 @@ function EvidenceView({
           status="PASS"
           title={lifecycle.executionCompleteLabel ?? t("lifecycle.summary.executionComplete")}
           description={lifecycle.plainLanguageSummary}
+          locale={locale}
+        />
+      ) : lifecycle.implementationVerdict === "FAILED" ? (
+        <DemoStatusBanner
+          status="FAILED"
+          title={lifecycle.evidenceSummary?.headline ?? t("taskDetail.evidence.runTitle")}
+          description={lifecycle.evidenceSummary?.intro ?? lifecycle.plainLanguageSummary}
+          locale={locale}
         />
       ) : (
         <DemoPageHeader
@@ -791,20 +797,28 @@ function EvidenceView({
         />
       )}
 
-      <DemoPanel title={t("taskDetail.evidence.currentStatus")}>
-        <p className="text-sm leading-relaxed text-foreground">
-          {lifecycle.correction.phase === "verifying"
-            ? t("taskDetail.evidence.verifying")
-            : lifecycle.correction.phase === "preparing"
-              ? lifecycle.correction.userSummary
-              : lifecycle.checks.total === 0
-                ? t("taskDetail.evidence.noFinalChecks")
-                : lifecycle.checks.friendlySummary}
-        </p>
-        {lifecycle.correction.kind === "automatic" && lifecycle.correction.userSummary ? (
-          <p className="mt-3 text-sm text-muted-foreground">{lifecycle.correction.userSummary}</p>
-        ) : null}
-      </DemoPanel>
+      {lifecycle.evidenceSummary ? (
+        <EvidenceSummaryPanel
+          summary={lifecycle.evidenceSummary}
+          verdict={lifecycle.implementationVerdict}
+          locale={locale}
+        />
+      ) : (
+        <DemoPanel title={t("taskDetail.evidence.currentStatus")}>
+          <p className="text-sm leading-relaxed text-foreground">
+            {lifecycle.correction.phase === "verifying"
+              ? t("taskDetail.evidence.verifying")
+              : lifecycle.correction.phase === "preparing"
+                ? lifecycle.correction.userSummary
+                : lifecycle.checks.total === 0
+                  ? t("taskDetail.evidence.noFinalChecks")
+                  : lifecycle.checks.friendlySummary}
+          </p>
+          {lifecycle.correction.kind === "automatic" && lifecycle.correction.userSummary ? (
+            <p className="mt-3 text-sm text-muted-foreground">{lifecycle.correction.userSummary}</p>
+          ) : null}
+        </DemoPanel>
+      )}
 
       {lifecycle.implementationVerdict === "PASS" && lifecycle.checks.allRequiredSatisfied ? (
         <DemoPanel title={t("taskDetail.evidence.finalResult")}>
@@ -844,21 +858,20 @@ function EvidenceView({
         </DemoCollapsible>
       ) : null}
 
-      <DemoPanel title={t("taskDetail.evidence.plainSummary")}>
-        <p className="text-sm leading-relaxed text-foreground">{lifecycle.plainLanguageSummary}</p>
-      </DemoPanel>
-
       <DemoCollapsible title={t("taskDetail.evidence.technicalDetails")}>
         <DemoKeyValueTable
           rows={[
             {
               label: "Implementation verdict",
-              value:
-                lifecycle.implementationVerdict === "PASS" ? (
-                  <span className="text-status-pass">PASS</span>
-                ) : (
-                  (lifecycle.implementationVerdict ?? task.status)
-                ),
+              value: lifecycle.implementationVerdict ? (
+                <SemanticStatusBadge
+                  presentation={
+                    verdictPresentation(lifecycle.implementationVerdict, locale)!
+                  }
+                />
+              ) : (
+                task.status
+              ),
             },
             {
               label: "Checks",
@@ -880,7 +893,37 @@ function EvidenceView({
           ]}
         />
 
-        {runner?.evidence?.length ? (
+        {lifecycle.evidenceSummary?.technicalDetails.length ? (
+          <div className="mt-4 border-t border-border pt-4">
+            <DemoSectionLabel>{t("taskDetail.evidence.checkHistory")}</DemoSectionLabel>
+            <ul className="mt-3 space-y-3">
+              {lifecycle.evidenceSummary.technicalDetails.map((item) => {
+                const checkPresentation = checkEvidencePresentation(item.status, locale);
+                return (
+                  <li
+                    key={`${item.category}-${item.name}-${item.status}`}
+                    className={cn("border-l-2 pl-3", checkPresentation.borderClass)}
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <SemanticStatusBadge presentation={checkPresentation} />
+                      <span className="text-sm font-medium text-foreground">{item.title}</span>
+                    </div>
+                    <p className="mt-1 text-sm leading-relaxed text-foreground">{item.userLine}</p>
+                    <p className="mt-1 font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+                      {item.category} · {item.name} · {item.status}
+                    </p>
+                    {item.command ? (
+                      <p className="mt-1 font-mono text-xs text-muted-foreground">
+                        Command: {item.command}
+                      </p>
+                    ) : null}
+                    <p className="mt-1 text-xs text-muted-foreground">{item.summary}</p>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ) : runner?.evidence?.length ? (
           <div className="mt-4 border-t border-border pt-4">
             <DemoSectionLabel>{t("taskDetail.evidence.checkHistory")}</DemoSectionLabel>
             <ul className="mt-3 space-y-3">

@@ -16,6 +16,11 @@ import {
 import { translate, type Locale, DEFAULT_LOCALE } from "@/i18n";
 import type { TranslationKey } from "@/i18n/en";
 import { formatChecksFriendlySummary } from "@/lib/lifecycle-presentations";
+import { buildRunProgressViewModel, type RunProgressViewModel } from "@/lib/lifecycle-progress";
+import {
+  buildEvidenceSummaryViewModel,
+  type EvidenceSummaryViewModel,
+} from "@/lib/evidence-summary";
 
 export type ImplementationVerdict = "PASS" | "FAILED" | "BLOCKED" | null;
 
@@ -88,6 +93,8 @@ export type TaskLifecycleViewModel = {
   isBlocked: boolean;
   nextAction: string;
   approval: ApprovalRecommendationView;
+  progress: RunProgressViewModel;
+  evidenceSummary: EvidenceSummaryViewModel | null;
 };
 
 const POST_RUN_STATUSES: TaskStatus[] = [
@@ -308,7 +315,8 @@ function buildOrchestrationSteps(
     if (step.key === "planning") {
       state = "complete";
     } else if (step.key === "preflight") {
-      state = hasRun ? "complete" : "not_run";
+      if (task.status === "INSPECTING") state = "active";
+      else if (hasRun) state = "complete";
     } else if (step.key === "worker") {
       if (task.status === "RUNNING" || task.status === "NEEDS_CORRECTION") state = "active";
       else if (workerDone) state = "complete";
@@ -424,7 +432,9 @@ export function buildTaskLifecycleViewModel(
     deploy: deliveryActionLabel(delivery.deploy, "Deploy", locale),
   };
 
-  const viewModel: Omit<TaskLifecycleViewModel, "approval"> = {
+  const orchestrationSteps = buildOrchestrationSteps(task, hasRun, verdict, locale);
+
+  const viewModel: Omit<TaskLifecycleViewModel, "approval" | "progress" | "evidenceSummary"> = {
     taskStatus: task.status,
     hasRun,
     runCompleted,
@@ -437,7 +447,7 @@ export function buildTaskLifecycleViewModel(
     correctionPhase: correction.phase,
     checks,
     evidenceHistory,
-    orchestrationSteps: buildOrchestrationSteps(task, hasRun, verdict, locale),
+    orchestrationSteps,
     orchestrationUserSummary: buildOrchestrationUserSummary(
       task,
       correction,
@@ -465,6 +475,19 @@ export function buildTaskLifecycleViewModel(
   return {
     ...viewModel,
     approval: deriveApprovalRecommendation(task, viewModel, locale),
+    progress: buildRunProgressViewModel(
+      task,
+      orchestrationSteps,
+      locale,
+      Date.now(),
+      correctionsUsed,
+      correctionLimit,
+    ),
+    evidenceSummary: buildEvidenceSummaryViewModel(
+      task,
+      viewModel as unknown as TaskLifecycleViewModel,
+      locale,
+    ),
   };
 }
 

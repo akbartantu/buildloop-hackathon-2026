@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { DemoPageHeader, DemoPanel } from "@/components/site/demo-ui";
 import { TaskDetailTabs } from "@/components/site/task-detail-tabs";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { useTaskRunPolling } from "@/hooks/use-task-run-polling";
 import { useI18n } from "@/i18n/context";
 import type { DemoTab } from "@/lib/task-display";
 
@@ -24,6 +25,7 @@ export function TaskDetailPage({ taskId, initialTab }: TaskDetailPageProps) {
     reviseTaskMutation,
   } = useWorkspaceTasks();
   const task = tasks.find((entry) => entry.id === taskId) ?? null;
+  useTaskRunPolling(task);
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;

@@ -225,7 +225,7 @@ export function deriveCorrectionPresentation(
     return {
       phase: "failed",
       kind: "automatic",
-      userSummary: "Perbaikan belum menyelesaikan masalah.",
+      userSummary: translate(locale, "lifecycle.correction.unresolved"),
       automaticUsed,
       automaticLimit,
       humanRevisionCount,

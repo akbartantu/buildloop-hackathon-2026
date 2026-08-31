@@ -4,7 +4,7 @@ import { canRecordHumanApproval } from "@/lib/human-approval";
 import { translate, type Locale, DEFAULT_LOCALE } from "@/i18n";
 import type { TranslationKey } from "@/i18n/en";
 
-export type TaskLifecycleCore = Omit<TaskLifecycleViewModel, "approval">;
+export type TaskLifecycleCore = Omit<TaskLifecycleViewModel, "approval" | "progress" | "evidenceSummary">;
 
 export type ApprovalRecommendationKind =
   | "RECOMMENDED_APPROVE"

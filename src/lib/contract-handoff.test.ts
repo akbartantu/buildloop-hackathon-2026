@@ -66,12 +66,29 @@ describe("getContractHandoff", () => {
     expect(handoff.primaryAction).toBe("view-orchestration");
   });
 
-  test("PASS directs to evidence", () => {
-    const handoff = getContractHandoff(taskWithStatus("PASS"), {
-      running: false,
-      approving: false,
+  test("FAILED with unchanged contract offers re-run", () => {
+    const task = taskWithStatus("FAILED", {
+      lockedAt: "2026-01-01T00:00:00.000Z",
+      runnerState: {
+        runnerInvoked: true,
+        filesChanged: 1,
+        commandsExecuted: 0,
+        commit: false,
+        push: false,
+        note: "FAILED",
+        runId: "run-1",
+        lockedContractInputs: {
+          goal: "Demo task",
+          inScope: ["src"],
+          acceptanceCriteria: ["Done"],
+          protectedPaths: [".env"],
+          requiredChecks: ["typecheck"],
+        },
+      },
     });
-    expect(handoff.primaryAction).toBe("view-evidence");
+    const handoff = getContractHandoff(task, { running: false, approving: false });
+    expect(handoff.primaryAction).toBe("run");
+    expect(handoff.primaryLabel).toBe("Re-run task");
   });
 });
 

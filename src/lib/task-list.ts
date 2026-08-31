@@ -5,8 +5,10 @@ import type { TranslationKey } from "@/i18n/en";
 import { formatTaskRef, suggestedTab, type DemoTab } from "@/lib/task-display";
 import { getContractVersion } from "@/lib/task-lifecycle-ops";
 import { abbreviateCommitSha, taskSourceCommitSha } from "@/lib/repository/task-source-display";
+import { taskStatusSemanticTone, type SemanticTone } from "@/lib/status-presentation";
+import { canRerunFailedTask } from "@/lib/task-rerun";
 
-export type TaskListStatusTone = "pass" | "blocked" | "review" | "neutral";
+export type TaskListStatusTone = SemanticTone;
 
 export type TaskListPrimaryAction = {
   label: string;
@@ -88,20 +90,7 @@ const ACTION_TAB: Partial<Record<TaskStatus, DemoTab>> = {
 };
 
 export function listStatusTone(status: TaskStatus): TaskListStatusTone {
-  if (status === "PASS" || status === "AWAITING_APPROVAL" || status === "CLOSED") {
-    return "pass";
-  }
-  if (status === "BLOCKED" || status === "FAILED") {
-    return "blocked";
-  }
-  if (
-    ["RUNNING", "CHECKING", "NEEDS_CORRECTION", "INSPECTING", "APPROVED_FOR_EXECUTION"].includes(
-      status,
-    )
-  ) {
-    return "review";
-  }
-  return "neutral";
+  return taskStatusSemanticTone(status);
 }
 
 export function listStatusLabel(status: TaskStatus, locale: Locale = DEFAULT_LOCALE): string {
@@ -125,7 +114,15 @@ export function listStatusExplanation(status: TaskStatus, locale: Locale = DEFAU
 export function listPrimaryAction(
   status: TaskStatus,
   locale: Locale = DEFAULT_LOCALE,
+  task?: TaskRecord,
 ): TaskListPrimaryAction | null {
+  if (status === "FAILED" && task && canRerunFailedTask(task)) {
+    const label = translate(locale, "tasks.list.action.FAILED_RERUN");
+    if (label !== "tasks.list.action.FAILED_RERUN") {
+      return { label, tab: "orchestration" };
+    }
+  }
+
   const key = LIST_ACTION_KEY[status];
   const tab = ACTION_TAB[status];
   if (!key || !tab) {
@@ -189,7 +186,7 @@ export function buildTaskListItemViewModel(
   task: TaskRecord,
   locale: Locale = DEFAULT_LOCALE,
 ): TaskListItemViewModel {
-  const primaryAction = listPrimaryAction(task.status, locale);
+  const primaryAction = listPrimaryAction(task.status, locale, task);
   const defaultTab = suggestedTab(task.status);
 
   return {

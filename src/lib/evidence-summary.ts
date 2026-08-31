@@ -56,6 +56,7 @@ type CheckKey =
   | "acceptance"
   | "protected_path"
   | "operational"
+  | "worker_execution"
   | "preflight"
   | "command"
   | "unexpected_destructive_change"
@@ -84,7 +85,17 @@ export function resolveCheckKey(category: string, name: string): CheckKey {
   if (name.startsWith("unexpected_destructive_change")) {
     return "unexpected_destructive_change";
   }
-  if (name === "worker_operational_error" || haystack.includes("operational")) {
+  if (name === "worker_operational_error") {
+    return "operational";
+  }
+  if (
+    name === "worker_error" ||
+    name === "zero_file_changes" ||
+    category === "worker"
+  ) {
+    return "worker_execution";
+  }
+  if (haystack.includes("operational")) {
     return "operational";
   }
   if (category === "typecheck" || haystack.includes("typecheck")) {
@@ -159,6 +170,9 @@ export function classifyFailure(
   const keys = failed.map((row) => resolveCheckKey(row.category, row.name));
   if (keys.some((key) => key === "protected_path" || key === "preflight")) {
     return "protected";
+  }
+  if (keys.some((key) => key === "worker_execution" || key === "operational")) {
+    return "operational";
   }
   if (keys.some((key) => key === "acceptance" || key === "scope")) {
     return "implementation";

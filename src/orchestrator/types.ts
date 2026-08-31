@@ -28,6 +28,7 @@ export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
 export type EvidenceCategory =
   | "preflight"
   | "scope"
+  | "worker"
   | "protected_path"
   | "credential"
   | "dependency"

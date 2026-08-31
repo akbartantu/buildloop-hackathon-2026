@@ -184,18 +184,47 @@ export const workerOutputSchema = z.object({
 
 export type WorkerStructuredOutput = z.infer<typeof workerOutputSchema>;
 
-export function parseWorkerStructuredOutput(raw: string): WorkerStructuredOutput {
+/** Strip relative prefixes and normalize separators for contract path matching. */
+export function normalizeWorkerFilePath(filePath: string): string {
+  let normalized = filePath.replace(/\\/g, "/").trim();
+  while (normalized.startsWith("./")) {
+    normalized = normalized.slice(2);
+  }
+  normalized = normalized.replace(/^\/+/, "");
+  if (!normalized || normalized.includes("..")) {
+    throw new GeminiClientError("GEMINI_MALFORMED", `Invalid worker file path: ${filePath}`);
+  }
+  return normalized;
+}
+
+export function extractWorkerOutputJson(raw: string): string {
   const trimmed = raw.trim();
+  const fenced = trimmed.match(/```(?:json)?\s*\n([\s\S]*?)\n```/i);
+  if (fenced?.[1]) {
+    return fenced[1].trim();
+  }
   const jsonStart = trimmed.indexOf("{");
   const jsonEnd = trimmed.lastIndexOf("}");
-  const candidate =
-    jsonStart >= 0 && jsonEnd > jsonStart ? trimmed.slice(jsonStart, jsonEnd + 1) : trimmed;
-  const parsed = workerOutputSchema.safeParse(JSON.parse(candidate));
-  if (!parsed.success) {
+  return jsonStart >= 0 && jsonEnd > jsonStart ? trimmed.slice(jsonStart, jsonEnd + 1) : trimmed;
+}
+
+export function parseWorkerStructuredOutput(raw: string): WorkerStructuredOutput {
+  const candidate = extractWorkerOutputJson(raw);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch {
     throw new GeminiClientError(
       "GEMINI_MALFORMED",
-      `Worker output failed schema validation: ${parsed.error.message}`,
+      "Worker output was not valid JSON.",
     );
   }
-  return parsed.data;
+  const validated = workerOutputSchema.safeParse(parsed);
+  if (!validated.success) {
+    throw new GeminiClientError(
+      "GEMINI_MALFORMED",
+      `Worker output failed schema validation: ${validated.error.message}`,
+    );
+  }
+  return validated.data;
 }

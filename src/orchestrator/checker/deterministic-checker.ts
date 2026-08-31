@@ -118,18 +118,20 @@ export class DeterministicChecker {
       if (input.workerReport.error.code === "PROTECTED_PATH_APPROVAL_REQUIRED") {
         // Governance approval pause — not a coding failure.
       } else {
-      const operational = isOperationalWorkerError(
-        input.workerReport.error.code,
-        input.workerReport.error.message,
-      );
+      const workerMessage = input.workerReport.error.message;
+      const workerCode = input.workerReport.error.code;
+      const pathViolation = /out-of-scope or protected path/i.test(workerMessage);
+      const operational =
+        isOperationalWorkerError(workerCode, workerMessage) ||
+        (workerCode === "WORKER_ERROR" && changedFiles.length === 0 && !pathViolation);
       if (operational) {
         operationalFailure = true;
         push({
-          category: "scope",
+          category: "worker",
           name: "worker_operational_error",
           status: "fail",
           summary: "Worker operational failure (API/service unavailable).",
-          details: `${input.workerReport.error.code}: ${input.workerReport.error.message}`,
+          details: `${workerCode}: ${workerMessage}`,
           affectedFiles: changedFiles,
           severity: "critical",
         });
@@ -142,11 +144,13 @@ export class DeterministicChecker {
         };
       }
       push({
-        category: "scope",
+        category: "worker",
         name: "worker_error",
         status: "fail",
-        summary: "Worker reported an execution error.",
-        details: `${input.workerReport.error.code}: ${input.workerReport.error.message}`,
+        summary: pathViolation
+          ? "Worker attempted changes outside the approved scope."
+          : "Worker reported an execution error before producing file changes.",
+        details: `${workerCode}: ${workerMessage}`,
         affectedFiles: changedFiles,
         severity: "error",
       });
@@ -155,7 +159,7 @@ export class DeterministicChecker {
 
     if (input.workerReport && changedFiles.length === 0 && !input.workerReport.error) {
       push({
-        category: "scope",
+        category: "worker",
         name: "zero_file_changes",
         status: "fail",
         summary: "Worker reported completion without changing any files.",

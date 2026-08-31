@@ -84,7 +84,7 @@ describe("G429 — Gemini operational retry", () => {
     expect(isOperationalWorkerError("GEMINI_QUOTA_EXHAUSTED")).toBe(true);
     expect(isOperationalWorkerError("ADK_EMPTY_RESPONSE", "HTTP 429 quota")).toBe(true);
     expect(isOperationalWorkerError("WORKER_ERROR", "rate limit exceeded")).toBe(true);
-    expect(isOperationalWorkerError("GEMINI_MALFORMED")).toBe(false);
+    expect(isOperationalWorkerError("GEMINI_MALFORMED")).toBe(true);
     expect(classifyGeminiError(new GeminiClientError("GEMINI_HTTP", "HTTP 503", 503)).retryable).toBe(true);
   });
 

@@ -30,6 +30,7 @@ const OPERATIONAL_ERROR_CODES = new Set([
   "GEMINI_UNAVAILABLE",
   "ADK_OPERATIONAL_FAILURE",
   "ADK_EMPTY_RESPONSE",
+  "GEMINI_MALFORMED",
 ]);
 
 const QUOTA_MESSAGE_PATTERN =
@@ -212,6 +213,9 @@ export function operationalFailureMessage(code: string): string {
   }
   if (code === "GEMINI_TIMEOUT" || code === "GEMINI_NETWORK" || code === "GEMINI_OPERATIONAL_FAILURE") {
     return "Gemini tidak dapat dihubungi setelah retry operasional. BuildLoop menghentikan proses tanpa hasil final.";
+  }
+  if (code === "GEMINI_MALFORMED") {
+    return "Worker AI returned output that could not be parsed safely. BuildLoop stopped without applying changes.";
   }
   return "Worker operational error.";
 }

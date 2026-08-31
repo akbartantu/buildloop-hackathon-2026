@@ -674,6 +674,12 @@ export const id = {
         fail: "Layanan worker tidak tersedia atau mengembalikan error operasional.",
         skipped: "Pemeriksaan layanan worker tidak diperlukan.",
       },
+      worker_execution: {
+        title: "Eksekusi worker",
+        pass: "Eksekusi worker selesai dan menghasilkan perubahan file.",
+        fail: "Worker coding gagal sebelum menghasilkan perubahan file yang dapat digunakan.",
+        skipped: "Pemeriksaan eksekusi worker tidak diperlukan.",
+      },
       preflight: {
         title: "Pemeriksaan preflight",
         pass: "Pemeriksaan preflight lolos.",

@@ -12,6 +12,7 @@ import { inferProtectedPathOperation } from "@/lib/protected-path-approval-flow"
 import { PROTECTED_PATH_APPROVAL_REQUIRED_CODE, type ProtectedPathOperation } from "../types";
 import {
   GeminiClientError,
+  normalizeWorkerFilePath,
   parseWorkerStructuredOutput,
   type WorkerStructuredOutput,
 } from "../gemini/client";
@@ -59,7 +60,7 @@ async function applyStructuredPatch(
   const changed: string[] = [];
   const approvalRequiredPaths = contract.approvalRequiredPaths ?? [];
   for (const file of output.changedFiles) {
-    const normalized = file.path.replace(/\\/g, "/");
+    const normalized = normalizeWorkerFilePath(file.path);
     const decision = resolvePatchProtectedPathDecision({
       filePath: normalized,
       allowedPaths: contract.allowedPaths,
@@ -71,7 +72,7 @@ async function applyStructuredPatch(
       throw new ProtectedPathApprovalRequiredError(normalized);
     }
     if (decision === "forbidden") {
-      throw new Error(`Patch rejected for out-of-scope or protected path: ${normalized}`);
+      throw new WorkerPatchRejectedError(normalized);
     }
     const absolute = path.join(sandboxRoot, normalized);
     await mkdir(path.dirname(absolute), { recursive: true });
@@ -79,6 +80,48 @@ async function applyStructuredPatch(
     changed.push(normalized);
   }
   return changed;
+}
+
+class WorkerPatchRejectedError extends Error {
+  readonly path: string;
+
+  constructor(path: string) {
+    super(`Patch rejected for out-of-scope or protected path: ${path}`);
+    this.name = "WorkerPatchRejectedError";
+    this.path = path;
+  }
+}
+
+type WorkerFailureStage = "adk_run" | "parse_output" | "apply_patch";
+
+function logWorkerExecutionFailure(input: {
+  attemptNumber: number;
+  stage: WorkerFailureStage;
+  code: string;
+  message: string;
+  rawResponseLength?: number;
+  changedFilesCount?: number;
+  changedFilePaths?: string[];
+}) {
+  console.error("[worker] execution failed", {
+    attempt: input.attemptNumber,
+    stage: input.stage,
+    code: input.code,
+    rawResponseLength: input.rawResponseLength,
+    changedFilesCount: input.changedFilesCount,
+    changedFilePaths: input.changedFilePaths,
+    message: safeLogSummary(input.message, 200),
+  });
+}
+
+function workerFailureStage(error: unknown): WorkerFailureStage {
+  if (error instanceof GeminiClientError && error.code === "GEMINI_MALFORMED") {
+    return "parse_output";
+  }
+  if (error instanceof WorkerPatchRejectedError || error instanceof ProtectedPathApprovalRequiredError) {
+    return "apply_patch";
+  }
+  return "adk_run";
 }
 
 function buildUserPrompt(input: WorkerInput): string {
@@ -136,7 +179,19 @@ export class AdkGeminiWorker implements CodingWorker {
         systemInstruction: ADK_SYSTEM_INSTRUCTION,
         userPrompt: buildUserPrompt(input),
       });
-      const structured = parseWorkerStructuredOutput(result.text);
+      let structured: WorkerStructuredOutput;
+      try {
+        structured = parseWorkerStructuredOutput(result.text);
+      } catch (error) {
+        logWorkerExecutionFailure({
+          attemptNumber: input.attemptNumber,
+          stage: "parse_output",
+          code: error instanceof GeminiClientError ? error.code : "WORKER_ERROR",
+          message: error instanceof Error ? error.message : String(error),
+          rawResponseLength: result.text.length,
+        });
+        throw error;
+      }
       const filesChanged = await applyStructuredPatch(
         input.sandboxRoot,
         input.contract,
@@ -185,8 +240,18 @@ export class AdkGeminiWorker implements CodingWorker {
           },
         };
       }
+      const stage = workerFailureStage(error);
       const rawCode = error instanceof GeminiClientError ? error.code : "WORKER_ERROR";
       const rawMessage = error instanceof Error ? error.message : String(error);
+      logWorkerExecutionFailure({
+        attemptNumber: input.attemptNumber,
+        stage,
+        code: rawCode,
+        message: rawMessage,
+        ...(error instanceof WorkerPatchRejectedError
+          ? { changedFilePaths: [error.path], changedFilesCount: 0 }
+          : {}),
+      });
       const normalized = normalizeOperationalWorkerError(rawCode, rawMessage);
       const isOperational = normalized.operational;
       const code = normalized.code;

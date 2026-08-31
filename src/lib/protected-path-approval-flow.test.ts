@@ -466,7 +466,7 @@ describe("live AdkGeminiWorker protected-path handoff", () => {
     }
   });
 
-  test("deterministic checker still emits worker_error for ordinary worker failures", async () => {
+  test("deterministic checker still emits worker_error for path-violation worker failures", async () => {
     const root = getWorkspaceRoot();
     const sandbox = path.join(root, ".buildloop", "test-sandbox", crypto.randomUUID());
     await mkdir(sandbox, { recursive: true });
@@ -486,8 +486,11 @@ describe("live AdkGeminiWorker protected-path handoff", () => {
           commandsRequested: ["adk.runEphemeral"],
           commandsExecuted: [],
           summary: "Worker failed.",
-          patchSummary: "Unexpected parse failure.",
-          error: { code: "WORKER_ERROR", message: "Malformed model output." },
+          patchSummary: "Out of scope patch.",
+          error: {
+            code: "WORKER_ERROR",
+            message: "Patch rejected for out-of-scope or protected path: src/unauthorized.ts",
+          },
         },
         sourceRevisionAtStart: "a10183eb",
         sourceRevisionNow: "a10183eb",

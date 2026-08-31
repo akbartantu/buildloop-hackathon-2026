@@ -669,6 +669,12 @@ export const en = {
         fail: "The worker service was unavailable or returned an operational error.",
         skipped: "Worker service check was not required.",
       },
+      worker_execution: {
+        title: "Worker execution",
+        pass: "Worker execution completed and produced file changes.",
+        fail: "The coding worker failed before producing usable file changes.",
+        skipped: "Worker execution check was not required.",
+      },
       preflight: {
         title: "Preflight checks",
         pass: "Preflight checks passed.",

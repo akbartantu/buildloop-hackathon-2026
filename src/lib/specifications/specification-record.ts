@@ -57,6 +57,48 @@ export const LEGACY_SPECIFICATION_DOCUMENT_TYPE_ALIASES: Record<string, Specific
   Other: "other",
 };
 
+/** Values accepted by the production database document_type check constraint. */
+export const PERSISTED_LEGACY_DOCUMENT_TYPES = [
+  "PRD",
+  "FRD",
+  "BRD",
+  "Architecture",
+  "API Spec",
+  "ADR",
+  "Spec Kit",
+  "Other",
+] as const;
+
+export type PersistedLegacyDocumentType = (typeof PERSISTED_LEGACY_DOCUMENT_TYPES)[number];
+
+const CANONICAL_TO_PERSISTED_DOCUMENT_TYPE: Record<
+  SpecificationDocumentType,
+  PersistedLegacyDocumentType
+> = {
+  prd: "PRD",
+  frd: "FRD",
+  brd: "BRD",
+  business_rules: "Other",
+  user_flows: "Other",
+  system_architecture: "Architecture",
+  database_schema: "Other",
+  api_specification: "API Spec",
+  ui_ux_design: "Other",
+  security_specification: "Other",
+  testing_strategy: "Other",
+  product_roadmap: "Other",
+  adr: "ADR",
+  spec_kit: "Spec Kit",
+  other: "Other",
+};
+
+/** Map canonical document types to values allowed by the production schema. */
+export function toPersistedDocumentType(
+  documentType: SpecificationDocumentType,
+): PersistedLegacyDocumentType {
+  return CANONICAL_TO_PERSISTED_DOCUMENT_TYPE[documentType];
+}
+
 export function normalizeDocumentType(value: string): SpecificationDocumentType {
   const trimmed = value.trim();
   if (SPECIFICATION_DOCUMENT_TYPE_IDS.includes(trimmed as SpecificationDocumentType)) {

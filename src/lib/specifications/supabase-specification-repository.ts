@@ -8,6 +8,7 @@ import {
   flattenCatalogForPlanning,
 } from "./specification-planning";
 import {
+  toPersistedDocumentType,
   toSpecificationRecord,
   type SpecificationDocumentType,
   type SpecificationRecord,
@@ -32,6 +33,44 @@ const SET_COLUMNS =
 const SET_FILE_COLUMNS =
   "id, set_id, filename, relative_path, file_role, sort_order, content, parse_status, summary, requirement_count, constraint_count, flow_count, created_at, updated_at";
 
+export class SpecificationPersistenceError extends Error {
+  readonly code: string;
+
+  constructor(code: string, message: string) {
+    super(message);
+    this.name = "SpecificationPersistenceError";
+    this.code = code;
+  }
+}
+
+function classifyPersistenceErrorCode(postgresCode: string | undefined): string {
+  switch (postgresCode) {
+    case "23514":
+      return "document_type_check_violation";
+    case "42501":
+      return "rls_denied";
+    case "23503":
+      return "foreign_key_violation";
+    case "23505":
+      return "unique_violation";
+    default:
+      return "persist_failed";
+  }
+}
+
+function throwSpecificationPersistenceFailure(
+  operation: string,
+  error: { code?: string; message?: string } | null,
+): never {
+  const postgresCode = error?.code;
+  const code = classifyPersistenceErrorCode(postgresCode);
+  console.error(`[specifications] ${operation} failed`, {
+    code,
+    postgresCode: postgresCode ?? "unknown",
+  });
+  throw new SpecificationPersistenceError(code, "Specification could not be saved.");
+}
+
 export type SupabaseSpecificationRepository = ReturnType<typeof createSupabaseSpecificationRepository>;
 
 export function createSupabaseSpecificationRepository(supabase: SupabaseClient<Database>) {
@@ -53,7 +92,7 @@ export function createSupabaseSpecificationRepository(supabase: SupabaseClient<D
           project_id: input.projectId,
           filename: input.filename,
           original_path: input.originalPath,
-          document_type: input.documentType,
+          document_type: toPersistedDocumentType(input.documentType),
           content: input.content,
           parse_status: "ready",
           summary: parsed.summary,
@@ -66,8 +105,7 @@ export function createSupabaseSpecificationRepository(supabase: SupabaseClient<D
         .single();
 
       if (error || !row) {
-        console.error("createSpecification failed", error?.code);
-        throw new Error("Specification could not be saved.");
+        throwSpecificationPersistenceFailure("createSpecification", error);
       }
 
       return toSpecificationRecord(row as SpecificationRowShape);
@@ -90,7 +128,7 @@ export function createSupabaseSpecificationRepository(supabase: SupabaseClient<D
           user_id: input.userId,
           project_id: input.projectId,
           name: input.name,
-          document_type: input.documentType,
+          document_type: toPersistedDocumentType(input.documentType),
           parse_status: "ready",
           summary: input.summary,
           requirement_count: input.requirementCount,
@@ -102,8 +140,7 @@ export function createSupabaseSpecificationRepository(supabase: SupabaseClient<D
         .single();
 
       if (setError || !setRow) {
-        console.error("createSpecificationSet failed", setError?.code);
-        throw new Error("Specification set could not be saved.");
+        throwSpecificationPersistenceFailure("createSpecificationSet", setError);
       }
 
       const fileRows = input.files.map((file) => ({

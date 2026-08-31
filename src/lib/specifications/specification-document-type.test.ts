@@ -6,6 +6,7 @@ import {
   SPECIFICATION_DOCUMENT_TYPE_OPTIONS,
   normalizeDocumentType,
   specificationDocumentTypeLabel,
+  toPersistedDocumentType,
   toSpecificationRecord,
 } from "@/lib/specifications/specification-record";
 import { validateSpecificationUpload, inferDocumentType } from "@/lib/specifications/specification-upload";
@@ -96,5 +97,13 @@ describe("specification document type taxonomy", () => {
     expect(inferDocumentType("PRD.md", "")).toBe("prd");
     expect(inferDocumentType("system-architecture.md", "")).toBe("system_architecture");
     expect(inferDocumentType("testing-strategy.md", "")).toBe("testing_strategy");
+  });
+
+  test("canonical document types map to production schema values on persist", () => {
+    expect(toPersistedDocumentType("prd")).toBe("PRD");
+    expect(toPersistedDocumentType("system_architecture")).toBe("Architecture");
+    expect(toPersistedDocumentType("api_specification")).toBe("API Spec");
+    expect(toPersistedDocumentType("spec_kit")).toBe("Spec Kit");
+    expect(toPersistedDocumentType("business_rules")).toBe("Other");
   });
 });

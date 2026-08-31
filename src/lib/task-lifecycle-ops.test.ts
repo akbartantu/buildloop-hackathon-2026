@@ -92,6 +92,9 @@ describe("task lifecycle ops", () => {
         task({ status: "APPROVED_FOR_EXECUTION", lockedAt: "2026-01-02T00:00:00.000Z" }),
       ),
     ).toBe(true);
+    for (const status of ["INSPECTING", "RUNNING", "CHECKING", "NEEDS_CORRECTION"] as const) {
+      expect(isOrchestrationEligible(task({ status, lockedAt: "2026-01-02T00:00:00.000Z" }))).toBe(false);
+    }
     expect(
       isOrchestrationEligible(
         task({

@@ -17,6 +17,13 @@ import {
   canRerunFailedTask,
   captureContractInputs,
 } from "@/lib/task-rerun";
+import type { RunStatus } from "@/orchestrator/types";
+import {
+  buildActiveRunRunnerState,
+  buildRunStartupFailureRunnerState,
+  isPersistableActiveRunStatus,
+  RUN_START_ELIGIBLE_STATUSES,
+} from "@/lib/task-run-progress";
 
 export const executeTaskRun = createServerFn({ method: "POST" })
   .middleware([requireAuth])
@@ -79,18 +86,64 @@ export const executeTaskRun = createServerFn({ method: "POST" })
     }
 
     const orchestrator = new ProductOrchestrator(workspaceRoot);
-    const result = await orchestrator.execute({
-      goal: workingTask.goal,
-      taskId: workingTask.id,
-      contractId: workingTask.id,
-      workspace: workingTask.workspace,
-      allowDirtyWorkspace: false,
-      storedContract: workingTask.contract,
-      projectId: workingTask.projectId,
-      repositoryUrl: workingTask.workspace,
-      ...(workingTask.sourceCommitSha ? { sourceCommitSha: workingTask.sourceCommitSha } : {}),
-      runSandboxId,
-    });
+
+    let latestRunnerState = workingTask.runnerState;
+    const persistActiveRunStatus = async (status: RunStatus, runId: string, phase?: string) => {
+      if (!isPersistableActiveRunStatus(status)) {
+        return;
+      }
+      const updated = await context.tasks.updateRunProgress({
+        id: data.id,
+        status,
+        runnerState: buildActiveRunRunnerState(latestRunnerState, {
+          status,
+          runId,
+          ...(phase ? { phase } : {}),
+        }),
+      });
+      latestRunnerState = updated.runnerState;
+    };
+
+    try {
+      const started = await context.tasks.updateRunProgress({
+        id: data.id,
+        status: "INSPECTING",
+        runnerState: buildActiveRunRunnerState(latestRunnerState, { status: "INSPECTING" }),
+        onlyFromStatuses: RUN_START_ELIGIBLE_STATUSES,
+      });
+      latestRunnerState = started.runnerState;
+    } catch (error) {
+      throw error instanceof Error ? error : new Error("Failed to mark task as running.");
+    }
+
+    let result;
+    try {
+      result = await orchestrator.execute({
+        goal: workingTask.goal,
+        taskId: workingTask.id,
+        contractId: workingTask.id,
+        workspace: workingTask.workspace,
+        allowDirtyWorkspace: false,
+        storedContract: workingTask.contract,
+        projectId: workingTask.projectId,
+        repositoryUrl: workingTask.workspace,
+        ...(workingTask.sourceCommitSha ? { sourceCommitSha: workingTask.sourceCommitSha } : {}),
+        runSandboxId,
+        onRunStatusChange: ({ status, runId, phase }) => persistActiveRunStatus(status, runId, phase),
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Orchestration failed before completion.";
+      try {
+        await context.tasks.updateRunProgress({
+          id: data.id,
+          status: "APPROVED_FOR_EXECUTION",
+          runnerState: buildRunStartupFailureRunnerState(workingTask.runnerState, message),
+        });
+      } catch {
+        // Best-effort revert; terminal updateAfterRun may not run after this throw.
+      }
+      throw error;
+    }
 
     const nextStatus = mapRunStatus(result.run.status, result.run.verdict);
     const isHumanRevision = Boolean(workingTask.runnerState?.revisionRequested);

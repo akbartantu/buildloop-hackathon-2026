@@ -3,6 +3,10 @@ import type { TaskLifecycleViewModel } from "@/lib/task-lifecycle";
 import { canRecordHumanApproval } from "@/lib/human-approval";
 import { translate, type Locale, DEFAULT_LOCALE } from "@/i18n";
 import type { TranslationKey } from "@/i18n/en";
+import {
+  formatBlockedReasonExplanationList,
+  formatPrimaryBlockedExplanation,
+} from "@/lib/blocked-reason-presentation";
 
 export type TaskLifecycleCore = Omit<TaskLifecycleViewModel, "approval" | "progress" | "evidenceSummary">;
 
@@ -248,13 +252,16 @@ export function deriveApprovalRecommendation(
       label: translate(locale, "lifecycle.approvalRecommendation.labelHumanReview"),
       description:
         task.status === "BLOCKED"
-          ? (task.blockedReasons[0]?.explanation ??
-            translate(locale, "lifecycle.approvalRecommendation.descBlocked"))
+          ? formatPrimaryBlockedExplanation(
+              task.blockedReasons,
+              locale,
+              "lifecycle.approvalRecommendation.descBlocked",
+            )
           : translate(locale, "lifecycle.approvalRecommendation.descInsufficientEvidence"),
       reasonBullets: [],
       unresolvedIssues:
         task.blockedReasons.length > 0
-          ? task.blockedReasons.map((reason) => reason.explanation)
+          ? formatBlockedReasonExplanationList(task.blockedReasons, locale)
           : unresolvedFromEvidence,
       historicalCorrection,
       finalChecksSummary,

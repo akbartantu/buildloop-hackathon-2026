@@ -459,6 +459,34 @@ export function createDevTaskRepository(
       return toRecord(updated);
     },
 
+    async updateRunProgress(input: {
+      id: string;
+      status: TaskStatus;
+      runnerState: RunnerState;
+      onlyFromStatuses?: TaskStatus[];
+    }): Promise<TaskRecord> {
+      const store = await readStore();
+      const index = store.tasks.findIndex((task) => task.id === input.id);
+      if (index === -1) {
+        throw new Error("Task not found.");
+      }
+
+      const task = store.tasks[index];
+      if (!task) {
+        throw new Error("Task not found.");
+      }
+
+      if (input.onlyFromStatuses && !input.onlyFromStatuses.includes(task.status)) {
+        throw new Error("Orchestrator sudah berjalan untuk task ini.");
+      }
+
+      task.status = input.status;
+      task.runnerState = input.runnerState;
+      task.updatedAt = new Date().toISOString();
+      await writeStore(store);
+      return toRecord(task);
+    },
+
     async prepareForRerun(input: {
       id: string;
       status: TaskStatus;

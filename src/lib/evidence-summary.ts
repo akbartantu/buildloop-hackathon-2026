@@ -3,6 +3,11 @@ import type { TaskRecord } from "@/lib/tasks-schema";
 import { translate, DEFAULT_LOCALE, type Locale } from "@/i18n";
 import type { TranslationKey } from "@/i18n/en";
 import {
+  formatBlockedReasonExplanationList,
+  formatPrimaryBlockedExplanation,
+  formatPreflightBlockedUserLine,
+} from "@/lib/blocked-reason-presentation";
+import {
   analyzeFinalChecks,
   finalAttemptNumber,
   type EvidenceRow,
@@ -259,14 +264,18 @@ export function buildCheckTechnicalDetails(
   return rows.map((row) => {
     const checkKey = resolveCheckKey(row.category, row.name);
     const command = extractCommand(row.summary);
+    const preflightLine =
+      row.category === "preflight" && row.status === "blocked"
+        ? formatPreflightBlockedUserLine(row.name, locale)
+        : null;
     return {
       category: row.category,
       name: row.name,
       status: row.status,
-      summary: row.summary,
+      summary: preflightLine ?? row.summary,
       ...(command ? { command } : {}),
       title: formatCheckTitle(checkKey, locale),
-      userLine: formatCheckUserLine(checkKey, row.status, locale),
+      userLine: preflightLine ?? formatCheckUserLine(checkKey, row.status, locale),
     };
   });
 }
@@ -305,9 +314,21 @@ export function buildEvidenceSummaryViewModel(
   const whatPassed = dedupeLines(
     passedRows.map((row) => formatCheckUserLine(resolveCheckKey(row.category, row.name), "pass", locale)),
   );
-  const whatFailed = dedupeLines(
-    failedRows.map((row) => formatCheckUserLine(resolveCheckKey(row.category, row.name), "fail", locale)),
-  );
+  const whatFailed =
+    task.status === "BLOCKED" && task.blockedReasons.length > 0
+      ? formatBlockedReasonExplanationList(task.blockedReasons, locale)
+      : dedupeLines(
+          failedRows.map((row) => {
+            const preflightLine =
+              row.category === "preflight" && row.status === "blocked"
+                ? formatPreflightBlockedUserLine(row.name, locale)
+                : null;
+            return (
+              preflightLine ??
+              formatCheckUserLine(resolveCheckKey(row.category, row.name), row.status, locale)
+            );
+          }),
+        );
 
   let headline = t(locale, "evidence.summary.headline.default");
   let intro = t(locale, "evidence.summary.intro.default");
@@ -317,8 +338,11 @@ export function buildEvidenceSummaryViewModel(
     intro = checks.friendlySummary;
   } else if (task.status === "BLOCKED") {
     headline = t(locale, "evidence.summary.headline.blocked");
-    intro =
-      task.blockedReasons[0]?.explanation ?? t(locale, "evidence.summary.intro.blocked");
+    intro = formatPrimaryBlockedExplanation(
+      task.blockedReasons,
+      locale,
+      "evidence.summary.intro.blocked",
+    );
   } else if (classification === "operational") {
     headline = t(locale, "evidence.summary.headline.operational");
     intro = t(locale, "evidence.summary.intro.operational");

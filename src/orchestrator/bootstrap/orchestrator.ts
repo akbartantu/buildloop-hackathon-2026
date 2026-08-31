@@ -40,6 +40,7 @@ import type { CodingWorker } from "../worker/types";
 import { DemoPassWorker } from "../worker/demo-worker";
 import { CheckpointStore } from "../persistence/store-factory";
 import type { RuntimeRunStore } from "../persistence/store-factory";
+import { isPersistableActiveRunStatus } from "@/lib/task-run-progress";
 
 export type BootstrapRunResult = {
   run: RunSnapshot;
@@ -55,6 +56,12 @@ export type BootstrapRunResult = {
   };
 };
 
+export type RunStatusChangeHandler = (input: {
+  status: RunStatus;
+  runId: string;
+  phase?: string;
+}) => void | Promise<void>;
+
 export type BootstrapOrchestratorOptions = {
   workspaceRoot: string;
   workspaceName?: string;
@@ -64,6 +71,7 @@ export type BootstrapOrchestratorOptions = {
   checkpointStore?: CheckpointStore;
   sourceCommitSha?: string;
   runSandboxId?: string;
+  onRunStatusChange?: RunStatusChangeHandler;
 };
 
 export class BootstrapOrchestrator {
@@ -77,6 +85,7 @@ export class BootstrapOrchestrator {
   private readonly runtimeStore: RuntimeRunStore | null;
   private readonly sourceCommitSha?: string;
   private readonly runSandboxId?: string;
+  private readonly onRunStatusChange?: RunStatusChangeHandler;
 
   constructor(options: BootstrapOrchestratorOptions) {
     this.workspaceRoot = options.workspaceRoot;
@@ -91,6 +100,20 @@ export class BootstrapOrchestrator {
     if (options.runSandboxId) {
       this.runSandboxId = options.runSandboxId;
     }
+    if (options.onRunStatusChange) {
+      this.onRunStatusChange = options.onRunStatusChange;
+    }
+  }
+
+  private async notifyRunStatus(runId: string, status: RunStatus, phase?: string): Promise<void> {
+    if (!this.onRunStatusChange || !isPersistableActiveRunStatus(status)) {
+      return;
+    }
+    await this.onRunStatusChange({
+      status,
+      runId,
+      ...(phase !== undefined ? { phase } : {}),
+    });
   }
 
   async executeContractRun(contract: LockedContract): Promise<BootstrapRunResult> {
@@ -195,6 +218,7 @@ export class BootstrapOrchestrator {
     let securityFindings: Array<{ severity: string; finding: string; evidence: string }> = [];
 
     status = "INSPECTING";
+    await this.notifyRunStatus(runId, status, "preflight_start");
     const workspacePreflight = await runWorkspacePreflight({
       runId,
       contract: input.contract,
@@ -261,6 +285,7 @@ export class BootstrapOrchestrator {
     status = decision.nextStatus;
     verdict = decision.verdict;
     verdictReason = decision.verdictReason;
+    await this.notifyRunStatus(runId, status, "preflight_complete");
 
     if (decision.verdict === "BLOCKED") {
       if (runClonePath) {
@@ -298,6 +323,7 @@ export class BootstrapOrchestrator {
 
       attemptNumber += 1;
       status = "RUNNING";
+      await this.notifyRunStatus(runId, status, "worker_start");
       workerCalls += 1;
 
       let workerReport: WorkerReport;
@@ -345,6 +371,7 @@ export class BootstrapOrchestrator {
       });
 
       status = "CHECKING";
+      await this.notifyRunStatus(runId, status, "checker_start");
       checkerCalls += 1;
       const { revision: sourceRevisionNow } = await computeManifestRevision(this.workspaceRoot);
       const checkerResult = await this.checker.run({
@@ -453,6 +480,7 @@ export class BootstrapOrchestrator {
       status = decision.nextStatus;
       verdict = decision.verdict;
       verdictReason = decision.verdictReason;
+      await this.notifyRunStatus(runId, status, "decision_complete");
 
       if (checkerResult.operationalFailure) {
         break;

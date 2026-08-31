@@ -55,10 +55,14 @@ import {
 } from "@/lib/task-lifecycle";
 import { shouldRenderTabIcon } from "@/lib/approval-recommendation";
 import {
-  getHumanApprovalOutcome,
-  HUMAN_GATE_UI_OPTIONS,
+  HUMAN_GATE_DECISIONS,
   isPendingHumanApproval,
 } from "@/lib/human-approval";
+import {
+  formatHumanGateOptionLabel,
+  formatHumanGateSubmitLabel,
+  presentHumanApprovalOutcome,
+} from "@/lib/human-approval-presentation";
 import { isApprovalGateOpen, isOrchestrationInProgress } from "@/lib/evidence-analysis";
 import { canRerunFailedTask, formatRunHistoryLabel, listTaskRunHistory } from "@/lib/task-rerun";
 import { isOrchestrationEligible } from "@/lib/task-lifecycle-ops";
@@ -74,6 +78,10 @@ import { useI18n } from "@/i18n/context";
 import type { TranslationKey } from "@/i18n/en";
 import { translate, type Locale } from "@/i18n";
 import { en, id } from "@/i18n";
+import {
+  formatBlockedReasonExplanationList,
+  formatPrimaryBlockedExplanation,
+} from "@/lib/blocked-reason-presentation";
 import {
   formatApprovalTypeLabel,
   formatOrchestrationPhaseLabel,
@@ -731,9 +739,11 @@ function EvidenceView({
         <DemoStatusBanner
           status="BLOCKED"
           title={t("taskDetail.evidence.blockedTitle")}
-          description={
-            task.blockedReasons[0]?.explanation ?? t("taskDetail.evidence.blockedFallback")
-          }
+          description={formatPrimaryBlockedExplanation(
+            task.blockedReasons,
+            locale,
+            "taskDetail.evidence.blockedFallback",
+          )}
           locale={locale}
         />
         {lifecycle.evidenceSummary ? (
@@ -758,7 +768,7 @@ function EvidenceView({
             <DemoBulletList
               items={
                 task.blockedReasons.length
-                  ? task.blockedReasons.map((reason) => reason.explanation)
+                  ? formatBlockedReasonExplanationList(task.blockedReasons, locale)
                   : [t("taskDetail.evidence.preflightFailed")]
               }
             />
@@ -969,16 +979,12 @@ function ApprovalView({
   const t = (key: TranslationKey, params?: Record<string, string | number>) =>
     translate(locale, key, params);
   const runner = task.runnerState;
-  const outcome = getHumanApprovalOutcome(task);
+  const outcome = presentHumanApprovalOutcome(task, locale);
   const pending = isPendingHumanApproval(task);
   const gateOpen = isApprovalGateOpen(task);
   const recommendation = lifecycle.approval;
   const [decision, setDecision] = useState<HumanGateDecision>("APPROVE_COMMIT");
   const [confirmedReview, setConfirmedReview] = useState(false);
-
-  const selectedOption =
-    HUMAN_GATE_UI_OPTIONS.find((option) => option.decision === decision) ??
-    HUMAN_GATE_UI_OPTIONS[0]!;
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1052,12 +1058,8 @@ function ApprovalView({
         />
         <DemoStatusBanner
           status={outcome.kind === "commit_approved" ? "PASS" : "NEEDS HUMAN REVIEW"}
-          title={outcome.kind === "commit_approved" ? t("taskDetail.approval.commitApprovedTitle") : outcome.title}
-          description={
-            outcome.kind === "commit_approved"
-              ? t("taskDetail.approval.commitApprovedBody")
-              : outcome.description
-          }
+          title={outcome.title}
+          description={outcome.description}
         />
 
         {outcome.kind === "commit_approved" ? (
@@ -1135,13 +1137,13 @@ function ApprovalView({
       />
 
       {recommendation.reasonBullets.length ? (
-        <DemoPanel title="Kenapa BuildLoop merekomendasikannya?">
+        <DemoPanel title={t("taskDetail.approval.whyRecommended")}>
           <DemoBulletList items={recommendation.reasonBullets} />
         </DemoPanel>
       ) : null}
 
       {recommendation.unresolvedIssues.length ? (
-        <DemoPanel title="Masalah yang masih perlu ditangani">
+        <DemoPanel title={t("taskDetail.approval.unresolvedIssues")}>
           <DemoBulletList items={recommendation.unresolvedIssues} />
         </DemoPanel>
       ) : null}
@@ -1181,16 +1183,16 @@ function ApprovalView({
           ) : null}
 
           <div className="space-y-3 text-sm">
-            {HUMAN_GATE_UI_OPTIONS.map((option) => (
-              <label key={option.decision} className="flex items-center gap-3">
+            {HUMAN_GATE_DECISIONS.map((optionDecision) => (
+              <label key={optionDecision} className="flex items-center gap-3">
                 <input
                   type="radio"
                   name="approval-decision"
-                  checked={decision === option.decision}
+                  checked={decision === optionDecision}
                   disabled={submitting}
-                  onChange={() => setDecision(option.decision)}
+                  onChange={() => setDecision(optionDecision)}
                 />
-                <span>{option.label}</span>
+                <span>{formatHumanGateOptionLabel(optionDecision, locale)}</span>
               </label>
             ))}
           </div>
@@ -1209,7 +1211,9 @@ function ApprovalView({
           <div className="flex flex-wrap gap-3">
             {showPrimaryApprove ? (
               <Button type="submit" disabled={!confirmedReview || submitting}>
-                {submitting ? t("taskDetail.approval.savingApproval") : selectedOption.submitLabel}
+                {submitting
+                  ? t("taskDetail.approval.savingApproval")
+                  : formatHumanGateSubmitLabel(decision, locale)}
               </Button>
             ) : recommendation.kind === "FIX_FIRST" ? (
               <Button type="button" variant="default" onClick={() => onGoToTab("evidence")}>
@@ -1230,7 +1234,9 @@ function ApprovalView({
             ) : null}
             {!showPrimaryApprove && decision !== "APPROVE_COMMIT" ? (
               <Button type="submit" variant="outline" disabled={!confirmedReview || submitting}>
-                {submitting ? t("taskDetail.approval.saving") : selectedOption.submitLabel}
+                {submitting
+                  ? t("taskDetail.approval.saving")
+                  : formatHumanGateSubmitLabel(decision, locale)}
               </Button>
             ) : null}
           </div>

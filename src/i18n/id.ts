@@ -905,6 +905,43 @@ export const id = {
       viewIssues: "Lihat masalah",
       viewTechnicalEvidence: "Lihat evidence teknis",
       needsHumanReview: "Perlu tinjauan manusia",
+      gateOptions: {
+        APPROVE_COMMIT: {
+          label: "Setujui commit",
+          submitLabel: "Setujui commit",
+        },
+        REQUEST_REVISION: {
+          label: "Minta revisi",
+          submitLabel: "Minta revisi",
+        },
+        REJECT_CHANGES: {
+          label: "Tolak perubahan",
+          submitLabel: "Tolak perubahan",
+        },
+        ESCALATE_REVIEW: {
+          label: "Eskalasi review",
+          submitLabel: "Eskalasi review",
+        },
+      },
+      outcome: {
+        rejected: {
+          title: "Perubahan ditolak",
+          description: "Perubahan tidak akan melanjutkan tindakan sensitif. Task ditutup.",
+        },
+        revision_requested: {
+          title: "Revisi diminta",
+          description:
+            "Revisi tercatat. Jalankan orchestrator kembali setelah menyesuaikan scope jika masih dalam batas koreksi otomatis.",
+        },
+        escalated: {
+          title: "Eskalasi review",
+          description: "Review teknis atau manusia lebih lanjut diperlukan sebelum tindakan sensitif.",
+        },
+        pending: {
+          title: "Menunggu approval manusia",
+          description: "Commit, push, merge, dan deploy membutuhkan approval terpisah.",
+        },
+      },
     },
     handoff: {
       viewOrchestration: "Lihat Orchestration",
@@ -1102,6 +1139,68 @@ export const id = {
     blocked: "BLOCKED",
     inProgress: "Sedang berjalan",
     needsHumanReview: "Perlu tinjauan manusia",
+  },
+  blockedReason: {
+    fallback: "BuildLoop berhenti sebelum worker dijalankan karena guardrail.",
+    unknownRuleTitle: "Guardrail kebijakan",
+    detailLine: 'Dilindungi: {target} · cocok: "{matched}"',
+    rule: {
+      PROTECTED_PATH_ENV: {
+        title: "Perubahan file environment",
+        explanation:
+          "Task meminta perubahan pada file environment yang berisi konfigurasi rahasia.",
+        target: ".env*",
+      },
+      PROTECTED_PATH_WORKFLOWS: {
+        title: "Perubahan workflow CI/CD",
+        explanation:
+          "Task meminta perubahan pada workflow CI/CD yang dapat memicu deployment.",
+        target: ".github/workflows/**",
+      },
+      PROTECTED_PATH_INFRASTRUCTURE: {
+        title: "Perubahan infrastruktur",
+        explanation: "Task meminta perubahan pada definisi infrastruktur.",
+        target: "infrastructure/**",
+      },
+      PROTECTED_PATH_MIGRATIONS: {
+        title: "Migrasi database",
+        explanation: "Task meminta perubahan skema database melalui migration.",
+        target: "supabase/migrations/**",
+      },
+      PROTECTED_PATH_SUPABASE_INTEGRATION: {
+        title: "Modul integrasi backend",
+        explanation:
+          "Task meminta perubahan pada modul integrasi backend yang dikelola otomatis.",
+        target: "src/integrations/supabase/**",
+      },
+      CREDENTIAL_HANDLING: {
+        title: "Penanganan credential",
+        explanation:
+          "Task meminta penanganan credential atau secret. Ini di luar allowed actions.",
+        target: "credential / secret",
+      },
+      MAIN_BRANCH_WRITE: {
+        title: "Penulisan branch main",
+        explanation:
+          "Task menyasar branch utama. Perubahan pada main memerlukan approval manusia.",
+        target: "branch main",
+      },
+      GIT_WRITE_ACTION: {
+        title: "Aksi tulis Git",
+        explanation: "Commit, push, dan merge adalah tindakan yang hanya boleh dilakukan manusia.",
+        target: "git write (commit/push/merge)",
+      },
+      PRODUCTION_DEPLOYMENT: {
+        title: "Deployment produksi",
+        explanation: "Task meminta deployment. Deployment tidak pernah dijalankan tanpa approval.",
+        target: "deployment",
+      },
+      IRREVERSIBLE_ACTION: {
+        title: "Aksi irreversible",
+        explanation: "Task meminta tindakan irreversible di luar allowed actions.",
+        target: "irreversible action",
+      },
+    },
   },
   legal: legalId,
 } as unknown as TranslationTree;

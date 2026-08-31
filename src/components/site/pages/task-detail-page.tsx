@@ -6,6 +6,7 @@ import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
 import { useTaskRunPolling } from "@/hooks/use-task-run-polling";
 import { useI18n } from "@/i18n/context";
 import type { DemoTab } from "@/lib/task-display";
+import { resolveTaskRunningState } from "@/lib/task-run-progress";
 
 type TaskDetailPageProps = {
   taskId: string;
@@ -66,7 +67,7 @@ export function TaskDetailPage({ taskId, initialTab }: TaskDetailPageProps) {
       task={task}
       {...(initialTab !== undefined ? { initialTab } : {})}
       approving={lockMutation.isPending}
-      running={runMutation.isPending}
+      running={resolveTaskRunningState(task, runMutation.isPending)}
       submittingHumanApproval={humanApprovalMutation.isPending}
       refreshing={refreshContractMutation.isPending}
       revising={reviseTaskMutation.isPending}

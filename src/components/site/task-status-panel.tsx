@@ -2,10 +2,16 @@ import { StatusMark } from "./status-pill";
 import { TaskStatusLabel } from "./task-status-label";
 import { useI18n } from "@/i18n/context";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import {
+  formatBlockedReasonDetailLine,
+  formatBlockedReasonExplanation,
+  formatPrimaryBlockedExplanation,
+  formatBlockedReasonTitle,
+} from "@/lib/blocked-reason-presentation";
 
 /** Panel status task + evidence. Tidak pernah mengklaim kode sudah dijalankan. */
 export function TaskStatusPanel({ task }: { task: TaskRecord }) {
-  const { t, taskStatusLabel } = useI18n();
+  const { t, taskStatusLabel, locale } = useI18n();
   const blocked = task.status === "BLOCKED";
   const runner = task.runnerState;
 
@@ -32,15 +38,25 @@ export function TaskStatusPanel({ task }: { task: TaskRecord }) {
           <ul className="mt-3 space-y-3">
             {task.blockedReasons.map((reason) => (
               <li key={reason.rule} className="border-l-2 border-boundary pl-3">
-                <p className="font-mono text-[11px] font-medium text-foreground">{reason.rule}</p>
-                <p className="mt-1 text-sm leading-relaxed text-foreground">{reason.explanation}</p>
+                <p className="font-mono text-[11px] font-medium text-foreground">
+                  {formatBlockedReasonTitle(reason, locale)}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-foreground">
+                  {formatBlockedReasonExplanation(reason, locale)}
+                </p>
                 <p className="mt-1 font-mono text-[11px] text-muted-foreground">
-                  target: {reason.protectedTarget} · cocok: “{reason.matchedText}”
+                  {formatBlockedReasonDetailLine(reason, locale)}
                 </p>
               </li>
             ))}
           </ul>
         </div>
+      ) : null}
+
+      {blocked && task.blockedReasons.length === 0 ? (
+        <p className="mt-5 border-t border-border pt-4 text-sm text-muted-foreground">
+          {formatPrimaryBlockedExplanation(task.blockedReasons, locale, "taskDetail.evidence.blockedFallback")}
+        </p>
       ) : null}
 
       {runner ? (

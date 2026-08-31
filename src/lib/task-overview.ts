@@ -6,6 +6,10 @@ import { countPassedChecks, contractSections } from "@/lib/task-display";
 import { analyzeChecks, buildTaskLifecycleViewModel, taskHasRun } from "@/lib/task-lifecycle";
 import { isActiveRun, isOrchestrated } from "@/lib/contract-handoff";
 import { getContractVersion } from "@/lib/task-lifecycle-ops";
+import {
+  formatBlockedReasonExplanationList,
+  formatPrimaryBlockedExplanation,
+} from "@/lib/blocked-reason-presentation";
 
 export type JourneyStepState = "complete" | "current" | "upcoming" | "blocked";
 
@@ -234,9 +238,11 @@ export function getAttentionState(task: TaskRecord, locale: Locale = DEFAULT_LOC
   if (task.status === "BLOCKED") {
     return {
       title: translate(locale, "overview.attention.needsAttention"),
-      description:
-        task.blockedReasons[0]?.explanation ??
-        translate(locale, "taskDetail.evidence.blockedFallback"),
+      description: formatPrimaryBlockedExplanation(
+        task.blockedReasons,
+        locale,
+        "taskDetail.evidence.blockedFallback",
+      ),
       ctaLabel: translate(locale, "overview.attention.reviewBlock"),
       ctaTab: "evidence",
     };

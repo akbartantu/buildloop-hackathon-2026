@@ -4,6 +4,7 @@ import { createTask, listTasks, lockContract, recordHumanApproval, refreshContra
 import { executeTaskRun } from "@/lib/orchestration.functions";
 import type { HumanGateDecision, SensitiveApprovalAction } from "@/lib/human-approval";
 import { useProjects } from "@/hooks/use-projects";
+import { shouldPollTaskStatus, TASK_RUN_POLL_INTERVAL_MS } from "@/lib/lifecycle-progress";
 
 export function useWorkspaceTasks() {
   const queryClient = useQueryClient();
@@ -20,6 +21,13 @@ export function useWorkspaceTasks() {
   const tasksQuery = useQuery({
     queryKey: ["tasks", projectScope],
     queryFn: () => fetchTasks({ data: { projectId: projectScope } }),
+    refetchInterval: (query) => {
+      const list = query.state.data ?? [];
+      return list.some((entry) => shouldPollTaskStatus(entry.status))
+        ? TASK_RUN_POLL_INTERVAL_MS
+        : false;
+    },
+    refetchIntervalInBackground: true,
   });
 
   const createMutation = useMutation({

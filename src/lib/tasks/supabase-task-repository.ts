@@ -457,6 +457,36 @@ export function createSupabaseTaskRepository(
       return toTaskRecord(row as TaskRowShape);
     },
 
+    async updateRunProgress(input: {
+      id: string;
+      status: TaskStatus;
+      runnerState: RunnerState;
+      onlyFromStatuses?: TaskStatus[];
+    }): Promise<TaskRecord> {
+      let query = supabase
+        .from("tasks")
+        .update({
+          status: input.status,
+          runner_state: input.runnerState,
+        })
+        .eq("id", input.id);
+
+      if (input.onlyFromStatuses?.length) {
+        query = query.in("status", input.onlyFromStatuses);
+      }
+
+      const { data: row, error } = await query.select(SELECT_COLUMNS).maybeSingle();
+
+      if (error) {
+        throw new Error("Failed to persist orchestration progress.");
+      }
+      if (!row) {
+        throw new Error("Orchestrator sudah berjalan untuk task ini.");
+      }
+
+      return toTaskRecord(row as TaskRowShape);
+    },
+
     async prepareForRerun(input: {
       id: string;
       status: TaskStatus;

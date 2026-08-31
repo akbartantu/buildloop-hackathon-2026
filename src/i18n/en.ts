@@ -901,6 +901,43 @@ export const en = {
       viewIssues: "View issues",
       viewTechnicalEvidence: "View technical evidence",
       needsHumanReview: "Needs human review",
+      gateOptions: {
+        APPROVE_COMMIT: {
+          label: "Approve commit",
+          submitLabel: "Approve commit",
+        },
+        REQUEST_REVISION: {
+          label: "Request revision",
+          submitLabel: "Request revision",
+        },
+        REJECT_CHANGES: {
+          label: "Reject changes",
+          submitLabel: "Reject changes",
+        },
+        ESCALATE_REVIEW: {
+          label: "Escalate review",
+          submitLabel: "Escalate review",
+        },
+      },
+      outcome: {
+        rejected: {
+          title: "Changes rejected",
+          description: "Changes will not proceed to sensitive actions. The task is closed.",
+        },
+        revision_requested: {
+          title: "Revision requested",
+          description:
+            "Revision recorded. Run the orchestrator again after adjusting scope if automatic corrections remain available.",
+        },
+        escalated: {
+          title: "Review escalated",
+          description: "Further technical or human review is required before sensitive actions.",
+        },
+        pending: {
+          title: "Awaiting human approval",
+          description: "Commit, push, merge, and deploy each require separate approval.",
+        },
+      },
     },
     handoff: {
       viewOrchestration: "View orchestration",
@@ -1099,6 +1136,68 @@ export const en = {
     inProgress: "In progress",
     needsHumanReview: "Needs human review",
   },
+  blockedReason: {
+    fallback: "BuildLoop stopped before the worker ran because of guardrails.",
+    unknownRuleTitle: "Policy guardrail",
+    detailLine: 'Protected: {target} · Matched: "{matched}"',
+    rule: {
+      PROTECTED_PATH_ENV: {
+        title: "Environment file change",
+        explanation:
+          "The task requests changes to environment files that may contain secrets.",
+        target: ".env*",
+      },
+      PROTECTED_PATH_WORKFLOWS: {
+        title: "CI/CD workflow change",
+        explanation:
+          "The task requests changes to CI/CD workflows that could trigger deployment.",
+        target: ".github/workflows/**",
+      },
+      PROTECTED_PATH_INFRASTRUCTURE: {
+        title: "Infrastructure change",
+        explanation: "The task requests changes to infrastructure definitions.",
+        target: "infrastructure/**",
+      },
+      PROTECTED_PATH_MIGRATIONS: {
+        title: "Database migration",
+        explanation: "The task requests database schema changes through migrations.",
+        target: "supabase/migrations/**",
+      },
+      PROTECTED_PATH_SUPABASE_INTEGRATION: {
+        title: "Backend integration module",
+        explanation: "The task requests changes to the managed backend integration module.",
+        target: "src/integrations/supabase/**",
+      },
+      CREDENTIAL_HANDLING: {
+        title: "Credential handling",
+        explanation:
+          "The task requests handling credentials or secrets. This is outside allowed actions.",
+        target: "credential / secret",
+      },
+      MAIN_BRANCH_WRITE: {
+        title: "Main branch write",
+        explanation:
+          "The task targets the main branch. Changes to main require human approval.",
+        target: "branch main",
+      },
+      GIT_WRITE_ACTION: {
+        title: "Git write action",
+        explanation: "Commit, push, and merge are actions only humans may perform.",
+        target: "git write (commit/push/merge)",
+      },
+      PRODUCTION_DEPLOYMENT: {
+        title: "Production deployment",
+        explanation:
+          "The task requests deployment. Deployment never runs without approval.",
+        target: "deployment",
+      },
+      IRREVERSIBLE_ACTION: {
+        title: "Irreversible action",
+        explanation: "The task requests an irreversible action outside allowed actions.",
+        target: "irreversible action",
+      },
+    },
+  },
   legal: legalEn,
 } as const;
 
@@ -1129,4 +1228,5 @@ export type TranslationKey =
   | `footer.${string}`
   | `lifecycle.${string}`
   | `verdict.${string}`
-  | `evidence.${string}`;
+  | `evidence.${string}`
+  | `blockedReason.${string}`;

@@ -34,6 +34,7 @@ import {
 import { buildTaskLifecycleViewModel } from "@/lib/task-lifecycle";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import { useI18n } from "@/i18n/context";
+import { formatPrimaryBlockedExplanation } from "@/lib/blocked-reason-presentation";
 import { cn } from "@/lib/utils";
 
 type TaskOverviewViewProps = {
@@ -448,7 +449,7 @@ function OrchestrationSummary({
       <>
         <p className="text-sm text-status-blocked">{t("overview.blockedBeforeWorker")}</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {task.blockedReasons[0]?.explanation ?? t("overview.guardrailNote")}
+          {formatPrimaryBlockedExplanation(task.blockedReasons, locale, "overview.guardrailNote")}
         </p>
         <Button className="mt-3" variant="outline" onClick={() => onHandoffAction("view-evidence")}>
           {t("overview.reviewBlockReasons")}

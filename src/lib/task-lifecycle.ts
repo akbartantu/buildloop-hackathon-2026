@@ -21,6 +21,7 @@ import {
   buildEvidenceSummaryViewModel,
   type EvidenceSummaryViewModel,
 } from "@/lib/evidence-summary";
+import { formatPrimaryBlockedExplanation } from "@/lib/blocked-reason-presentation";
 
 export type ImplementationVerdict = "PASS" | "FAILED" | "BLOCKED" | null;
 
@@ -342,7 +343,11 @@ function buildPlainLanguageSummary(
   locale: Locale,
 ): string {
   if (task.status === "BLOCKED") {
-    return task.blockedReasons[0]?.explanation ?? translate(locale, "lifecycle.summary.blockedDefault");
+    return formatPrimaryBlockedExplanation(
+      task.blockedReasons,
+      locale,
+      "lifecycle.summary.blockedDefault",
+    );
   }
   if (task.status === "FAILED") {
     return translate(locale, "lifecycle.summary.failedAfterLimit");
@@ -377,7 +382,11 @@ function buildOrchestrationUserSummary(
     return correction.userSummary;
   }
   if (task.status === "BLOCKED") {
-    return task.blockedReasons[0]?.explanation ?? translate(locale, "lifecycle.summary.blockedDefault");
+    return formatPrimaryBlockedExplanation(
+      task.blockedReasons,
+      locale,
+      "lifecycle.summary.blockedDefault",
+    );
   }
   if (task.status === "FAILED") {
     return translate(locale, "lifecycle.summary.correctionExhausted");

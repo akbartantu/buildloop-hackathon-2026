@@ -17,6 +17,7 @@ import {
 } from "../worker/worker-selection";
 import { createRuntimeRunStore } from "../persistence/store-factory";
 import type { RuntimeRunStore } from "../persistence/store-factory";
+import type { RunStatusChangeHandler } from "../bootstrap/orchestrator";
 
 export type ProductRunRequest = {
   goal: string;
@@ -30,6 +31,7 @@ export type ProductRunRequest = {
   storedContract?: TaskContract;
   projectId?: string | null;
   repositoryUrl?: string;
+  onRunStatusChange?: RunStatusChangeHandler;
 };
 
 export class ProductOrchestrator {
@@ -55,6 +57,7 @@ export class ProductOrchestrator {
       store: this.store,
       ...(request.sourceCommitSha ? { sourceCommitSha: request.sourceCommitSha } : {}),
       ...(request.runSandboxId ? { runSandboxId: request.runSandboxId } : {}),
+      ...(request.onRunStatusChange ? { onRunStatusChange: request.onRunStatusChange } : {}),
     });
 
     let result;

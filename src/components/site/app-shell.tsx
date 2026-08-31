@@ -154,7 +154,7 @@ export function AppShell() {
           onApprove={() => lockMutation.mutate(activeTask.id)}
           onRun={() => runMutation.mutate(activeTask.id)}
           onSubmitHumanApproval={(input) =>
-            humanApprovalMutation.mutate({ id: activeTask.id, decision: input.decision })
+            humanApprovalMutation.mutate({ id: activeTask.id, ...input })
           }
           onEdit={() => {
             setTaskGoal(activeTask.goal);

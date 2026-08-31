@@ -54,6 +54,7 @@ type CheckKey =
   | "operational"
   | "preflight"
   | "command"
+  | "unexpected_destructive_change"
   | "generic";
 
 function t(locale: Locale, key: TranslationKey, params?: Record<string, string | number>): string {
@@ -76,6 +77,9 @@ function finalEvidenceRows(task: TaskRecord): EvidenceRow[] {
 
 export function resolveCheckKey(category: string, name: string): CheckKey {
   const haystack = `${category} ${name}`.toLowerCase();
+  if (name.startsWith("unexpected_destructive_change")) {
+    return "unexpected_destructive_change";
+  }
   if (name === "worker_operational_error" || haystack.includes("operational")) {
     return "operational";
   }

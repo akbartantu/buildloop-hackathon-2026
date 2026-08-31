@@ -1,6 +1,7 @@
 import type { TaskContract, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { sanitizeTaskRecordForClient } from "@/lib/delivery-artifact-gate";
 
 export type TaskRowShape = {
   id: string;
@@ -18,7 +19,7 @@ export type TaskRowShape = {
 };
 
 export function toTaskRecord(row: TaskRowShape): TaskRecord {
-  return {
+  return sanitizeTaskRecordForClient({
     id: row.id,
     workspace: row.workspace,
     goal: row.goal,
@@ -31,5 +32,5 @@ export function toTaskRecord(row: TaskRowShape): TaskRecord {
     lockedAt: row.locked_at,
     projectId: row.project_id ?? null,
     sourceCommitSha: row.source_commit_sha ?? null,
-  };
+  });
 }

@@ -9,6 +9,7 @@ import { buildPlanningInputForTask, type PlanningDeps } from "@/lib/planning/bui
 import { planAndEvaluateTask } from "@/lib/task-planning";
 import { getWorkspaceRoot } from "@/orchestrator/product/orchestrator";
 import { toTaskRecord, type TaskRowShape } from "@/lib/tasks/task-record";
+import { sanitizeRunnerStateForClient } from "@/lib/delivery-artifact-gate";
 import {
   applyClarificationAnswer,
   applyContractRefresh,
@@ -177,7 +178,9 @@ export function createSupabaseTaskRepository(
       return {
         status: row.status as TaskStatus,
         blockedReasons: (row.blocked_reasons ?? []) as BlockedReason[],
-        runnerState: (row.runner_state ?? null) as RunnerState | null,
+        runnerState: sanitizeRunnerStateForClient(
+          (row.runner_state ?? null) as RunnerState | null,
+        ),
         lockedAt: row.locked_at,
       };
     },
@@ -248,10 +251,11 @@ export function createSupabaseTaskRepository(
       decision: HumanGateDecision;
       action: SensitiveApprovalAction;
       note?: string;
-      confirmedReview: boolean;
+      reviewType?: import("@/lib/human-approval").AdditionalReviewType;
+      confirmedReview?: boolean;
     }): Promise<TaskRecord> {
-      if (!input.confirmedReview) {
-        throw new Error("Konfirmasi review diperlukan sebelum menyimpan approval.");
+      if (input.decision === "APPROVE_COMMIT" && !input.confirmedReview) {
+        throw new Error("Konfirmasi review diperlukan sebelum menyimpan approval commit.");
       }
 
       const task = await this.getTask(input.id);
@@ -280,6 +284,7 @@ export function createSupabaseTaskRepository(
         action: input.action,
         actorUserId: input.userId,
         ...(input.note !== undefined ? { note: input.note } : {}),
+        ...(input.reviewType !== undefined ? { reviewType: input.reviewType } : {}),
       });
 
       const { data: row, error: updateError } = await supabase

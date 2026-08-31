@@ -9,6 +9,28 @@ import type { TaskRecord } from "@/lib/tasks-schema";
 import { buildTaskLifecycleViewModel } from "@/lib/task-lifecycle";
 import { PASS_DEMO_GOAL } from "@/orchestrator/scenarios/pass";
 
+function commitApprovalForRun(
+  runnerState: NonNullable<TaskRecord["runnerState"]>,
+  runId: string = runnerState.runId ?? "run-1",
+): NonNullable<TaskRecord["runnerState"]> {
+  return {
+    ...runnerState,
+    runId,
+    commitApproved: true,
+    humanApprovals: [
+      ...(runnerState.humanApprovals ?? []),
+      {
+        decision: "APPROVE_COMMIT",
+        action: "COMMIT",
+        actorUserId: "user-1",
+        runId,
+        note: null,
+        createdAt: "2026-08-31T07:30:00.000Z",
+      },
+    ],
+  };
+}
+
 function baseTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
   const contract = buildContract(PASS_DEMO_GOAL);
   return {
@@ -169,12 +191,11 @@ describe("approval recommendation regression", () => {
   test("R7 approve commit only → push/merge/deploy remain unapproved", () => {
     const task = baseTask({
       status: "CLOSED",
-      runnerState: {
+      runnerState: commitApprovalForRun({
         ...baseTask().runnerState!,
-        commitApproved: true,
         commit: false,
         push: false,
-      },
+      }),
     });
     const { lifecycle } = recommendationFor(task);
     expect(lifecycle.delivery.commit).toBe("APPROVED");
@@ -186,11 +207,10 @@ describe("approval recommendation regression", () => {
   test("R8 approved but not executed commit → permission vs execution distinguished", () => {
     const task = baseTask({
       status: "CLOSED",
-      runnerState: {
+      runnerState: commitApprovalForRun({
         ...baseTask().runnerState!,
-        commitApproved: true,
         commit: false,
-      },
+      }),
     });
     const { recommendation, lifecycle } = recommendationFor(task);
     expect(lifecycle.deliveryLabels.commit).toContain("not executed");

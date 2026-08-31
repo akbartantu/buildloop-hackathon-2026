@@ -655,6 +655,13 @@ export const en = {
         fail: "Check did not pass.",
         skipped: "Check was not required.",
       },
+      unexpected_destructive_change: {
+        title: "Unexpected destructive change",
+        pass: "Existing content was preserved within expected bounds.",
+        fail:
+          "The task requested a small edit, but the implementation removes substantially more existing content than expected.",
+        skipped: "Destructive change check was not required.",
+      },
     },
     classification: {
       verification: "FAILED — Verification did not pass",
@@ -736,6 +743,9 @@ export const en = {
       checkerNotVerified: "The checker did not pass the final result.",
       truncatedNotice: "Diff preview was truncated to stay within the safe size limit.",
       binaryOnly: "binary — content not stored",
+      largeDeletionTitle: "Large deletion detected",
+      largeDeletionBody:
+        "This change removes substantially more content than expected for a small edit.",
       type: {
         added: "added",
         modified: "modified",
@@ -743,6 +753,23 @@ export const en = {
         binary: "binary",
       },
     },
+  },
+  timing: {
+    runTiming: "Run timing",
+    startedAt: "Started at",
+    completedAt: "Completed at",
+    totalDuration: "Total duration",
+    elapsedDuration: "Elapsed duration",
+    notRecorded: "Not recorded",
+    started: "Started",
+    completed: "Completed",
+    duration: "Duration",
+    attemptTitle: "Attempt {number}",
+    checksPassed: "{count} passed",
+    checksFailed: "{count} failed",
+    checksBlocked: "{count} blocked",
+    checkHistory: "Check / attempt history",
+    technicalHistory: "Technical history",
   },
   delivery: {
     handoff: {
@@ -985,10 +1012,37 @@ export const en = {
           submitLabel: "Reject changes",
         },
         ESCALATE_REVIEW: {
-          label: "Escalate review",
-          submitLabel: "Escalate review",
+          label: "Request additional review",
+          submitLabel: "Request additional review",
         },
       },
+      revisionNoteLabel: "What should BuildLoop revise?",
+      rejectReasonLabel: "Why are you rejecting this result?",
+      rejectReasonHint: "Optional but recommended.",
+      additionalReviewType: "Review type",
+      selectReviewType: "Select review type",
+      additionalReviewNote: "What needs additional review?",
+      additionalReviewNotRouted:
+        "Additional review is required but has not been assigned or sent anywhere yet.",
+      revisionNoteRecorded: "Revision instruction: {note}",
+      rejectionReasonRecorded: "Rejection reason: {note}",
+      reviewTypes: {
+        technical: "Technical",
+        security: "Security",
+        product: "Product / requirements",
+        other: "Other",
+      },
+      validation: {
+        confirm_required: "Confirm commit-only approval before submitting.",
+        revision_note_required: "A revision note is required.",
+        review_type_required: "Select a review type.",
+        additional_review_note_required: "Describe what needs additional review.",
+      },
+      auditDecision: "Decision",
+      auditTimestamp: "Timestamp",
+      auditNote: "Note",
+      auditReviewType: "Review type",
+      auditRunId: "Run ID",
       outcome: {
         rejected: {
           title: "Changes rejected",
@@ -1000,8 +1054,9 @@ export const en = {
             "Revision recorded. Run the orchestrator again after adjusting scope if automatic corrections remain available.",
         },
         escalated: {
-          title: "Review escalated",
-          description: "Further technical or human review is required before sensitive actions.",
+          title: "Additional review requested",
+          description:
+            "Further review is required before sensitive actions. Record your request below — it is not routed automatically.",
         },
         pending: {
           title: "Awaiting human approval",
@@ -1299,5 +1354,6 @@ export type TranslationKey =
   | `lifecycle.${string}`
   | `verdict.${string}`
   | `evidence.${string}`
+  | `timing.${string}`
   | `delivery.${string}`
   | `blockedReason.${string}`;

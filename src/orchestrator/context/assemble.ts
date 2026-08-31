@@ -35,6 +35,7 @@ export function assembleWorkerContext(input: {
   contract: LockedContract;
   policy: ResolvedProjectPolicy;
   correctionInstruction?: string;
+  humanRevisionInstruction?: string;
 }): RoleContext {
   return {
     roleId: "worker",
@@ -53,6 +54,9 @@ export function assembleWorkerContext(input: {
         outOfScope: input.contract.outOfScope,
       },
       ...(input.correctionInstruction ? { correctionInstruction: input.correctionInstruction } : {}),
+      ...(input.humanRevisionInstruction
+        ? { humanRevisionInstruction: input.humanRevisionInstruction }
+        : {}),
     },
   };
 }

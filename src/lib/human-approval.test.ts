@@ -61,18 +61,31 @@ describe("human approval", () => {
   });
 
   test("request revision returns to approved for execution when attempts remain", () => {
+    const note = "Perlu penyesuaian copy";
     const result = applyHumanApproval({
       task: awaitingTask(),
       decision: "REQUEST_REVISION",
       action: "COMMIT",
       actorUserId: "user-1",
-      note: "Perlu penyesuaian copy",
+      note,
     });
 
     expect(result.status).toBe("APPROVED_FOR_EXECUTION");
     expect(result.runnerState.revisionRequested).toBe(true);
     expect(result.runnerState.humanRevisionCount).toBe(1);
+    expect(result.runnerState.humanRevisionInstruction).toBe(note);
     expect(result.runnerState.lastAction).toBe("human_revision");
+  });
+
+  test("request revision without note throws", () => {
+    expect(() =>
+      applyHumanApproval({
+        task: awaitingTask(),
+        decision: "REQUEST_REVISION",
+        action: "COMMIT",
+        actorUserId: "user-1",
+      }),
+    ).toThrow(/Revision note is required/);
   });
 
   test("reject changes closes task without commit permission", () => {
@@ -94,10 +107,13 @@ describe("human approval", () => {
       decision: "ESCALATE_REVIEW",
       action: "COMMIT",
       actorUserId: "user-1",
+      reviewType: "technical",
+      note: "Need architecture review.",
     });
 
     expect(result.status).toBe("AWAITING_APPROVAL");
     expect(result.runnerState.escalated).toBe(true);
+    expect(result.runnerState.pendingAdditionalReview?.reviewType).toBe("technical");
     expect(isPendingHumanApproval({ status: result.status, runnerState: result.runnerState })).toBe(true);
   });
 

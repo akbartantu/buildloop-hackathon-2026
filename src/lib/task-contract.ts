@@ -117,6 +117,7 @@ export type HumanApprovalRecord = {
   actorUserId: string;
   runId: string | null;
   note: string | null;
+  reviewType?: string | null;
   createdAt: string;
 };
 
@@ -136,6 +137,13 @@ export type RunnerState = {
   revisionRequested?: boolean;
   rejected?: boolean;
   escalated?: boolean;
+  /** Latest human revision instruction for the next rerun worker context. */
+  humanRevisionInstruction?: string;
+  /** Recorded when additional review is requested; not an automatic routing action. */
+  pendingAdditionalReview?: {
+    reviewType: string;
+    note: string;
+  };
   operationalError?: string;
   gitBaseline?: {
     repoPath: string;

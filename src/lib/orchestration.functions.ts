@@ -129,6 +129,9 @@ export const executeTaskRun = createServerFn({ method: "POST" })
         repositoryUrl: workingTask.workspace,
         ...(workingTask.sourceCommitSha ? { sourceCommitSha: workingTask.sourceCommitSha } : {}),
         runSandboxId,
+        ...(workingTask.runnerState?.humanRevisionInstruction
+          ? { humanRevisionInstruction: workingTask.runnerState.humanRevisionInstruction }
+          : {}),
         onRunStatusChange: ({ status, runId, phase }) => persistActiveRunStatus(status, runId, phase),
       });
     } catch (error) {
@@ -172,6 +175,14 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       humanRevisionCount: workingTask.runnerState?.humanRevisionCount ?? 0,
       revisionRequested: false,
       rerunRequested: false,
+      ...(workingTask.runnerState?.humanApprovals
+        ? { humanApprovals: workingTask.runnerState.humanApprovals }
+        : {}),
+      ...(workingTask.runnerState?.escalated ? { escalated: workingTask.runnerState.escalated } : {}),
+      ...(workingTask.runnerState?.pendingAdditionalReview
+        ? { pendingAdditionalReview: workingTask.runnerState.pendingAdditionalReview }
+        : {}),
+      ...(workingTask.runnerState?.rejected ? { rejected: workingTask.runnerState.rejected } : {}),
       runHistory: priorHistory,
       lockedContractInputs: lockedInputs,
       evidence: summarizeEvidence(result.evidence),

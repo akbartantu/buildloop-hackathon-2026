@@ -8,6 +8,7 @@ export type WorkerInput = {
   sourceRevision: string;
   attemptNumber: number;
   correctionInstruction?: string;
+  humanRevisionInstruction?: string;
   priorEvidenceSummary?: string;
 };
 

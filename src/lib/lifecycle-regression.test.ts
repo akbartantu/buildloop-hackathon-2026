@@ -118,6 +118,7 @@ describe("mandatory lifecycle regression T1–T14", () => {
       decision: "REQUEST_REVISION",
       action: "COMMIT",
       actorUserId: "user-1",
+      note: "Adjust copy without changing scope.",
     });
     expect(result.status).toBe("APPROVED_FOR_EXECUTION");
     expect(result.runnerState.lastAction).toBe("human_revision");

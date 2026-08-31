@@ -252,6 +252,8 @@ describe("change evidence presentation", () => {
 
     const viewModel = buildChangeEvidenceViewModel(artifact, "en");
     expect(viewModel?.files[0]?.path).toBe("README.md");
+    expect(viewModel?.files[0]?.changeSummary).toBe("+1 added · -1 removed");
+    expect(viewModel?.files[0]?.diffLines.some((line) => line.kind === "added")).toBe(true);
     expect(viewModel?.combinedDiff).toContain("README.md");
     expect(viewModel?.combinedDiff).toContain(
       "+ BuildLoop keeps security-sensitive actions under human control.",

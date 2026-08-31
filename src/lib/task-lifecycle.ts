@@ -18,10 +18,17 @@ import type { TranslationKey } from "@/i18n/en";
 import { formatChecksFriendlySummary } from "@/lib/lifecycle-presentations";
 import { buildRunProgressViewModel, type RunProgressViewModel } from "@/lib/lifecycle-progress";
 import {
+  buildAttemptHistoryViewModels,
+  buildCurrentRunTimingViewModel,
+  type AttemptHistoryViewModel,
+  type RunTimingViewModel,
+} from "@/lib/run-timing-presentation";
+import {
   buildEvidenceSummaryViewModel,
   type EvidenceSummaryViewModel,
 } from "@/lib/evidence-summary";
 import { formatPrimaryBlockedExplanation } from "@/lib/blocked-reason-presentation";
+import { isCommitApprovedForCurrentRun } from "@/lib/delivery-artifact-gate";
 
 export type ImplementationVerdict = "PASS" | "FAILED" | "BLOCKED" | null;
 
@@ -71,6 +78,8 @@ export type TaskLifecycleViewModel = {
   correction: CorrectionPresentation;
   correctionPhase: CorrectionPhase;
   evidenceHistory: ReturnType<typeof buildEvidenceHistory>;
+  attemptHistory: AttemptHistoryViewModel[];
+  currentRunTiming: RunTimingViewModel | null;
   checks: CheckBreakdown;
   orchestrationSteps: OrchestrationStepView[];
   orchestrationUserSummary: string;
@@ -180,7 +189,7 @@ function deriveDeliveryStates(task: TaskRecord): TaskLifecycleViewModel["deliver
 
   const commit: DeliveryActionState = runner?.commit
     ? "EXECUTED"
-    : runner?.commitApproved
+    : isCommitApprovedForCurrentRun(runner)
       ? "APPROVED"
       : task.status === "AWAITING_APPROVAL" || task.status === "PASS"
         ? "AWAITING_APPROVAL"
@@ -424,6 +433,8 @@ export function buildTaskLifecycleViewModel(
   const verdict = deriveImplementationVerdict(task, checks);
   const correction = deriveCorrectionPresentation(task, checks, verdict, locale);
   const evidenceHistory = buildEvidenceHistory(task);
+  const attemptHistory = buildAttemptHistoryViewModels(task, locale);
+  const currentRunTiming = buildCurrentRunTimingViewModel(task, locale);
   const delivery = deriveDeliveryStates(task);
   const runner = task.runnerState;
   const correctionLimit = task.contract.maxAttempts;
@@ -456,6 +467,8 @@ export function buildTaskLifecycleViewModel(
     correctionPhase: correction.phase,
     checks,
     evidenceHistory,
+    attemptHistory,
+    currentRunTiming,
     orchestrationSteps,
     orchestrationUserSummary: buildOrchestrationUserSummary(
       task,

@@ -9,6 +9,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DemoBulletList,
@@ -61,10 +62,22 @@ import {
 import {
   formatHumanGateOptionLabel,
   formatHumanGateSubmitLabel,
+  formatHumanApprovalAuditEntry,
+  formatHumanApprovalValidationError,
   presentHumanApprovalOutcome,
 } from "@/lib/human-approval-presentation";
+import {
+  ADDITIONAL_REVIEW_TYPES,
+  type AdditionalReviewType,
+  requiresApprovalConfirmation,
+  showsAdditionalReviewFields,
+  showsRejectReasonField,
+  showsRevisionNoteField,
+  validateHumanApprovalForm,
+} from "@/lib/human-approval-input";
 import { isApprovalGateOpen, isOrchestrationInProgress } from "@/lib/evidence-analysis";
 import { canRerunFailedTask, formatRunHistoryLabel, listTaskRunHistory } from "@/lib/task-rerun";
+import { buildRunHistoryTimingViewModel } from "@/lib/run-timing-presentation";
 import { isOrchestrationEligible } from "@/lib/task-lifecycle-ops";
 import { cn } from "@/lib/utils";
 import { TaskOverviewView } from "@/components/site/task-overview-view";
@@ -105,7 +118,12 @@ type TaskDetailTabsProps = {
   error: string | null;
   onApprove: () => void;
   onRun: () => void;
-  onSubmitHumanApproval: (input: { decision: HumanGateDecision; note?: string }) => void;
+  onSubmitHumanApproval: (input: {
+    decision: HumanGateDecision;
+    note?: string;
+    reviewType?: AdditionalReviewType;
+    confirmedReview?: boolean;
+  }) => void;
   onEdit: () => void;
   onBack: () => void;
   onRefreshContract?: () => void;
@@ -579,6 +597,27 @@ function OrchestrationView({
         <LifecycleProgressPanel progress={lifecycle.progress} />
       </DemoPanel>
 
+      {lifecycle.currentRunTiming ? (
+        <DemoPanel title={t("timing.runTiming")}>
+          <DemoKeyValueTable
+            rows={[
+              { label: t("timing.startedAt"), value: lifecycle.currentRunTiming.startedAtLabel },
+              { label: t("timing.completedAt"), value: lifecycle.currentRunTiming.completedAtLabel },
+              ...(lifecycle.currentRunTiming.showDuration
+                ? [
+                    {
+                      label: lifecycle.currentRunTiming.durationIsElapsed
+                        ? t("timing.elapsedDuration")
+                        : t("timing.totalDuration"),
+                      value: lifecycle.currentRunTiming.durationLabel ?? t("timing.notRecorded"),
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        </DemoPanel>
+      ) : null}
+
       {task.contract.workPlan && task.contract.workPlan.contracts.length > 0 ? (
         <DemoPanel title={t("taskDetail.orchestration.workContracts")}>
           <ol className="space-y-2">
@@ -692,13 +731,37 @@ function OrchestrationView({
 
       {listTaskRunHistory(task).length > 0 ? (
         <DemoPanel title={t("taskDetail.orchestration.runHistory")}>
-          <ul className="space-y-2 text-sm">
-            {listTaskRunHistory(task).map((entry) => (
-              <li key={entry.runId} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
-                <span className="font-medium text-foreground">{formatRunHistoryLabel(entry, locale)}</span>
-                <span className="font-mono text-[10px] text-muted-foreground">{entry.runId.slice(0, 8)}</span>
-              </li>
-            ))}
+          <ul className="space-y-3 text-sm">
+            {listTaskRunHistory(task).map((entry) => {
+              const timing = buildRunHistoryTimingViewModel(entry, locale);
+              return (
+                <li
+                  key={entry.runId}
+                  className="rounded-md border border-border px-3 py-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="font-medium text-foreground">
+                      {formatRunHistoryLabel(entry, locale)}
+                    </span>
+                    <span className="font-mono text-[10px] text-muted-foreground">
+                      {entry.runId.slice(0, 8)}
+                    </span>
+                  </div>
+                  <DemoKeyValueTable
+                    rows={[
+                      { label: t("timing.startedAt"), value: timing.startedAtLabel },
+                      { label: t("timing.completedAt"), value: timing.completedAtLabel },
+                      ...(timing.durationLabel
+                        ? [{ label: t("timing.totalDuration"), value: timing.durationLabel }]
+                        : []),
+                    ]}
+                  />
+                  <p className="mt-2 font-mono text-[10px] text-muted-foreground">
+                    {timing.compactTechnicalLine}
+                  </p>
+                </li>
+              );
+            })}
           </ul>
         </DemoPanel>
       ) : null}
@@ -867,6 +930,52 @@ function EvidenceView({
         </DemoPanel>
       ) : null}
 
+      {lifecycle.attemptHistory.length > 0 ? (
+        <DemoPanel title={t("timing.checkHistory")}>
+          <ul className="space-y-3 text-sm">
+            {lifecycle.attemptHistory.map((entry) => (
+              <li
+                key={entry.attemptNumber}
+                className="rounded-md border border-border px-3 py-3"
+              >
+                <p className="font-medium text-foreground">{entry.title}</p>
+                {entry.hasTiming ? (
+                  <DemoKeyValueTable
+                    rows={[
+                      ...(entry.startedAtLabel
+                        ? [{ label: t("timing.started"), value: entry.startedAtLabel }]
+                        : []),
+                      ...(entry.completedAtLabel
+                        ? [{ label: t("timing.completed"), value: entry.completedAtLabel }]
+                        : []),
+                      ...(entry.durationLabel
+                        ? [{ label: t("timing.duration"), value: entry.durationLabel }]
+                        : []),
+                    ]}
+                  />
+                ) : null}
+                <p className="mt-1 text-foreground">
+                  {entry.checksSummary} · {entry.outcome}
+                </p>
+                <p className="mt-2 font-mono text-[10px] text-muted-foreground">
+                  {entry.compactTechnicalLine}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </DemoPanel>
+      ) : null}
+
+      {lifecycle.attemptHistory.length > 0 ? (
+        <DemoCollapsible title={t("timing.technicalHistory")}>
+          <ul className="space-y-2 font-mono text-xs text-muted-foreground">
+            {lifecycle.attemptHistory.map((entry) => (
+              <li key={`tech-${entry.attemptNumber}`}>{entry.compactTechnicalLine}</li>
+            ))}
+          </ul>
+        </DemoCollapsible>
+      ) : null}
+
       {lifecycle.evidenceHistory.length > 0 ? (
         <DemoCollapsible title={t("taskDetail.evidence.checkHistory")}>
           <ul className="space-y-2 font-mono text-xs">
@@ -986,7 +1095,12 @@ function ApprovalView({
   locale: Locale;
   sourceCommitDrift: boolean;
   onEdit: () => void;
-  onSubmit: (input: { decision: HumanGateDecision; note?: string }) => void;
+  onSubmit: (input: {
+    decision: HumanGateDecision;
+    note?: string;
+    reviewType?: AdditionalReviewType;
+    confirmedReview?: boolean;
+  }) => void;
   onGoToTab: (tab: DemoTab) => void;
 }) {
   const { activeProject } = useProjects();
@@ -1000,8 +1114,7 @@ function ApprovalView({
   const deliveryHandoff = runner?.deliveryHandoff;
   const showDelivery =
     canShowDeliveryHandoff({
-      commitApproved: Boolean(runner?.commitApproved),
-      handoff: deliveryHandoff ?? null,
+      runnerState: runner ?? null,
     }) && deliveryHandoff;
   const deliveryViewModel = showDelivery
     ? buildDeliveryHandoffViewModel({
@@ -1014,13 +1127,55 @@ function ApprovalView({
     : null;
   const [decision, setDecision] = useState<HumanGateDecision>("APPROVE_COMMIT");
   const [confirmedReview, setConfirmedReview] = useState(false);
+  const [decisionNote, setDecisionNote] = useState("");
+  const [reviewType, setReviewType] = useState<AdditionalReviewType | "">("");
+  const [formError, setFormError] = useState<string | null>(null);
+
+  function approvalFormInput() {
+    return {
+      decision,
+      note: decisionNote,
+      ...(reviewType ? { reviewType } : {}),
+      ...(requiresApprovalConfirmation(decision) ? { confirmedReview } : {}),
+    };
+  }
+
+  function canSubmitApproval(): boolean {
+    if (submitting) {
+      return false;
+    }
+    return validateHumanApprovalForm(approvalFormInput()) === null;
+  }
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!confirmedReview || submitting) {
+    const validationError = validateHumanApprovalForm(approvalFormInput());
+    if (validationError) {
+      setFormError(formatHumanApprovalValidationError(validationError, locale));
       return;
     }
-    onSubmit({ decision });
+    setFormError(null);
+    const trimmedNote = decisionNote.trim();
+    onSubmit({
+      decision,
+      ...(trimmedNote ? { note: trimmedNote } : {}),
+      ...(decision === "ESCALATE_REVIEW" && reviewType ? { reviewType } : {}),
+      ...(decision === "APPROVE_COMMIT" ? { confirmedReview: true } : {}),
+    });
+  }
+
+  function handleDecisionChange(nextDecision: HumanGateDecision) {
+    setDecision(nextDecision);
+    setFormError(null);
+    if (!requiresApprovalConfirmation(nextDecision)) {
+      setConfirmedReview(false);
+    }
+    if (!showsRevisionNoteField(nextDecision) && !showsRejectReasonField(nextDecision)) {
+      setDecisionNote("");
+    }
+    if (!showsAdditionalReviewFields(nextDecision)) {
+      setReviewType("");
+    }
   }
 
   function recommendationBannerStatus(): "PASS" | "FAILED" | "AWAITING_APPROVAL" | "NEEDS HUMAN REVIEW" | "BLOCKED" {
@@ -1124,6 +1279,26 @@ function ApprovalView({
           </>
         ) : null}
 
+        {runner?.pendingAdditionalReview ? (
+          <DemoPanel title={t("taskDetail.approval.additionalReviewType")}>
+            <DemoKeyValueTable
+              rows={[
+                {
+                  label: t("taskDetail.approval.additionalReviewType"),
+                  value: t(`taskDetail.approval.reviewTypes.${runner.pendingAdditionalReview.reviewType}`),
+                },
+                {
+                  label: t("taskDetail.approval.additionalReviewNote"),
+                  value: runner.pendingAdditionalReview.note,
+                },
+              ]}
+            />
+            <p className="mt-3 text-xs text-muted-foreground">
+              {t("taskDetail.approval.additionalReviewNotRouted")}
+            </p>
+          </DemoPanel>
+        ) : null}
+
         {recommendation.historicalCorrection ? (
           <DemoPanel title={t("taskDetail.approval.autoCorrection")}>
             <p className="text-sm text-foreground">{recommendation.historicalCorrection.summary}</p>
@@ -1132,13 +1307,35 @@ function ApprovalView({
 
         {runner?.humanApprovals?.length ? (
           <DemoCollapsible title={t("taskDetail.approval.auditTrail")}>
-            <ul className="space-y-2 font-mono text-xs text-muted-foreground">
-              {runner.humanApprovals.map((entry) => (
-                <li key={`${entry.decision}-${entry.createdAt}`}>
-                  {entry.decision} · {entry.action} · run {entry.runId ?? "—"} ·{" "}
-                  {new Date(entry.createdAt).toLocaleString("id-ID")}
-                </li>
-              ))}
+            <ul className="space-y-3 text-sm">
+              {runner.humanApprovals.map((entry) => {
+                const audit = formatHumanApprovalAuditEntry(entry, locale);
+                return (
+                  <li
+                    key={`${entry.decision}-${entry.createdAt}`}
+                    className="rounded-md border border-border px-3 py-3"
+                  >
+                    <p className="font-medium text-foreground">{audit.decisionLabel}</p>
+                    <p className="text-sm text-muted-foreground">{audit.timestamp}</p>
+                    {audit.reviewTypeLabel ? (
+                      <p className="mt-2 text-sm text-foreground">
+                        {t("taskDetail.approval.auditReviewType")}: {audit.reviewTypeLabel}
+                      </p>
+                    ) : null}
+                    {audit.note ? (
+                      <p className="mt-2 text-sm italic text-foreground">&ldquo;{audit.note}&rdquo;</p>
+                    ) : null}
+                    {audit.runId ? (
+                      <p className="mt-2 font-mono text-[10px] text-muted-foreground">
+                        {t("taskDetail.approval.auditRunId")}: {audit.runId}
+                      </p>
+                    ) : null}
+                    <p className="mt-2 font-mono text-[10px] text-muted-foreground">
+                      {audit.decisionLabel} · {audit.timestampTime}
+                    </p>
+                  </li>
+                );
+              })}
             </ul>
           </DemoCollapsible>
         ) : null}
@@ -1227,27 +1424,102 @@ function ApprovalView({
                   name="approval-decision"
                   checked={decision === optionDecision}
                   disabled={submitting}
-                  onChange={() => setDecision(optionDecision)}
+                  onChange={() => handleDecisionChange(optionDecision)}
                 />
                 <span>{formatHumanGateOptionLabel(optionDecision, locale)}</span>
               </label>
             ))}
           </div>
 
-          <label className="flex items-start gap-3 text-sm">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={confirmedReview}
-              disabled={submitting}
-              onChange={(event) => setConfirmedReview(event.target.checked)}
-            />
-            <span>{t("taskDetail.approval.confirmReview")}</span>
-          </label>
+          {showsRevisionNoteField(decision) ? (
+            <div className="space-y-2">
+              <label htmlFor="approval-revision-note" className="text-sm font-medium text-foreground">
+                {t("taskDetail.approval.revisionNoteLabel")}
+              </label>
+              <Textarea
+                id="approval-revision-note"
+                value={decisionNote}
+                disabled={submitting}
+                rows={4}
+                onChange={(event) => setDecisionNote(event.target.value)}
+                placeholder={t("taskDetail.approval.revisionNoteLabel")}
+              />
+            </div>
+          ) : null}
+
+          {showsRejectReasonField(decision) ? (
+            <div className="space-y-2">
+              <label htmlFor="approval-reject-reason" className="text-sm font-medium text-foreground">
+                {t("taskDetail.approval.rejectReasonLabel")}
+              </label>
+              <p className="text-xs text-muted-foreground">{t("taskDetail.approval.rejectReasonHint")}</p>
+              <Textarea
+                id="approval-reject-reason"
+                value={decisionNote}
+                disabled={submitting}
+                rows={3}
+                onChange={(event) => setDecisionNote(event.target.value)}
+                placeholder={t("taskDetail.approval.rejectReasonLabel")}
+              />
+            </div>
+          ) : null}
+
+          {showsAdditionalReviewFields(decision) ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label htmlFor="approval-review-type" className="text-sm font-medium text-foreground">
+                  {t("taskDetail.approval.additionalReviewType")}
+                </label>
+                <select
+                  id="approval-review-type"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  value={reviewType}
+                  disabled={submitting}
+                  onChange={(event) => setReviewType(event.target.value as AdditionalReviewType | "")}
+                >
+                  <option value="">{t("taskDetail.approval.selectReviewType")}</option>
+                  {ADDITIONAL_REVIEW_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {t(`taskDetail.approval.reviewTypes.${type}`)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="approval-additional-review-note" className="text-sm font-medium text-foreground">
+                  {t("taskDetail.approval.additionalReviewNote")}
+                </label>
+                <Textarea
+                  id="approval-additional-review-note"
+                  value={decisionNote}
+                  disabled={submitting}
+                  rows={3}
+                  onChange={(event) => setDecisionNote(event.target.value)}
+                  placeholder={t("taskDetail.approval.additionalReviewNote")}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t("taskDetail.approval.additionalReviewNotRouted")}
+              </p>
+            </div>
+          ) : null}
+
+          {requiresApprovalConfirmation(decision) ? (
+            <label className="flex items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={confirmedReview}
+                disabled={submitting}
+                onChange={(event) => setConfirmedReview(event.target.checked)}
+              />
+              <span>{t("taskDetail.approval.confirmReview")}</span>
+            </label>
+          ) : null}
 
           <div className="flex flex-wrap gap-3">
             {showPrimaryApprove ? (
-              <Button type="submit" disabled={!confirmedReview || submitting}>
+              <Button type="submit" disabled={!canSubmitApproval() || submitting}>
                 {submitting
                   ? t("taskDetail.approval.savingApproval")
                   : formatHumanGateSubmitLabel(decision, locale)}
@@ -1265,12 +1537,12 @@ function ApprovalView({
               {t("taskDetail.approval.viewTechnicalEvidence")}
             </Button>
             {!showPrimaryApprove && decision === "APPROVE_COMMIT" ? (
-              <Button type="submit" variant="outline" disabled={!confirmedReview || submitting}>
+              <Button type="submit" variant="outline" disabled={!canSubmitApproval() || submitting}>
                 {submitting ? t("taskDetail.approval.saving") : t("taskDetail.approval.approveCommitOverride")}
               </Button>
             ) : null}
             {!showPrimaryApprove && decision !== "APPROVE_COMMIT" ? (
-              <Button type="submit" variant="outline" disabled={!confirmedReview || submitting}>
+              <Button type="submit" variant="outline" disabled={!canSubmitApproval() || submitting}>
                 {submitting
                   ? t("taskDetail.approval.saving")
                   : formatHumanGateSubmitLabel(decision, locale)}
@@ -1278,6 +1550,7 @@ function ApprovalView({
             ) : null}
           </div>
 
+          {formError ? <p className="text-sm text-status-blocked">{formError}</p> : null}
           {error ? <p className="text-sm text-status-blocked">{error}</p> : null}
         </form>
       </DemoPanel>

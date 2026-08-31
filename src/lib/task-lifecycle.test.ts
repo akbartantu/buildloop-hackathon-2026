@@ -43,6 +43,28 @@ function baseTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
   };
 }
 
+function commitApprovalForRun(
+  runnerState: NonNullable<TaskRecord["runnerState"]>,
+  runId: string = runnerState.runId ?? "run-1",
+): NonNullable<TaskRecord["runnerState"]> {
+  return {
+    ...runnerState,
+    runId,
+    commitApproved: true,
+    humanApprovals: [
+      ...(runnerState.humanApprovals ?? []),
+      {
+        decision: "APPROVE_COMMIT",
+        action: "COMMIT",
+        actorUserId: "user-1",
+        runId,
+        note: null,
+        createdAt: "2026-08-31T07:30:00.000Z",
+      },
+    ],
+  };
+}
+
 describe("task lifecycle projection", () => {
   test("I6 CLOSED task with run is not shown as orchestrator not started", () => {
     const approved = applyHumanApproval({
@@ -131,15 +153,15 @@ describe("task lifecycle projection", () => {
   test("I4 approved commit is not executed commit", () => {
     const task = baseTask({
       status: "CLOSED",
-      runnerState: {
+      runnerState: commitApprovalForRun({
         ...zeroChangeRunnerState("PASS"),
         runnerInvoked: true,
-        commitApproved: true,
         commit: false,
         push: false,
         correctionCount: 1,
+        runId: "run-1",
         evidence: [{ category: "a", name: "x", status: "pass", summary: "ok" }],
-      },
+      }),
     });
     const vm = buildTaskLifecycleViewModel(task);
     expect(vm.delivery.commit).toBe("APPROVED");
@@ -149,13 +171,13 @@ describe("task lifecycle projection", () => {
   test("I5 commit approval does not grant push", () => {
     const task = baseTask({
       status: "CLOSED",
-      runnerState: {
+      runnerState: commitApprovalForRun({
         ...zeroChangeRunnerState("PASS"),
         runnerInvoked: true,
-        commitApproved: true,
         commit: false,
         push: false,
-      },
+        runId: "run-1",
+      }),
     });
     const vm = buildTaskLifecycleViewModel(task);
     expect(vm.delivery.push).toBe("NOT_APPROVED");
@@ -166,12 +188,11 @@ describe("task lifecycle projection", () => {
   test("I9 cross-page consistency for completed PASS with approval", () => {
     const task = baseTask({
       status: "CLOSED",
-      runnerState: {
+      runnerState: commitApprovalForRun({
         ...zeroChangeRunnerState("PASS demo"),
         runnerInvoked: true,
         runId: "run-abc",
         correctionCount: 1,
-        commitApproved: true,
         commit: false,
         evidence: [
           { category: "preflight", name: "p", status: "pass", summary: "ok" },
@@ -182,7 +203,7 @@ describe("task lifecycle projection", () => {
           { rule: "CHECKS_PASSED", summary: "PASS", nextStatus: "AWAITING_APPROVAL", verdict: "PASS" },
           { rule: "human_gate", summary: "approved", nextStatus: "CLOSED", verdict: "APPROVE_COMMIT" },
         ],
-      },
+      }, "run-abc"),
     });
     const vm = buildTaskLifecycleViewModel(task);
 

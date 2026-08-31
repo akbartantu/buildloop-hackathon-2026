@@ -6,6 +6,7 @@ import { WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
 import type { RunnerState, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { sanitizeTaskRecordForClient } from "@/lib/delivery-artifact-gate";
 import { buildPlanningInputForTask, type PlanningDeps } from "@/lib/planning/build-planning-input";
 import { planAndEvaluateTask } from "@/lib/task-planning";
 import { DEV_AUTH_BYPASS_USER_ID } from "@/lib/dev-auth-bypass";
@@ -81,7 +82,7 @@ async function writeStore(store: DevTaskStore): Promise<void> {
 }
 
 function toRecord(task: DevTaskStore["tasks"][number]): TaskRecord {
-  return {
+  return sanitizeTaskRecordForClient({
     id: task.id,
     workspace: task.workspace,
     goal: task.goal,
@@ -94,7 +95,7 @@ function toRecord(task: DevTaskStore["tasks"][number]): TaskRecord {
     lockedAt: task.lockedAt,
     projectId: task.projectId,
     sourceCommitSha: task.sourceCommitSha,
-  };
+  });
 }
 
 export type DevTaskRepository = ReturnType<typeof createDevTaskRepository>;
@@ -291,10 +292,11 @@ export function createDevTaskRepository(
       decision: HumanGateDecision;
       action: SensitiveApprovalAction;
       note?: string;
-      confirmedReview: boolean;
+      reviewType?: import("@/lib/human-approval").AdditionalReviewType;
+      confirmedReview?: boolean;
     }): Promise<TaskRecord> {
-      if (!input.confirmedReview) {
-        throw new Error("Konfirmasi review diperlukan sebelum menyimpan approval.");
+      if (input.decision === "APPROVE_COMMIT" && !input.confirmedReview) {
+        throw new Error("Konfirmasi review diperlukan sebelum menyimpan approval commit.");
       }
 
       const store = await readStore();
@@ -329,6 +331,7 @@ export function createDevTaskRepository(
         action: input.action,
         actorUserId: input.userId,
         ...(input.note !== undefined ? { note: input.note } : {}),
+        ...(input.reviewType !== undefined ? { reviewType: input.reviewType } : {}),
       });
 
       const now = new Date().toISOString();

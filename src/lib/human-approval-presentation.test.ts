@@ -103,4 +103,13 @@ describe("human approval presentation", () => {
     expect(lines.join("\n")).toContain("Setujui commit");
     expect(lines.join("\n")).toContain("Kenapa BuildLoop merekomendasikannya?");
   });
+
+  test("English gate labels use Request additional review instead of Escalate", () => {
+    const lines = collectApprovalUiCopy({
+      task: awaitingApprovalTask(),
+      locale: "en",
+    });
+    expect(lines.join("\n")).toContain("Request additional review");
+    expect(lines.join("\n")).not.toContain("Escalate review");
+  });
 });

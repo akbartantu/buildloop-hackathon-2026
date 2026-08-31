@@ -86,8 +86,9 @@ export const recordHumanApproval = createServerFn({ method: "POST" })
       userId: context.auth.userId,
       decision: data.decision,
       action: data.action,
-      confirmedReview: data.confirmedReview,
+      ...(data.confirmedReview !== undefined ? { confirmedReview: data.confirmedReview } : {}),
       ...(data.note !== undefined ? { note: data.note } : {}),
+      ...(data.reviewType !== undefined ? { reviewType: data.reviewType } : {}),
     });
   });
 

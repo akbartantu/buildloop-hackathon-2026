@@ -7,9 +7,16 @@ import { isDocumentationOnlyScope } from "../contract/derive-task-contract";
 import type { LockedContract } from "../contract/schema";
 import type { CheckerEvidence, WorkerReport } from "../types";
 import { PASS_DEMO_TARGET_RELATIVE } from "../scenarios/pass";
-import { isDependencyManifest } from "../workspace/git-workspace";
+import { captureFileUnifiedDiff, isDependencyManifest } from "../workspace/git-workspace";
 import { runSafeCommand } from "./command-runner";
 import { detectProjectCommands, requiredCommandsForContract } from "./project-commands";
+import {
+  assessContentDestructiveChange,
+  assessDiffDestructiveChange,
+  contractExpectsBoundedAdditiveEdit,
+  shouldFlagUnexpectedDestructiveChange,
+  UNEXPECTED_DESTRUCTIVE_CHANGE_SUMMARY,
+} from "./unexpected-destructive-change";
 
 export type CheckerInput = {
   runId: string;
@@ -21,6 +28,10 @@ export type CheckerInput = {
   sourceRevisionAtStart: string;
   sourceRevisionNow: string;
   skipCommandExecution?: boolean;
+  /** Baseline commit for git diff comparison in bounded-edit guard. */
+  baselineSha?: string;
+  /** Fixture baseline file contents keyed by relative path (tests and non-git sandboxes). */
+  baselineFileContents?: Record<string, string>;
 };
 
 export type CheckerResult = {
@@ -231,6 +242,10 @@ export class DeterministicChecker {
       }
     }
 
+    if (changedFiles.length > 0 && contractExpectsBoundedAdditiveEdit(input.contract)) {
+      await this.checkUnexpectedDestructiveChanges(input, changedFiles, push);
+    }
+
     if (changedFiles.includes(PASS_DEMO_TARGET_RELATIVE)) {
       await this.checkPassAcceptance(input, push);
     }
@@ -403,6 +418,56 @@ export class DeterministicChecker {
         evidenceItem.exitCode = result.exitCode;
       }
       push(evidenceItem);
+    }
+  }
+
+  private async checkUnexpectedDestructiveChanges(
+    input: CheckerInput,
+    changedFiles: string[],
+    push: (item: Omit<CheckerEvidence, "id" | "runId" | "attemptNumber" | "createdAt">) => void,
+  ) {
+    for (const file of changedFiles) {
+      const absolute = path.join(input.sandboxRoot, file);
+      let updatedContent = "";
+      try {
+        updatedContent = await readFile(absolute, "utf8");
+      } catch {
+        continue;
+      }
+
+      let assessment = null;
+      const baselineFromFixture = input.baselineFileContents?.[file];
+      if (baselineFromFixture !== undefined) {
+        assessment = assessContentDestructiveChange(baselineFromFixture, updatedContent);
+      } else if (input.baselineSha) {
+        try {
+          const { diff, isBinary } = await captureFileUnifiedDiff(
+            input.sandboxRoot,
+            input.baselineSha,
+            file,
+          );
+          if (isBinary || !diff.trim()) {
+            continue;
+          }
+          assessment = assessDiffDestructiveChange(diff);
+        } catch {
+          continue;
+        }
+      } else {
+        continue;
+      }
+
+      if (shouldFlagUnexpectedDestructiveChange(input.contract, assessment)) {
+        push({
+          category: "acceptance",
+          name: `unexpected_destructive_change_${file}`,
+          status: "fail",
+          summary: UNEXPECTED_DESTRUCTIVE_CHANGE_SUMMARY,
+          details: `file=${file} removed=${assessment.removed} added=${assessment.added} retained=${Math.round(assessment.retainedLineRatio * 100)}%`,
+          affectedFiles: [file],
+          severity: "error",
+        });
+      }
     }
   }
 

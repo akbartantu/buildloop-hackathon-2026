@@ -1,5 +1,10 @@
 import { translate, type Locale } from "@/i18n";
 import type { TranslationKey } from "@/i18n/en";
+import type { HumanApprovalFormError } from "@/lib/human-approval-input";
+import {
+  formatApprovalDecisionTimestamp,
+  formatApprovalDecisionTimeOnly,
+} from "@/lib/run-timing-presentation";
 import {
   getHumanApprovalOutcome,
   HUMAN_GATE_DECISIONS,
@@ -66,6 +71,36 @@ export function presentHumanApprovalOutcome(
     };
   }
 
+  if (outcome.kind === "revision_requested") {
+    return {
+      kind: outcome.kind,
+      title: translate(locale, outcomeKey("revision_requested", "title")),
+      description: formatRevisionOutcomeDescription(task, locale),
+    };
+  }
+
+  if (outcome.kind === "escalated") {
+    return {
+      kind: outcome.kind,
+      title: translate(locale, outcomeKey("escalated", "title")),
+      description: `${translate(locale, outcomeKey("escalated", "description"))} ${translate(locale, "taskDetail.approval.additionalReviewNotRouted")}`,
+    };
+  }
+
+  if (outcome.kind === "rejected") {
+    const rejectionNote = task.runnerState?.humanApprovals
+      ?.filter((entry) => entry.decision === "REJECT_CHANGES")
+      .at(-1)?.note;
+    const base = translate(locale, outcomeKey("rejected", "description"));
+    return {
+      kind: outcome.kind,
+      title: translate(locale, outcomeKey("rejected", "title")),
+      description: rejectionNote
+        ? `${base} ${translate(locale, "taskDetail.approval.rejectionReasonRecorded", { note: rejectionNote })}`
+        : base,
+    };
+  }
+
   return {
     kind: outcome.kind,
     title: translate(locale, outcomeKey(outcome.kind, "title")),
@@ -82,6 +117,7 @@ const INDONESIAN_APPROVAL_UI_MARKERS = [
   "Minta revisi",
   "Tolak perubahan",
   "Eskalasi review",
+  "Permintaan review tambahan",
   "Perubahan ditolak",
   "Revisi diminta",
   "Anda telah memberikan izin",
@@ -127,4 +163,64 @@ export function collectApprovalUiCopy(input: {
   }
 
   return lines.filter(Boolean);
+}
+
+function decisionLabelKey(decision: HumanGateDecision): TranslationKey {
+  return `taskDetail.approval.gateOptions.${decision}.label` as TranslationKey;
+}
+
+function reviewTypeLabelKey(reviewType: string): TranslationKey {
+  return `taskDetail.approval.reviewTypes.${reviewType}` as TranslationKey;
+}
+
+export function formatHumanApprovalAuditEntry(
+  entry: {
+    decision: HumanGateDecision | string;
+    createdAt: string;
+    note: string | null;
+    reviewType?: string | null;
+    runId: string | null;
+  },
+  locale: Locale,
+): {
+  decisionLabel: string;
+  timestamp: string;
+  timestampTime: string;
+  note: string | null;
+  reviewTypeLabel: string | null;
+  runId: string | null;
+} {
+  return {
+    decisionLabel: translate(locale, decisionLabelKey(entry.decision as HumanGateDecision)),
+    timestamp: formatApprovalDecisionTimestamp(entry.createdAt, locale),
+    timestampTime: formatApprovalDecisionTimeOnly(entry.createdAt, locale),
+    note: entry.note,
+    reviewTypeLabel: entry.reviewType
+      ? translate(locale, reviewTypeLabelKey(entry.reviewType))
+      : null,
+    runId: entry.runId,
+  };
+}
+
+export function formatRevisionOutcomeDescription(
+  task: { runnerState: RunnerState | null },
+  locale: Locale,
+): string {
+  const base = translate(locale, "taskDetail.approval.outcome.revision_requested.description");
+  const latest = task.runnerState?.humanApprovals
+    ?.filter((entry) => entry.decision === "REQUEST_REVISION")
+    .at(-1);
+  const instruction =
+    latest?.note ?? task.runnerState?.humanRevisionInstruction ?? null;
+  if (!instruction) {
+    return base;
+  }
+  return `${base} ${translate(locale, "taskDetail.approval.revisionNoteRecorded", { note: instruction })}`;
+}
+
+export function formatHumanApprovalValidationError(
+  error: HumanApprovalFormError,
+  locale: Locale,
+): string {
+  return translate(locale, `taskDetail.approval.validation.${error}` as TranslationKey);
 }

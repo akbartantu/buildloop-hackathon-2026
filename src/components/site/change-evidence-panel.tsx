@@ -14,6 +14,28 @@ type ChangeEvidencePanelProps = {
   locale?: Locale;
 };
 
+function SemanticDiffBlock({
+  lines,
+  ariaLabel,
+}: {
+  lines: ChangeEvidenceViewModel["combinedDiffLines"];
+  ariaLabel: string;
+}) {
+  return (
+    <pre
+      className="overflow-x-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-xs leading-relaxed"
+      aria-label={ariaLabel}
+    >
+      {lines.map((line, index) => (
+        <code key={`${index}-${line.kind}-${line.text.slice(0, 12)}`} className={line.className}>
+          {line.text}
+          {"\n"}
+        </code>
+      ))}
+    </pre>
+  );
+}
+
 export function ChangeEvidencePanel({ viewModel, locale: localeProp }: ChangeEvidencePanelProps) {
   const { locale: contextLocale } = useI18n();
   const locale = localeProp ?? contextLocale;
@@ -39,13 +61,24 @@ export function ChangeEvidencePanel({ viewModel, locale: localeProp }: ChangeEvi
 
       <div className="mt-4">
         <DemoSectionLabel>{t("evidence.change.changedFiles")}</DemoSectionLabel>
-        <DemoBulletList
-          items={viewModel.files.map((file) =>
-            file.binary
-              ? `${file.path} (${file.changeTypeLabel}, ${t("evidence.change.binaryOnly")})`
-              : `${file.path} (${file.changeTypeLabel})`,
-          )}
-        />
+        <ul className="mt-2 space-y-2 text-sm">
+          {viewModel.files.map((file) => (
+            <li key={file.path} className="rounded-md border border-border px-3 py-2">
+              <div className="font-mono text-xs text-foreground">{file.path}</div>
+              <div className="mt-1 text-xs text-muted-foreground">
+                {file.binary
+                  ? `${file.changeTypeLabel} · ${t("evidence.change.binaryOnly")}`
+                  : `${file.changeTypeLabel} · ${file.changeSummary}`}
+              </div>
+              {file.largeDeletionWarning ? (
+                <div className="mt-2 rounded-md border border-status-review/30 bg-status-review/10 px-3 py-2 text-xs text-status-review">
+                  <p className="font-medium">{t("evidence.change.largeDeletionTitle")}</p>
+                  <p className="mt-1">{t("evidence.change.largeDeletionBody")}</p>
+                </div>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       </div>
 
       {viewModel.truncatedNotice ? (
@@ -55,9 +88,10 @@ export function ChangeEvidencePanel({ viewModel, locale: localeProp }: ChangeEvi
       {viewModel.combinedDiff ? (
         <div className="mt-4">
           <DemoCollapsible title={t("evidence.change.viewDiff")}>
-            <pre className="overflow-x-auto rounded-md border border-border bg-muted/30 p-3 font-mono text-xs leading-relaxed text-foreground">
-              {viewModel.combinedDiff}
-            </pre>
+            <SemanticDiffBlock
+              lines={viewModel.combinedDiffLines}
+              ariaLabel={t("evidence.change.viewDiff")}
+            />
           </DemoCollapsible>
         </div>
       ) : null}

@@ -31,6 +31,7 @@ export type ProductRunRequest = {
   storedContract?: TaskContract;
   projectId?: string | null;
   repositoryUrl?: string;
+  humanRevisionInstruction?: string;
   onRunStatusChange?: RunStatusChangeHandler;
 };
 
@@ -57,6 +58,7 @@ export class ProductOrchestrator {
       store: this.store,
       ...(request.sourceCommitSha ? { sourceCommitSha: request.sourceCommitSha } : {}),
       ...(request.runSandboxId ? { runSandboxId: request.runSandboxId } : {}),
+      ...(request.humanRevisionInstruction ? { humanRevisionInstruction: request.humanRevisionInstruction } : {}),
       ...(request.onRunStatusChange ? { onRunStatusChange: request.onRunStatusChange } : {}),
     });
 

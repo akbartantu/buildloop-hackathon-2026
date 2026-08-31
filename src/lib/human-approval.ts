@@ -24,8 +24,13 @@ export type HumanApprovalRecord = {
   actorUserId: string;
   runId: string | null;
   note: string | null;
+  reviewType?: AdditionalReviewType | null;
   createdAt: string;
 };
+
+export const ADDITIONAL_REVIEW_TYPES = ["technical", "security", "product", "other"] as const;
+
+export type AdditionalReviewType = (typeof ADDITIONAL_REVIEW_TYPES)[number];
 
 export const HUMAN_GATE_UI_OPTIONS: Array<{
   decision: HumanGateDecision;
@@ -35,7 +40,7 @@ export const HUMAN_GATE_UI_OPTIONS: Array<{
   { decision: "APPROVE_COMMIT", label: "Approve commit", submitLabel: "Setujui commit" },
   { decision: "REQUEST_REVISION", label: "Request revision", submitLabel: "Minta revisi" },
   { decision: "REJECT_CHANGES", label: "Reject changes", submitLabel: "Tolak perubahan" },
-  { decision: "ESCALATE_REVIEW", label: "Escalate review", submitLabel: "Eskalasi review" },
+  { decision: "ESCALATE_REVIEW", label: "Request additional review", submitLabel: "Request additional review" },
 ];
 
 export function humanApprovalSummary(
@@ -148,9 +153,23 @@ export function applyHumanApproval(input: {
   action: SensitiveApprovalAction;
   actorUserId: string;
   note?: string;
+  reviewType?: AdditionalReviewType;
 }): { status: TaskStatus; runnerState: RunnerState; auditDecision: HumanGateDecision } {
-  const { task, decision, action, actorUserId, note } = input;
+  const { task, decision, action, actorUserId, note, reviewType } = input;
+  const trimmedNote = note?.trim() ?? "";
   const runId = task.runnerState?.runId ?? null;
+
+  if (decision === "REQUEST_REVISION" && !trimmedNote) {
+    throw new Error("Revision note is required.");
+  }
+  if (decision === "ESCALATE_REVIEW") {
+    if (!reviewType) {
+      throw new Error("Review type is required.");
+    }
+    if (!trimmedNote) {
+      throw new Error("Additional review note is required.");
+    }
+  }
 
   const existing = findExistingHumanApproval(task.runnerState, decision, action, runId);
   if (existing) {
@@ -175,7 +194,8 @@ export function applyHumanApproval(input: {
     action,
     actorUserId,
     runId,
-    note: note?.trim() ? note.trim() : null,
+    note: trimmedNote ? trimmedNote : null,
+    ...(reviewType ? { reviewType } : {}),
     createdAt: now,
   };
 
@@ -195,18 +215,28 @@ export function applyHumanApproval(input: {
     case "REQUEST_REVISION": {
       runnerState.revisionRequested = true;
       runnerState.humanRevisionCount = (runnerState.humanRevisionCount ?? 0) + 1;
+      runnerState.humanRevisionInstruction = trimmedNote;
       runnerState.lastAction = "human_revision";
+      delete runnerState.commitApproved;
       nextStatus = "APPROVED_FOR_EXECUTION";
       break;
     }
     case "REJECT_CHANGES":
       runnerState.rejected = true;
+      delete runnerState.commitApproved;
       nextStatus = "CLOSED";
       break;
-    case "ESCALATE_REVIEW":
+    case "ESCALATE_REVIEW": {
+      const resolvedReviewType = reviewType as AdditionalReviewType;
       runnerState.escalated = true;
+      runnerState.pendingAdditionalReview = {
+        reviewType: resolvedReviewType,
+        note: trimmedNote,
+      };
+      delete runnerState.commitApproved;
       nextStatus = "AWAITING_APPROVAL";
       break;
+    }
   }
 
   runnerState.decisionLog = [
@@ -218,10 +248,6 @@ export function applyHumanApproval(input: {
       verdict: decision,
     },
   ];
-
-  if (note?.trim()) {
-    runnerState.note = note.trim();
-  }
 
   return { status: nextStatus, runnerState, auditDecision: decision };
 }

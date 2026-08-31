@@ -77,6 +77,7 @@ export type BootstrapOrchestratorOptions = {
   checkpointStore?: CheckpointStore;
   sourceCommitSha?: string;
   runSandboxId?: string;
+  humanRevisionInstruction?: string;
   onRunStatusChange?: RunStatusChangeHandler;
 };
 
@@ -91,6 +92,7 @@ export class BootstrapOrchestrator {
   private readonly runtimeStore: RuntimeRunStore | null;
   private readonly sourceCommitSha?: string;
   private readonly runSandboxId?: string;
+  private readonly humanRevisionInstruction?: string;
   private readonly onRunStatusChange?: RunStatusChangeHandler;
 
   constructor(options: BootstrapOrchestratorOptions) {
@@ -105,6 +107,9 @@ export class BootstrapOrchestrator {
     }
     if (options.runSandboxId) {
       this.runSandboxId = options.runSandboxId;
+    }
+    if (options.humanRevisionInstruction) {
+      this.humanRevisionInstruction = options.humanRevisionInstruction;
     }
     if (options.onRunStatusChange) {
       this.onRunStatusChange = options.onRunStatusChange;
@@ -330,6 +335,7 @@ export class BootstrapOrchestrator {
       attemptNumber += 1;
       status = "RUNNING";
       await this.notifyRunStatus(runId, status, "worker_start");
+      const isFirstWorkerCall = workerCalls === 0;
       workerCalls += 1;
 
       let workerReport: WorkerReport;
@@ -345,6 +351,9 @@ export class BootstrapOrchestrator {
                 correctionInstruction: decision.correctionInstruction,
                 priorEvidenceSummary: decision.correctionInstruction,
               }
+            : {}),
+          ...(this.humanRevisionInstruction && isFirstWorkerCall
+            ? { humanRevisionInstruction: this.humanRevisionInstruction }
             : {}),
         });
       } catch (error) {
@@ -390,6 +399,9 @@ export class BootstrapOrchestrator {
         sourceRevisionAtStart,
         sourceRevisionNow,
         skipCommandExecution: input.scenario !== "real",
+        ...(workspacePreflight.baseline?.headSha
+          ? { baselineSha: workspacePreflight.baseline.headSha }
+          : {}),
       });
       evidence.push(...checkerResult.evidence);
 

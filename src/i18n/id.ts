@@ -659,6 +659,13 @@ export const id = {
         fail: "Pemeriksaan tidak lolos.",
         skipped: "Pemeriksaan tidak diperlukan.",
       },
+      unexpected_destructive_change: {
+        title: "Perubahan destruktif tak terduga",
+        pass: "Konten yang ada tetap berada dalam batas yang diharapkan.",
+        fail:
+          "Task meminta edit kecil, tetapi implementasi menghapus konten yang ada jauh lebih banyak dari yang diharapkan.",
+        skipped: "Pemeriksaan perubahan destruktif tidak diperlukan.",
+      },
     },
     classification: {
       verification: "GAGAL — Verifikasi tidak lolos",
@@ -740,6 +747,9 @@ export const id = {
       checkerNotVerified: "Checker tidak meloloskan hasil akhir.",
       truncatedNotice: "Pratinjau diff dipotong agar tetap dalam batas ukuran aman.",
       binaryOnly: "binary — konten tidak disimpan",
+      largeDeletionTitle: "Penghapusan besar terdeteksi",
+      largeDeletionBody:
+        "Perubahan ini menghapus konten jauh lebih banyak daripada yang diharapkan untuk edit kecil.",
       type: {
         added: "ditambah",
         modified: "dimodifikasi",
@@ -747,6 +757,23 @@ export const id = {
         binary: "binary",
       },
     },
+  },
+  timing: {
+    runTiming: "Waktu run",
+    startedAt: "Dimulai",
+    completedAt: "Selesai",
+    totalDuration: "Durasi total",
+    elapsedDuration: "Durasi berjalan",
+    notRecorded: "Tidak tercatat",
+    started: "Mulai",
+    completed: "Selesai",
+    duration: "Durasi",
+    attemptTitle: "Attempt {number}",
+    checksPassed: "{count} lolos",
+    checksFailed: "{count} gagal",
+    checksBlocked: "{count} diblokir",
+    checkHistory: "Riwayat check / attempt",
+    technicalHistory: "Riwayat teknis",
   },
   delivery: {
     handoff: {
@@ -989,10 +1016,37 @@ export const id = {
           submitLabel: "Tolak perubahan",
         },
         ESCALATE_REVIEW: {
-          label: "Eskalasi review",
-          submitLabel: "Eskalasi review",
+          label: "Permintaan review tambahan",
+          submitLabel: "Permintaan review tambahan",
         },
       },
+      revisionNoteLabel: "Apa yang harus BuildLoop revisi?",
+      rejectReasonLabel: "Mengapa Anda menolak hasil ini?",
+      rejectReasonHint: "Opsional, tetapi disarankan.",
+      additionalReviewType: "Jenis review",
+      selectReviewType: "Pilih jenis review",
+      additionalReviewNote: "Apa yang perlu direview tambahan?",
+      additionalReviewNotRouted:
+        "Review tambahan diperlukan, tetapi belum ditugaskan atau dikirim ke mana pun.",
+      revisionNoteRecorded: "Instruksi revisi: {note}",
+      rejectionReasonRecorded: "Alasan penolakan: {note}",
+      reviewTypes: {
+        technical: "Teknis",
+        security: "Keamanan",
+        product: "Produk / persyaratan",
+        other: "Lainnya",
+      },
+      validation: {
+        confirm_required: "Konfirmasi approval commit-only sebelum mengirim.",
+        revision_note_required: "Catatan revisi wajib diisi.",
+        review_type_required: "Pilih jenis review.",
+        additional_review_note_required: "Jelaskan apa yang perlu direview tambahan.",
+      },
+      auditDecision: "Keputusan",
+      auditTimestamp: "Waktu",
+      auditNote: "Catatan",
+      auditReviewType: "Jenis review",
+      auditRunId: "Run ID",
       outcome: {
         rejected: {
           title: "Perubahan ditolak",
@@ -1004,8 +1058,9 @@ export const id = {
             "Revisi tercatat. Jalankan orchestrator kembali setelah menyesuaikan scope jika masih dalam batas koreksi otomatis.",
         },
         escalated: {
-          title: "Eskalasi review",
-          description: "Review teknis atau manusia lebih lanjut diperlukan sebelum tindakan sensitif.",
+          title: "Review tambahan diminta",
+          description:
+            "Review lebih lanjut diperlukan sebelum tindakan sensitif. Permintaan tercatat — tidak dirutekan otomatis.",
         },
         pending: {
           title: "Menunggu approval manusia",

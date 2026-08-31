@@ -68,6 +68,9 @@ function buildUserPrompt(input: WorkerInput): string {
   const correction = input.correctionInstruction
     ? `\nCorrection feedback:\n${input.correctionInstruction}`
     : "";
+  const humanRevision = input.humanRevisionInstruction
+    ? `\nHuman revision instruction:\n${input.humanRevisionInstruction}`
+    : "";
   return JSON.stringify(
     {
       goal: input.contract.goal,
@@ -80,6 +83,7 @@ function buildUserPrompt(input: WorkerInput): string {
       inScope: input.contract.inScope,
       outOfScope: input.contract.outOfScope,
       correction,
+      humanRevisionInstruction: humanRevision || undefined,
     },
     null,
     2,

@@ -71,16 +71,32 @@ export function useWorkspaceTasks() {
       decision: HumanGateDecision;
       action?: SensitiveApprovalAction;
       note?: string;
-    }) =>
-      submitHumanApproval({
-        data: {
-          id: input.id,
-          decision: input.decision,
-          action: input.action ?? "COMMIT",
-          confirmedReview: true,
-          ...(input.note !== undefined ? { note: input.note } : {}),
-        },
-      }),
+      reviewType?: import("@/lib/human-approval").AdditionalReviewType;
+      confirmedReview?: boolean;
+    }) => {
+      const payload: {
+        id: string;
+        decision: HumanGateDecision;
+        action: SensitiveApprovalAction;
+        note?: string;
+        reviewType?: import("@/lib/human-approval").AdditionalReviewType;
+        confirmedReview?: boolean;
+      } = {
+        id: input.id,
+        decision: input.decision,
+        action: input.action ?? "COMMIT",
+      };
+      if (input.note !== undefined) {
+        payload.note = input.note;
+      }
+      if (input.reviewType !== undefined) {
+        payload.reviewType = input.reviewType;
+      }
+      if (input.decision === "APPROVE_COMMIT") {
+        payload.confirmedReview = input.confirmedReview ?? true;
+      }
+      return submitHumanApproval({ data: payload });
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },

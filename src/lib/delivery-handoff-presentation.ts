@@ -1,5 +1,7 @@
 import type { DeliveryHandoff } from "@/lib/delivery-artifact";
+import { isDeliveryArtifactAuthorized } from "@/lib/delivery-artifact-gate";
 import { abbreviateCommitSha } from "@/lib/repository/task-source-display";
+import type { RunnerState } from "@/lib/task-contract";
 import { DEFAULT_LOCALE, translate, type Locale } from "@/i18n";
 import type { TranslationKey } from "@/i18n/en";
 
@@ -112,8 +114,13 @@ export function buildDeliveryHandoffViewModel(input: {
 }
 
 export function canShowDeliveryHandoff(input: {
-  commitApproved: boolean;
+  runnerState?: RunnerState | null;
+  /** @deprecated Prefer runnerState — kept for transitional callers */
+  commitApproved?: boolean;
   handoff?: DeliveryHandoff | null;
 }): boolean {
-  return input.commitApproved && Boolean(input.handoff);
+  if (input.runnerState) {
+    return isDeliveryArtifactAuthorized(input.runnerState);
+  }
+  return Boolean(input.commitApproved && input.handoff);
 }

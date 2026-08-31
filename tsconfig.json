@@ -1,6 +1,6 @@
 {
   "include": ["src/**/*.ts", "src/**/*.tsx", "vite.config.ts", "eslint.config.js"],
-  "exclude": ["src/**/*.test.ts", "src/orchestrator/cli.ts"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/test/**", "src/orchestrator/cli.ts"],
   "compilerOptions": {
     "target": "ES2022",
     "jsx": "react-jsx",

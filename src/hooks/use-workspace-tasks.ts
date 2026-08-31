@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { createTask, listTasks, lockContract, recordHumanApproval, refreshContract, respondToProtectedPathApproval, reviseTask, updateDraftTask } from "@/lib/tasks.functions";
@@ -10,10 +11,27 @@ export function workspaceTasksQueryKey(projectScope: string | null) {
   return ["tasks", projectScope] as const;
 }
 
+export function isWorkspaceTasksLoading(input: {
+  projectScope: string | null;
+  committedScope: string | null;
+  isPending: boolean;
+  isFetching: boolean;
+  hasData: boolean;
+}): boolean {
+  if (input.projectScope !== input.committedScope) {
+    return true;
+  }
+  if (input.isPending) {
+    return true;
+  }
+  return input.isFetching && !input.hasData;
+}
+
 export function useWorkspaceTasks() {
   const queryClient = useQueryClient();
   const { activeProject } = useProjects();
   const projectScope = activeProject?.id ?? null;
+  const [committedScope, setCommittedScope] = useState<string | null>(projectScope);
   const fetchTasks = useServerFn(listTasks);
   const submitTask = useServerFn(createTask);
   const approveContract = useServerFn(lockContract);
@@ -26,6 +44,7 @@ export function useWorkspaceTasks() {
 
   const tasksQuery = useQuery({
     queryKey: workspaceTasksQueryKey(projectScope),
+    enabled: projectScope !== null,
     queryFn: () => fetchTasks({ data: { projectId: projectScope } }),
     refetchInterval: (query) => {
       const list = query.state.data ?? [];
@@ -34,6 +53,20 @@ export function useWorkspaceTasks() {
         : false;
     },
     refetchIntervalInBackground: true,
+  });
+
+  useEffect(() => {
+    if (!tasksQuery.isFetching && tasksQuery.fetchStatus === "idle") {
+      setCommittedScope(projectScope);
+    }
+  }, [projectScope, tasksQuery.isFetching, tasksQuery.fetchStatus]);
+
+  const isLoading = isWorkspaceTasksLoading({
+    projectScope,
+    committedScope,
+    isPending: tasksQuery.isPending,
+    isFetching: tasksQuery.isFetching,
+    hasData: tasksQuery.data !== undefined,
   });
 
   const createMutation = useMutation({
@@ -155,12 +188,10 @@ export function useWorkspaceTasks() {
     },
   });
 
-  const isScopePending = tasksQuery.isPending;
-
   return {
-    tasks: isScopePending ? [] : (tasksQuery.data ?? []),
+    tasks: isLoading ? [] : (tasksQuery.data ?? []),
     projectScope,
-    isLoading: isScopePending,
+    isLoading,
     isFetching: tasksQuery.isFetching,
     isError: tasksQuery.isError,
     createMutation,

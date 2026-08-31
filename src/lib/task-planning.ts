@@ -34,6 +34,11 @@ import {
   type ClarificationInterviewEvaluation,
 } from "@/lib/planning/clarification-interview";
 import {
+  isPlannerAmbiguitySupersededByClarification,
+  reconcileInterviewEvaluation,
+  validatePersistedClarificationState,
+} from "@/lib/planning/clarification-state";
+import {
   deriveContractGovernance,
   validateContractConsistency,
   type ContractGovernancePlan,
@@ -155,6 +160,58 @@ function workPlanNeedsClarification(workPlan: Awaited<ReturnType<typeof planWork
   return workPlan.contracts.some((c) => c.status === "blocked");
 }
 
+function applyGovernanceScopeToBlockedContracts(
+  workPlan: Awaited<ReturnType<typeof planWork>>,
+  governance: ContractGovernancePlan,
+  acceptanceCriteria: string[],
+): void {
+  if (!governance.inScope.length) {
+    return;
+  }
+
+  for (const contract of workPlan.contracts) {
+    if (contract.status !== "blocked") {
+      continue;
+    }
+    contract.expectedScope = governance.inScope;
+    contract.acceptanceCriteria = acceptanceCriteria;
+    contract.status = "pending";
+  }
+}
+
+function resolveTaskNeedsClarification(resolved: {
+  needsPolicyClarification: boolean;
+  governanceNeedsClarification: boolean;
+  interviewEvaluation: ClarificationInterviewEvaluation;
+  resolvedAnswers: ReturnType<typeof resolveInterviewAnswers>;
+  effectiveCriteria: string[];
+  workPlan: Awaited<ReturnType<typeof planWork>>;
+  contractConsistencyOk: boolean;
+  clarificationConsistencyOk: boolean;
+  persistedClarificationConsistencyOk: boolean;
+}): boolean {
+  if (resolved.needsPolicyClarification || resolved.governanceNeedsClarification) {
+    return true;
+  }
+
+  if (
+    isPlannerAmbiguitySupersededByClarification({
+      needsPolicyClarification: resolved.needsPolicyClarification,
+      interviewMode: resolved.interviewEvaluation.mode,
+      questions: resolved.interviewEvaluation.questions,
+      resolvedAnswers: resolved.resolvedAnswers,
+      effectiveCriteria: resolved.effectiveCriteria,
+      contractConsistencyOk: resolved.contractConsistencyOk,
+      clarificationConsistencyOk: resolved.clarificationConsistencyOk,
+      persistedClarificationConsistencyOk: resolved.persistedClarificationConsistencyOk,
+    })
+  ) {
+    return false;
+  }
+
+  return workPlanNeedsClarification(resolved.workPlan);
+}
+
 function policyNeedsClarification(
   evaluation: ClarificationEvaluation,
   interviewEvaluation: ClarificationInterviewEvaluation,
@@ -260,11 +317,9 @@ async function resolvePlanning(input: TaskPlanningInput) {
           : "SCOPE",
   });
 
-  const skipDomainQuestions =
-    evaluation.decision === "CLEAR" &&
-    Boolean(input.clarificationAnswer || input.existingClarification?.answer);
+  const skipDomainQuestions = false;
 
-  const interviewEvaluation = generateClarificationInterview({
+  const interviewEvaluationRaw = generateClarificationInterview({
     goal: input.goal,
     specifications,
     ...(input.acceptanceCriteria ? { userCriteria: input.acceptanceCriteria } : {}),
@@ -272,6 +327,11 @@ async function resolvePlanning(input: TaskPlanningInput) {
     legacyQuestion,
     skipDomainQuestions,
   });
+
+  const interviewEvaluation: ClarificationInterviewEvaluation = reconcileInterviewEvaluation(
+    interviewEvaluationRaw,
+    input.existingClarification?.interview,
+  ) as ClarificationInterviewEvaluation;
 
   let resolvedAnswers = resolveInterviewAnswers(
     interviewEvaluation.questions,
@@ -377,15 +437,61 @@ async function resolvePlanning(input: TaskPlanningInput) {
           answers: resolvedAnswers,
         })
       : { ok: true as const };
+  const persistedClarificationConsistency = validatePersistedClarificationState({
+    clarification,
+    acceptanceCriteria: governance.acceptanceCriteria,
+  });
+  const contractConsistencyOk = consistency.ok;
+  const clarificationConsistencyOk = clarificationConsistency.ok;
+  const persistedClarificationConsistencyOk = persistedClarificationConsistency.ok;
+  const plannerSuperseded = isPlannerAmbiguitySupersededByClarification({
+    needsPolicyClarification,
+    interviewMode: interviewEvaluation.mode,
+    questions: interviewEvaluation.questions,
+    resolvedAnswers,
+    effectiveCriteria,
+    contractConsistencyOk,
+    clarificationConsistencyOk,
+    persistedClarificationConsistencyOk,
+  });
+
+  let finalGovernance = governance;
+  if (plannerSuperseded) {
+    applyGovernanceScopeToBlockedContracts(
+      workPlan,
+      governance,
+      governance.acceptanceCriteria,
+    );
+    if (governance.needsClarification) {
+      finalGovernance = deriveContractGovernance({
+        goal: input.goal,
+        specifications: planningContext.relevantSpecifications,
+        repositoryManifestPaths,
+        derived: {
+          expectedScope: governance.inScope.length ? governance.inScope : derivedFields.inScope,
+          acceptanceCriteria: derivedFields.acceptanceCriteria,
+          requiredChecks: derivedFields.requiredChecks,
+          needsClarification: false,
+        },
+        ...(effectiveCriteria.length ? { userCriteria: effectiveCriteria } : {}),
+      });
+    }
+  }
+
   const governanceNeedsClarification =
-    governance.needsClarification || !consistency.ok || !clarificationConsistency.ok;
+    finalGovernance.needsClarification ||
+    !contractConsistencyOk ||
+    !clarificationConsistencyOk ||
+    !persistedClarificationConsistencyOk;
   const governanceClarificationReason =
-    governance.clarificationReason ??
-    (!consistency.ok
+    finalGovernance.clarificationReason ??
+    (!contractConsistencyOk
       ? consistency.reason
-      : !clarificationConsistency.ok
+      : !clarificationConsistencyOk
         ? clarificationConsistency.reason
-        : undefined);
+        : !persistedClarificationConsistencyOk
+          ? persistedClarificationConsistency.reason
+          : undefined);
 
   const pendingQuestions = applyAdaptiveQuestionFilter(
     interviewEvaluation.questions,
@@ -407,9 +513,12 @@ async function resolvePlanning(input: TaskPlanningInput) {
     effectiveCriteria,
     workPlan,
     clarification,
-    governance,
+    governance: finalGovernance,
     governanceNeedsClarification,
     governanceClarificationReason,
+    contractConsistencyOk,
+    clarificationConsistencyOk,
+    persistedClarificationConsistencyOk,
   };
 }
 
@@ -419,10 +528,17 @@ export async function analyzeTaskGoal(input: TaskPlanningInput): Promise<TaskGoa
   const contractFields = resolved.governance.inScope.length
     ? { ...fields, inScope: resolved.governance.inScope, acceptanceCriteria: resolved.governance.acceptanceCriteria }
     : fields;
-  const needsClarification =
-    resolved.needsPolicyClarification ||
-    resolved.governanceNeedsClarification ||
-    workPlanNeedsClarification(resolved.workPlan);
+  const needsClarification = resolveTaskNeedsClarification({
+    needsPolicyClarification: resolved.needsPolicyClarification,
+    governanceNeedsClarification: resolved.governanceNeedsClarification,
+    interviewEvaluation: resolved.interviewEvaluation,
+    resolvedAnswers: resolved.resolvedAnswers,
+    effectiveCriteria: resolved.effectiveCriteria,
+    workPlan: resolved.workPlan,
+    contractConsistencyOk: resolved.contractConsistencyOk,
+    clarificationConsistencyOk: resolved.clarificationConsistencyOk,
+    persistedClarificationConsistencyOk: resolved.persistedClarificationConsistencyOk,
+  });
   const userProvided = Boolean(input.acceptanceCriteria?.length);
   const firstPending = resolved.pendingQuestions[0];
   const choiceSet = resolved.evaluation.choiceSet;
@@ -509,10 +625,17 @@ export async function analyzeTaskGoal(input: TaskPlanningInput): Promise<TaskGoa
 export async function planAndEvaluateTask(input: TaskPlanningInput): Promise<TaskPlanningResult> {
   const policy = await loadProjectGovernance(input.workspaceRoot);
   const resolved = await resolvePlanning(input);
-  const needsClarification =
-    resolved.needsPolicyClarification ||
-    resolved.governanceNeedsClarification ||
-    workPlanNeedsClarification(resolved.workPlan);
+  const needsClarification = resolveTaskNeedsClarification({
+    needsPolicyClarification: resolved.needsPolicyClarification,
+    governanceNeedsClarification: resolved.governanceNeedsClarification,
+    interviewEvaluation: resolved.interviewEvaluation,
+    resolvedAnswers: resolved.resolvedAnswers,
+    effectiveCriteria: resolved.effectiveCriteria,
+    workPlan: resolved.workPlan,
+    contractConsistencyOk: resolved.contractConsistencyOk,
+    clarificationConsistencyOk: resolved.clarificationConsistencyOk,
+    persistedClarificationConsistencyOk: resolved.persistedClarificationConsistencyOk,
+  });
 
   const contract = buildContractFromWorkPlan(
     input.goal,
@@ -562,7 +685,11 @@ export async function planAndEvaluateTask(input: TaskPlanningInput): Promise<Tas
   if (needsClarification && status !== "BLOCKED") {
     status = "DRAFT";
   }
-  const approvalType = initial.approvalType;
+  let approvalType = initial.approvalType;
+  if (resolved.governance.useApprovalGovernance && status === "APPROVED_FOR_EXECUTION") {
+    status = "CONTRACT_READY";
+    approvalType = null;
+  }
   const now = status === "APPROVED_FOR_EXECUTION" ? new Date().toISOString() : null;
 
   const updatedContracts = resolved.workPlan.contracts.map((c: WorkContract) => ({
@@ -597,7 +724,7 @@ export async function planAndEvaluateTask(input: TaskPlanningInput): Promise<Tas
               : "CONTRACT_READY",
         plannerOutput: resolved.workPlan.plannerSummary,
         approvalType,
-        policyDecision: initial.approvalType ? "AUTO_APPROVED" : "HUMAN_APPROVAL_REQUIRED",
+        policyDecision: approvalType ? "AUTO_APPROVED" : "HUMAN_APPROVAL_REQUIRED",
         policyReason: initial.policyReason,
         contracts: updatedContracts.map((c) => ({
           id: c.id,

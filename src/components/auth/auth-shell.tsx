@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { BuildLoopLogo } from "@/components/site/buildloop-logo";
 import { useI18n } from "@/i18n/context";
 
 type AuthShellProps = {
@@ -16,7 +17,7 @@ export function AuthShell({ title, description, children, footer }: AuthShellPro
     <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md overflow-hidden rounded-lg border border-border bg-card shadow-sm">
         <div className="flex gap-4 p-6">
-          <div className="mt-1 h-16 w-[2px] shrink-0 rounded-full bg-boundary" />
+          <BuildLoopLogo className="mt-1 shrink-0" showWordmark={false} />
           <div>
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
               BuildLoop

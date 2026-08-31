@@ -578,22 +578,25 @@ export function buildInterviewClarificationRecord(input: {
 
   const now = new Date().toISOString();
   const firstQuestion = input.evaluation.questions[0]!;
+  const requiredQuestions = input.evaluation.questions.filter((question) => question.required);
   const completed =
-    input.answers &&
-    input.evaluation.questions.every((question) =>
-      input.answers!.some((answer) => answer.questionId === question.id),
+    requiredQuestions.length > 0 &&
+    requiredQuestions.every((question) =>
+      input.answers?.some((answer) => answer.questionId === question.id),
     );
+  const pendingQuestions = applyAdaptiveQuestionFilter(
+    input.evaluation.questions,
+    (input.answers ?? []).map((entry) => ({
+      questionId: entry.questionId,
+      selectedOptionId: entry.selectedOptionId,
+      ...(entry.customAnswer ? { customAnswer: entry.customAnswer } : {}),
+    })),
+  );
+  const displayQuestion = pendingQuestions[0] ?? null;
 
-  return {
-    question: firstQuestion.question,
-    reason: firstQuestion.reason,
+  const clarification: TaskClarification = {
+    reason: (displayQuestion ?? firstQuestion).reason,
     askedAt: now,
-    ...(firstQuestion.presentationMode === "choices"
-      ? {
-          choiceOptions: firstQuestion.options,
-          allowOther: firstQuestion.allowOther,
-        }
-      : {}),
     interview: {
       mode: input.evaluation.mode,
       questions: input.evaluation.questions,
@@ -603,15 +606,26 @@ export function buildInterviewClarificationRecord(input: {
       ...(completed ? { completedAt: now } : {}),
       ...(input.proceedWithAssumption ? { assumptionSummary: input.evaluation.assumptionSummary } : {}),
     },
-    ...(input.answers?.[0]
-      ? {
-          answer: input.answers[0].answer,
-          answeredAt: input.answers[0].answeredAt,
-          selectedOptionId: input.answers[0].selectedOptionId,
-          ...(input.answers[0].customAnswer ? { customAnswer: input.answers[0].customAnswer } : {}),
-        }
-      : {}),
   };
+
+  if (!completed && displayQuestion) {
+    clarification.question = displayQuestion.question;
+    if (displayQuestion.presentationMode === "choices") {
+      clarification.choiceOptions = displayQuestion.options;
+      clarification.allowOther = displayQuestion.allowOther;
+    }
+  }
+
+  if (input.answers?.[0]) {
+    clarification.answer = input.answers[0].answer;
+    clarification.answeredAt = input.answers[0].answeredAt;
+    clarification.selectedOptionId = input.answers[0].selectedOptionId;
+    if (input.answers[0].customAnswer) {
+      clarification.customAnswer = input.answers[0].customAnswer;
+    }
+  }
+
+  return clarification;
 }
 
 export function summarizeClarificationDecisions(

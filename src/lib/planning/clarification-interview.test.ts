@@ -17,6 +17,7 @@ import { evaluateProtectedPathPolicy } from "@/lib/contract-governance";
 import { applyDraftUpdate } from "@/lib/tasks/task-mutations";
 import { createDevTaskRepository } from "@/lib/tasks/dev-task-repository";
 import { documentToPlanningEntry } from "@/lib/specifications/specification-planning";
+import { hasUnresolvedClarification } from "@/lib/planning/clarification-state";
 
 const CLEVIA_GOAL =
   "CLEVIA-001 — Initialize the Clevia frontend foundation and responsive dashboard shell using mock data only.";
@@ -34,6 +35,17 @@ const CLEVIA_PRD = documentToPlanningEntry({
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 });
+
+const CLEVIA_CLARIFICATION_ANSWERS = [
+  {
+    questionId: "nav-placeholder-behavior",
+    selectedOptionId: "visible-disabled",
+  },
+  {
+    questionId: "ui-visual-direction",
+    selectedOptionId: "soft-neutral",
+  },
+] as const;
 
 const workspaceRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 
@@ -262,12 +274,7 @@ describe("analyzeTaskGoal interview integration", () => {
           fileRole: null,
         },
       ],
-      clarificationAnswers: [
-        {
-          questionId: "nav-placeholder-behavior",
-          selectedOptionId: "visible-disabled",
-        },
-      ],
+      clarificationAnswers: [...CLEVIA_CLARIFICATION_ANSWERS],
     });
     expect(analysis.clarificationQuestions ?? []).toHaveLength(0);
     expect(
@@ -285,12 +292,7 @@ describe("analyzeTaskGoal interview integration", () => {
       specifications: [CLEVIA_PRD],
       sourceCommitSha: "a10183eb66a20fa0df619233b3e85231d2c193d9",
       acceptanceCriteria: ["Dashboard shell renders with mock navigation data."],
-      clarificationAnswers: [
-        {
-          questionId: "nav-placeholder-behavior",
-          selectedOptionId: "visible-disabled",
-        },
-      ],
+      clarificationAnswers: [...CLEVIA_CLARIFICATION_ANSWERS],
     });
 
     expect(
@@ -314,12 +316,7 @@ describe("analyzeTaskGoal interview integration", () => {
       repositoryRoot: null,
       specifications: [CLEVIA_PRD],
       sourceCommitSha: "a10183eb66a20fa0df619233b3e85231d2c193d9",
-      clarificationAnswers: [
-        {
-          questionId: "nav-placeholder-behavior",
-          selectedOptionId: "visible-disabled",
-        },
-      ],
+      clarificationAnswers: [...CLEVIA_CLARIFICATION_ANSWERS],
     });
 
     const replanned = await planAndEvaluateTask({
@@ -337,6 +334,91 @@ describe("analyzeTaskGoal interview integration", () => {
     expect(
       replanned.contract.acceptanceCriteria.some((item) => /visible but disabled/i.test(item)),
     ).toBe(true);
+    expect(replanned.needsClarification).toBe(false);
+    expect(replanned.contract.clarification?.question).toBeUndefined();
+    expect(replanned.contract.clarification?.interview?.completedAt).toBeTruthy();
+  });
+
+  test("Clevia end-to-end: analyze, answer, replan, and edit plan preserve visible-disabled contract", async () => {
+    const taskId = "00000000-0000-4000-8000-000000000042";
+
+    const initialAnalysis = await analyzeTaskGoal({
+      goal: CLEVIA_GOAL,
+      taskId,
+      workspaceRoot,
+      specifications: [CLEVIA_PRD],
+    });
+    expect(initialAnalysis.needsClarification).toBe(true);
+    expect(
+      initialAnalysis.clarificationQuestions?.some((question) => question.id === "nav-placeholder-behavior"),
+    ).toBe(true);
+
+    const planned = await planAndEvaluateTask({
+      goal: CLEVIA_GOAL,
+      taskId,
+      workspaceRoot,
+      repositoryRoot: null,
+      specifications: [CLEVIA_PRD],
+      clarificationAnswers: [...CLEVIA_CLARIFICATION_ANSWERS],
+    });
+
+    expect(planned.needsClarification).toBe(false);
+    expect(planned.contract.clarification?.question).toBeUndefined();
+    expect(
+      planned.contract.acceptanceCriteria.some((item) =>
+        /Audits, Content Calendar, Business Profile, Settings.*visible but disabled/i.test(item),
+      ),
+    ).toBe(true);
+
+    const reanalysis = await analyzeTaskGoal({
+      goal: CLEVIA_GOAL,
+      taskId,
+      workspaceRoot,
+      specifications: [CLEVIA_PRD],
+      acceptanceCriteria: planned.contract.acceptanceCriteria,
+      existingClarification: planned.contract.clarification,
+    });
+    expect(reanalysis.clarificationQuestions ?? []).toHaveLength(0);
+    expect(reanalysis.needsClarification).toBe(false);
+    expect(
+      reanalysis.acceptanceCriteria.some((item) => /visible but disabled/i.test(item)),
+    ).toBe(true);
+
+    const repo = createDevTaskRepository();
+    const created = await repo.createTask({
+      userId: "00000000-0000-4000-8000-000000000001",
+      goal: CLEVIA_GOAL,
+      acceptanceCriteria: planned.contract.acceptanceCriteria,
+    });
+
+    const { task: edited, planned: editedPlan } = await applyDraftUpdate(
+      {
+        ...created,
+        projectId: CLEVIA_PRD.projectId,
+        contract: planned.contract,
+        status: planned.status,
+        blockedReasons: planned.blockedReasons,
+        runnerState: planned.runnerState,
+        lockedAt: null,
+        sourceCommitSha: null,
+      } as never,
+      {
+        goal: CLEVIA_GOAL,
+        acceptanceCriteria: planned.contract.acceptanceCriteria,
+      },
+      {
+        listPlanningSpecifications: async () => [CLEVIA_PRD],
+      },
+      { incrementVersion: true },
+    );
+
+    expect(edited.id).toBe(created.id);
+    expect(editedPlan.needsClarification).toBe(false);
+    expect(editedPlan.contract.clarification?.question).toBeUndefined();
+    expect(
+      editedPlan.contract.acceptanceCriteria.some((item) => /visible but disabled/i.test(item)),
+    ).toBe(true);
+    expect(hasUnresolvedClarification(editedPlan.contract.clarification)).toBe(false);
   });
 
   test("EN and ID interview strings render", () => {

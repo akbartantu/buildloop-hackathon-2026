@@ -1,12 +1,19 @@
 import { describe, expect, test } from "bun:test";
 
 import { WORKSPACE_SWITCH_INVALIDATION_KEYS } from "@/hooks/use-projects";
-import { workspaceTasksQueryKey } from "@/hooks/use-workspace-tasks";
+import {
+  isWorkspaceTasksLoading,
+  workspaceTasksQueryKey,
+} from "@/hooks/use-workspace-tasks";
 
 const projectsSourcePath = new URL("./use-projects.tsx", import.meta.url);
-const appLayoutSourcePath = new URL("../components/site/app-layout.tsx", import.meta.url);
+const authenticatedRouteSourcePath = new URL("../routes/_authenticated/route.tsx", import.meta.url);
 const homePageSourcePath = new URL("../components/site/pages/home-page.tsx", import.meta.url);
 const workspaceTasksSourcePath = new URL("./use-workspace-tasks.ts", import.meta.url);
+const activeWorkspaceStoreSourcePath = new URL(
+  "../lib/workspace/active-workspace-store.ts",
+  import.meta.url,
+);
 
 async function readSource(path: URL) {
   return Bun.file(path).text();
@@ -27,34 +34,58 @@ describe("workspace switch synchronization", () => {
     expect(WORKSPACE_SWITCH_INVALIDATION_KEYS).toEqual(["tasks", "specifications"]);
   });
 
-  test("projects state is shared through ProjectsProvider", async () => {
+  test("projects state is shared through ProjectsProvider and canonical store", async () => {
     const source = await readSource(projectsSourcePath);
     expect(source).toContain("ProjectsContext");
     expect(source).toContain("ProjectsProvider");
     expect(source).toContain("useProjects must be used within ProjectsProvider");
+    expect(source).toContain("useCanonicalSelectedProjectId");
+    expect(source).toContain("setCanonicalSelectedProjectId");
     expect(source).toContain("invalidateWorkspaceScopedQueries");
     expect(source).toContain('refetchQueries({ queryKey: ["tasks", projectId] })');
   });
 
-  test("authenticated app layout wraps content with ProjectsProvider", async () => {
-    const source = await readSource(appLayoutSourcePath);
+  test("authenticated route wraps all app routes with one ProjectsProvider", async () => {
+    const source = await readSource(authenticatedRouteSourcePath);
     expect(source).toContain("ProjectsProvider");
-    expect(source).toContain("<AppLayoutContent />");
+    expect(source).toContain("<Outlet />");
   });
 
-  test("workspace tasks hide stale rows while the new scope is pending", async () => {
-    const source = await readSource(workspaceTasksSourcePath);
-    expect(source).toContain("workspaceTasksQueryKey(projectScope)");
-    expect(source).toContain("isScopePending");
-    expect(source).toContain("isScopePending ? [] : (tasksQuery.data ?? [])");
+  test("app layout does not create a second ProjectsProvider", async () => {
+    const source = await readSource(new URL("../components/site/app-layout.tsx", import.meta.url));
+    expect(source).not.toContain("ProjectsProvider");
+  });
+
+  test("workspace tasks hide stale rows while scope is transitioning", () => {
+    expect(
+      isWorkspaceTasksLoading({
+        projectScope: "project-b",
+        committedScope: "project-a",
+        isPending: false,
+        isFetching: false,
+        hasData: true,
+      }),
+    ).toBe(true);
+  });
+
+  test("canonical store uses sync external store instead of page-local state", async () => {
+    const source = await readSource(activeWorkspaceStoreSourcePath);
+    expect(source).toContain("useSyncExternalStore");
+    expect(source).toContain("subscribeSelectedProjectId");
   });
 
   test("home page avoids showing previous workspace summaries during loading", async () => {
     const source = await readSource(homePageSourcePath);
-    expect(source).toContain("isLoading ? \"…\" : String(tasks.length)");
-    expect(source).toContain("isLoading ? \"…\" : String(pendingApprovals)");
+    expect(source).toContain('isLoading ? "…" : String(tasks.length)');
+    expect(source).toContain('isLoading ? "…" : String(pendingApprovals)');
     expect(source).toContain("isLoading ? (");
-    expect(source).toContain("{t(\"common.loading\")}");
+    expect(source).toContain('{t("common.loading")}');
+  });
+
+  test("workspace tasks gate query fetch on active project scope", async () => {
+    const source = await readSource(workspaceTasksSourcePath);
+    expect(source).toContain("enabled: projectScope !== null");
+    expect(source).toContain("isLoading ? [] : (tasksQuery.data ?? [])");
   });
 });
 

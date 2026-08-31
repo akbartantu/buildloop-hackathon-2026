@@ -50,6 +50,7 @@ export function WorkspaceSwitcher() {
           projects.map((project) => (
             <DropdownMenuItem
               key={project.id}
+              data-testid={`workspace-option-${project.id}`}
               onClick={() => setSelectedProjectId(project.id)}
               className={project.id === activeProject?.id ? "bg-muted/60" : undefined}
             >

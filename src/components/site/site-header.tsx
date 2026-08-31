@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
+import { BuildLoopLogo } from "@/components/site/buildloop-logo";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSession } from "@/hooks/use-session";
@@ -47,12 +48,10 @@ export function SiteHeader() {
       >
         <Link
           to="/"
-          className="flex items-center gap-2.5 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="BuildLoop home"
         >
-          <span aria-hidden="true" className="h-5 w-[2px] bg-boundary" />
-          <span className="text-[15px] font-semibold tracking-[-0.01em] text-foreground">
-            BuildLoop
-          </span>
+          <BuildLoopLogo wordmarkClassName="text-[15px] text-foreground" />
         </Link>
 
         <div className="ml-auto flex items-center gap-3 sm:gap-4">

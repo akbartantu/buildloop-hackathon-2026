@@ -89,15 +89,24 @@ export function isBootstrapInitializationGoal(goal: string): boolean {
   );
 }
 
-export function detectsApprovedStack(goal: string, specifications: PlanningSpecificationEntry[]): boolean {
-  const haystack = [goal, ...specifications.map((spec) => `${spec.filename}\n${spec.content}`)]
+export function detectsApprovedStack(
+  goal: string,
+  specifications: PlanningSpecificationEntry[],
+  userCriteria?: string[],
+): boolean {
+  const haystack = [
+    goal,
+    ...specifications.map((spec) => `${spec.filename}\n${spec.content}`),
+    ...(userCriteria ?? []),
+  ]
     .join("\n")
     .toLowerCase();
   return (
     /\bnext\.?js\b/.test(haystack) ||
     /\breact\b/.test(haystack) ||
     /\btypescript\b/.test(haystack) ||
-    /\bvite\b/.test(haystack)
+    /\bvite\b/.test(haystack) ||
+    /\bapproved frontend baseline\b/.test(haystack)
   );
 }
 
@@ -105,7 +114,7 @@ export function detectGreenfieldBootstrap(input: ContractGovernanceInput): boole
   return (
     isGreenfieldRepository(input.repositoryManifestPaths) &&
     isBootstrapInitializationGoal(input.goal) &&
-    detectsApprovedStack(input.goal, input.specifications)
+    detectsApprovedStack(input.goal, input.specifications, input.userCriteria)
   );
 }
 
@@ -213,7 +222,7 @@ export function deriveContractGovernance(input: ContractGovernanceInput): Contra
   if (
     isGreenfieldRepository(input.repositoryManifestPaths) &&
     isBootstrapInitializationGoal(input.goal) &&
-    !detectsApprovedStack(input.goal, input.specifications)
+    !detectsApprovedStack(input.goal, input.specifications, input.userCriteria)
   ) {
     return {
       inScope: input.derived.expectedScope,

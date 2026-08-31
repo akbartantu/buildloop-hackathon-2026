@@ -42,6 +42,10 @@ import {
   taskVersion,
   type DemoTab,
 } from "@/lib/task-display";
+import {
+  getResolvedClarificationDecisions,
+  hasUnresolvedClarification,
+} from "@/lib/planning/clarification-state";
 import { useProjects } from "@/hooks/use-projects";
 import {
   canReviseTask,
@@ -367,6 +371,8 @@ function ContractReview({
     translate(locale, key, params);
   const sections = contractSections(task.contract, locale);
   const handoff = getContractHandoff(task, { running, approving }, locale);
+  const unresolvedClarification = hasUnresolvedClarification(sections.clarification);
+  const resolvedClarificationDecisions = getResolvedClarificationDecisions(sections.clarification);
   const primaryDisabled =
     (handoff.primaryAction === "run" && running) ||
     (handoff.primaryAction === "approve" && approving);
@@ -425,7 +431,7 @@ function ContractReview({
                 />
               </div>
             ) : null}
-            {sections.clarification?.question ? (
+            {unresolvedClarification && sections.clarification?.question ? (
               <div>
                 <DemoSectionLabel>{t("tasks.clarificationNeeded")}</DemoSectionLabel>
                 <p className="mt-2 text-sm text-foreground">{sections.clarification.question}</p>
@@ -434,6 +440,15 @@ function ContractReview({
                     {sections.clarification.answer}
                   </p>
                 ) : null}
+              </div>
+            ) : resolvedClarificationDecisions.length > 0 ? (
+              <div>
+                <DemoSectionLabel>{t("tasks.clarificationDecisionsSummary")}</DemoSectionLabel>
+                <DemoBulletList
+                  items={resolvedClarificationDecisions.map(
+                    (decision) => `${decision.label} → ${decision.answer}`,
+                  )}
+                />
               </div>
             ) : null}
           </div>

@@ -12,7 +12,7 @@ import {
   Play,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { BuildLoopBrandMark } from "@/components/site/buildloop-brand-mark";
+import { BuildLoopLogo } from "@/components/site/buildloop-logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,7 +36,6 @@ import {
   SidebarProvider,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { ProjectsProvider } from "@/hooks/use-projects";
 import { useWorkspaceSession } from "@/hooks/use-workspace-session";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
 import { WorkspaceSwitcher } from "@/components/site/workspace-switcher";
@@ -103,11 +102,7 @@ function NavLink({ item, isActive }: { item: AppNavItem; isActive: boolean }) {
 }
 
 export function AppLayout() {
-  return (
-    <ProjectsProvider>
-      <AppLayoutContent />
-    </ProjectsProvider>
-  );
+  return <AppLayoutContent />;
 }
 
 function AppLayoutContent() {
@@ -126,10 +121,9 @@ function AppLayoutContent() {
         <SidebarHeader className="gap-3 p-4">
           <Link
             to="/app"
-            className="flex items-center gap-2 rounded-md px-1 py-0.5 text-[15px] font-semibold tracking-[-0.01em] text-sidebar-foreground"
+            className="rounded-md px-1 py-0.5 text-[15px] text-sidebar-foreground"
           >
-            <BuildLoopBrandMark />
-            <span>BuildLoop</span>
+            <BuildLoopLogo wordmarkClassName="text-[15px] text-sidebar-foreground" />
           </Link>
           <WorkspaceSwitcher />
         </SidebarHeader>

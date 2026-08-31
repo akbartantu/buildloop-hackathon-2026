@@ -37,10 +37,5 @@ export function resolveActiveProjectId(
     return preferredId;
   }
 
-  const stored = readStoredActiveProjectId();
-  if (stored && projects.some((project) => project.id === stored)) {
-    return stored;
-  }
-
   return projects[0]!.id;
 }

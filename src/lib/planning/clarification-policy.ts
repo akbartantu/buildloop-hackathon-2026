@@ -7,6 +7,7 @@ import {
 } from "@/lib/specifications/specification-record";
 import type { PlanningSource, TaskClarification } from "@/lib/planning/planning-source";
 import { isPasswordResetGoal, isReadmeGoal } from "./planning-context";
+import { isClarificationInterviewComplete } from "./clarification-state";
 import {
   buildPasswordResetChoiceSet,
   buildScopeAmbiguityFreeText,
@@ -212,6 +213,14 @@ export function evaluateClarificationPolicy(input: {
 
   const goal = input.goal.trim();
   const userCriteria = input.userCriteria ?? [];
+
+  if (
+    input.existingClarification &&
+    isClarificationInterviewComplete(input.existingClarification)
+  ) {
+    return { decision: "CLEAR" };
+  }
+
   const relevantSpecs = input.specifications;
 
   if (input.clarificationAnswer || input.existingClarification?.answer) {
@@ -304,25 +313,49 @@ export function buildClarificationRecord(input: {
   if (input.interview) {
     const firstQuestion = input.interview.questions[0];
     const now = input.interview.askedAt;
-    return {
+    const completed = isClarificationInterviewComplete({
       reason: firstQuestion?.reason ?? "Material ambiguity detected.",
       askedAt: now,
-      ...(firstQuestion?.question ? { question: firstQuestion.question } : {}),
-      ...(firstQuestion?.presentationMode === "choices"
+      interview: input.interview,
+    });
+    const answeredQuestionIds = new Set(input.interview.answers.map((entry) => entry.questionId));
+    const pendingQuestion =
+      input.interview.questions.find(
+        (question) => question.required && !answeredQuestionIds.has(question.id),
+      ) ??
+      input.interview.questions.find((question) => !answeredQuestionIds.has(question.id)) ??
+      null;
+    const displayQuestion = completed ? null : pendingQuestion;
+    return {
+      reason: (displayQuestion ?? firstQuestion)?.reason ?? "Material ambiguity detected.",
+      askedAt: now,
+      ...(displayQuestion?.question ? { question: displayQuestion.question } : {}),
+      ...(displayQuestion?.presentationMode === "choices"
         ? {
-            choiceOptions: firstQuestion.options,
-            allowOther: firstQuestion.allowOther,
+            choiceOptions: displayQuestion.options,
+            allowOther: displayQuestion.allowOther,
           }
         : {}),
       interview: input.interview,
-      ...(input.answer
+      ...(input.interview.answers[0]
         ? {
-            answer: input.answer,
-            answeredAt: now,
-            ...(input.selectedOptionId ? { selectedOptionId: input.selectedOptionId } : {}),
-            ...(input.customAnswer ? { customAnswer: input.customAnswer } : {}),
+            answer: input.interview.answers[0].answer,
+            answeredAt: input.interview.answers[0].answeredAt,
+            ...(input.interview.answers[0].selectedOptionId
+              ? { selectedOptionId: input.interview.answers[0].selectedOptionId }
+              : {}),
+            ...(input.interview.answers[0].customAnswer
+              ? { customAnswer: input.interview.answers[0].customAnswer }
+              : {}),
           }
-        : {}),
+        : input.answer
+          ? {
+              answer: input.answer,
+              answeredAt: now,
+              ...(input.selectedOptionId ? { selectedOptionId: input.selectedOptionId } : {}),
+              ...(input.customAnswer ? { customAnswer: input.customAnswer } : {}),
+            }
+          : {}),
     };
   }
 

@@ -9,7 +9,7 @@ import type { CheckerEvidence, WorkerReport } from "../types";
 import { PASS_DEMO_TARGET_RELATIVE } from "../scenarios/pass";
 import { captureFileUnifiedDiff, isDependencyManifest } from "../workspace/git-workspace";
 import { runSafeCommand } from "./command-runner";
-import { detectProjectCommands, requiredCommandsForContract } from "./project-commands";
+import { detectProjectCommands, partitionContractCommandsByApplicability, commandSkipReason } from "./project-commands";
 import {
   assessContentDestructiveChange,
   assessDiffDestructiveChange,
@@ -377,17 +377,37 @@ export class DeterministicChecker {
     }
 
     const detected = await detectProjectCommands(input.sandboxRoot);
-    const commands = requiredCommandsForContract(input.contract.allowedCommands, detected);
-    if (commands.length === 0) {
+    const { applicable: commands, skipped } = partitionContractCommandsByApplicability(
+      input.contract.allowedCommands,
+      detected,
+    );
+
+    for (const command of skipped) {
+      const category = categorizeCommand(command);
       push({
-        category: "command",
-        name: "required_commands",
+        category,
+        name: `${category}_${command.replace(/\s+/g, "_")}_not_applicable`,
         status: "skipped",
-        summary: "No required commands detected for this workspace.",
-        details: "Checker skipped command execution.",
+        summary: `Command not applicable for this workspace: ${command}`,
+        details: commandSkipReason(command, detected),
+        command,
         affectedFiles: [],
         severity: "info",
       });
+    }
+
+    if (commands.length === 0) {
+      if (skipped.length === 0) {
+        push({
+          category: "command",
+          name: "required_commands",
+          status: "skipped",
+          summary: "No required commands configured for this contract.",
+          details: "Checker skipped command execution.",
+          affectedFiles: [],
+          severity: "info",
+        });
+      }
       return;
     }
 

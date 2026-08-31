@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import {
   detectProjectCommands,
+  partitionContractCommandsByApplicability,
   requiredCommandsForContract,
 } from "@/orchestrator/checker/project-commands";
 import { deriveAllowedCommands } from "@/orchestrator/contract/derive-task-contract";
@@ -13,8 +14,24 @@ const workspaceRoot = path.resolve(fileURLToPath(new URL("../../..", import.meta
 describe("requiredCommandsForContract", () => {
   test("README-only contract with empty allowlist does not require typecheck or test", async () => {
     const detected = await detectProjectCommands(workspaceRoot);
+    expect(detected.hasPackageJson).toBe(true);
     expect(deriveAllowedCommands(["README.md"])).toEqual([]);
     expect(requiredCommandsForContract([], detected)).toEqual([]);
+  });
+
+  test("package-script allowlist without package.json yields skipped commands only", () => {
+    const detected = {
+      hasPackageJson: false,
+      typecheck: null,
+      test: null,
+      lint: null,
+      build: null,
+    };
+    const allowlist = ["bun run typecheck", "bun test", "bun run lint"];
+    expect(partitionContractCommandsByApplicability(allowlist, detected)).toEqual({
+      applicable: [],
+      skipped: allowlist,
+    });
   });
 
   test("code-changing contract still requires typecheck and test when allowlisted", async () => {

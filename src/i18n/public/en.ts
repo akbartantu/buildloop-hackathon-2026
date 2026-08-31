@@ -1,0 +1,215 @@
+export const publicEn = {
+  meta: {
+    title: "BuildLoop — Guardrails for AI coding",
+    description:
+      "BuildLoop locks task boundaries before coding, verifies actual repository changes, and helps humans choose Revise, Escalate, or Close based on evidence.",
+  },
+  header: {
+    navLabel: "Main navigation",
+    howItWorks: "How it works",
+    features: "Features",
+    faq: "FAQ",
+    docs: "Documentation",
+    signIn: "Sign in",
+    signUp: "Sign up",
+    app: "App",
+    workspaceAria: "Go to workspace",
+    openMenu: "Open navigation menu",
+    menuTitle: "Navigation",
+    userFallback: "User",
+  },
+  hero: {
+    eyebrow: "Guardrails for AI coding",
+    titleLine1: "AI can build.",
+    titleLine2: "BuildLoop keeps it bounded.",
+    subtitle:
+      "Task boundaries are locked before coding starts, then actual repository changes are verified and tied to one commit SHA.",
+    signUp: "Sign up",
+    signIn: "Sign in",
+    readDocs: "Read documentation",
+  },
+  scope: {
+    approvedScope: "Approved scope",
+    illustrativeExample: "Illustrative example",
+    boundary: "Boundary",
+    footerNote:
+      "Red line = approved scope boundary. Changes that cross it are marked BLOCKED.",
+  },
+  lifecycle: {
+    define: "Define",
+    defineText:
+      "Write the Build Contract: goal, scope, protected areas, and acceptance criteria.",
+    approve: "Approve",
+    approveText: "A human approves the contract. Approved contracts become read-only.",
+    build: "Build",
+    buildText: "AI applies changes in the repository as usual, outside BuildLoop.",
+    check: "Check",
+    checkText: "Actual changes are read from the repository and tied to one commit SHA.",
+    decide: "Decide",
+    decideText: "Humans choose Revise, Escalate, or Close based on evidence.",
+  },
+  evidence: {
+    eyebrow: "Evidence",
+    title: "Every decision needs proof.",
+    description:
+      "BuildLoop ties the contract, file changes, check results, and human decisions to one commit.",
+  },
+  howItWorks: {
+    eyebrow: "Core loop",
+    title: "Five stages in order",
+    description: "No stage can be skipped, and no conclusion is made without evidence.",
+  },
+  problems: {
+    eyebrow: "Problems",
+    title: "Three leaks that happen most often",
+    p1Title: "Files outside scope still change.",
+    p1Text: "The diff touches directories that were never discussed, and only shows up after merge.",
+    p2Title: "New dependencies arrive without approval.",
+    p2Text: "Extra packages get added inside a feature commit, buried among other changes.",
+    p3Title: "Tasks are marked done without evidence.",
+    p3Text: "Done status relies on narrative, not check results tied to one commit.",
+  },
+  features: {
+    eyebrow: "Features",
+    title: "Three checks that keep boundaries intact",
+    description:
+      "Each finding is shown separately so it is easy to trace, and nothing is inferred without evidence.",
+    f1Title: "protected paths",
+    f1Text:
+      "Sensitive directories and files are declared before coding. If the diff touches them, the check result is BLOCKED and Close is disabled.",
+    f2Title: "dependency check",
+    f2Text:
+      "Dependency additions or changes are reported as their own finding, not buried inside the diff.",
+    f3Title: "focused revision",
+    f3Text:
+      "Revision prompts are built only from failure evidence so the next fix does not expand beyond the contract.",
+  },
+  pilot: {
+    title: "Join the BuildLoop pilot",
+    description:
+      "The pilot is invite-only and opens in stages. Submit this short form and applicants are contacted in order when capacity is available.",
+    limitRepo: "1 repository / project",
+    limitTask: "1 active task / project",
+    limitContract: "contract read-only after approve",
+  },
+  faq: {
+    eyebrow: "FAQ",
+    title: "Common questions",
+    q1: "Does BuildLoop write code for me?",
+    a1: "No. BuildLoop is a control layer: it locks task boundaries, reads what actually changed, and prepares decisions for humans.",
+    q2: "What do PASS, BLOCKED, NEEDS HUMAN REVIEW, and STALE mean?",
+    a2: "PASS means the rule has passing evidence. BLOCKED means a hard rule failed. NEEDS HUMAN REVIEW means the outcome cannot be confirmed automatically. STALE means the commit changed since the check was created, so the result no longer represents the latest code.",
+    q3: "Can the contract change after approval?",
+    a3: "Approved contracts are read-only. Scope changes create a new version that must be approved again.",
+    q4: "How large is the pilot scope?",
+    a4: "The pilot is limited to one repository and one active task per project so the loop is easy to evaluate.",
+    q5: "How is repository integration planned?",
+    a5: "The plan is a GitHub App with granular repository permissions. That integration is not available on this page yet.",
+  },
+  checkPreview: {
+    reportLabel: "Check Report",
+    illustrativeExample: "Illustrative example",
+    approvedBoundary: "Approved boundary",
+    inScope: "In Scope",
+    protected: "Protected",
+    dependency: "Dependency",
+    dependencyRule: "Must not add dependencies",
+    actualChanges: "Actual changes",
+    allowed: "ALLOWED",
+    outOfScope: "OUT OF SCOPE",
+    newDependency: "NEW DEPENDENCY",
+    summary: "2 changes crossed the approved boundary.",
+    detail:
+      "BuildLoop holds Close until the violations are fixed or escalated for a human decision.",
+    close: "Close",
+    revisionPrompt: "Create Revision Prompt",
+    disclaimer: "Illustrative example — these buttons do not perform actions",
+  },
+  waitlist: {
+    sent: "Submitted",
+    success: "Thank you. Your email is on the pilot list.",
+    duplicate: "This email is already registered. No new data was added.",
+    followUp:
+      "There is no automated email at this stage. Pilot updates are sent manually when registration opens.",
+    role: "Role",
+    painLabel: "Main problem when building with AI (optional)",
+    consent:
+      "I agree that BuildLoop may use this data to contact me about the pilot.",
+    submit: "Join pilot",
+    submitting: "Submitting…",
+    privacyNote: "Only email, role, and consent are stored.",
+    submitError: "Submission failed. Please try again shortly.",
+    roles: {
+      solo_builder: "Solo builder",
+      developer: "Developer",
+      product_manager: "Product manager",
+      founder: "Founder",
+      other: "Other",
+    },
+    errors: {
+      emailRequired: "Email is required.",
+      emailMax: "Email must be at most 255 characters.",
+      emailInvalid: "Enter a valid email address.",
+      roleRequired: "Select a role.",
+      painMax: "Maximum {max} characters.",
+      consentRequired: "Consent is required.",
+      disposableEmail: "Disposable email addresses are not allowed.",
+    },
+  },
+  docs: {
+    metaTitle: "BuildLoop documentation — loop concepts and rules",
+    metaDescription:
+      "BuildLoop concepts: Build Contract, commit-bound evidence, and the meaning of PASS, BLOCKED, NEEDS HUMAN REVIEW, and STALE.",
+    title: "Documentation",
+    intro:
+      "This page explains BuildLoop fundamentals. Coverage is still concise and will grow as the product matures.",
+    contractHeading: "Build Contract",
+    contractP1:
+      "The Build Contract is written before coding starts and includes Goal, In Scope, Out of Scope, Protected Areas, Acceptance Criteria, and Required Checks.",
+    contractP2:
+      "Approved contracts are read-only. Scope changes create a new version that must go through approval again.",
+    evidenceHeading: "Commit-bound evidence",
+    evidenceP1:
+      "Every finding on the Check Report is tied to one commit SHA. If the commit changes, earlier check results are marked STALE and must be rerun.",
+    statusHeading: "Status",
+    statusPass: "PASS — the rule has passing evidence.",
+    statusBlocked: "BLOCKED — a hard rule failed and Close is disabled.",
+    statusReview: "NEEDS HUMAN REVIEW — the outcome cannot be confirmed automatically.",
+    statusStale: "STALE — the commit changed since the check was created.",
+    decisionHeading: "Human decisions",
+    decisionP1:
+      "After the Check Report is available, humans choose Revise (focused fix from failure evidence), Escalate (needs further human judgment), or Close.",
+    limitsHeading: "Current version limits",
+    limitsP1:
+      "This public page is not connected to any repository, has no account, and does not run checks. All visual examples are labeled as illustrative.",
+  },
+  terms: {
+    metaTitle: "Terms — BuildLoop",
+    metaDescription:
+      "Draft BuildLoop terms of use: the service remains invite-only and final decisions stay with humans.",
+    title: "Terms",
+    draftIntro:
+      "These terms are a minimum draft and describe BuildLoop service limits at the current stage.",
+    updatedNote: "This page will be updated before the pilot opens.",
+    serviceHeading: "Service status",
+    serviceP1:
+      "BuildLoop is under development. This public page is informational only and does not yet provide a running service. The pilot is planned as invite-only.",
+    responsibilityHeading: "User responsibility",
+    responsibilityP1:
+      "BuildLoop does not replace human judgment. Revise, Escalate, or Close decisions remain with the user, including whether to merge changes into the repository.",
+    limitsHeading: "Check result limits",
+    limitsP1:
+      "Check results only show what can be read from repository changes at one specific commit. There is no guarantee that every code issue will be detected.",
+    changesHeading: "Terms changes",
+    changesP1:
+      "These terms may change as the product evolves. The applicable version will be published on this page.",
+  },
+  errors: {
+    notFoundTitle: "Page not found",
+    notFoundDescription: "The page you're looking for doesn't exist or has been moved.",
+    loadTitle: "This page didn't load",
+    loadDescription: "Something went wrong on our end. You can try refreshing or head back home.",
+    tryAgain: "Try again",
+    goHome: "Go home",
+  },
+} as const;

@@ -1,4 +1,5 @@
 import { StatusMark } from "./status-pill";
+import { usePublicI18n } from "@/i18n/use-public-i18n";
 
 type Entry = { path: string; outside?: boolean };
 
@@ -10,28 +11,25 @@ const entries: Entry[] = [
   { path: ".github/workflows/deploy.yml", outside: true },
 ];
 
-/**
- * Visual ilustratif: daftar path relatif terhadap satu garis batas merah.
- * Path yang melewati garis berada di luar approved scope.
- */
 export function ScopeBoundary() {
+  const { pt } = usePublicI18n();
+
   return (
     <div className="relative">
       <div className="flex items-baseline justify-between gap-4 pb-3">
         <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-foreground">
-          Approved scope
+          {pt("scope.approvedScope")}
         </p>
         <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-          Contoh ilustratif
+          {pt("scope.illustrativeExample")}
         </p>
       </div>
 
       <div className="relative border-t border-border pt-4">
-        {/* Garis batas: kiri = di dalam scope, kanan = melewati batas. */}
         <div className="relative pl-4">
           <span aria-hidden="true" className="absolute left-0 top-0 h-full w-px bg-boundary" />
           <p className="absolute -top-0.5 left-0 hidden -translate-x-[calc(100%+8px)] rotate-180 font-mono text-[9px] uppercase tracking-[0.18em] text-boundary [writing-mode:vertical-rl] lg:block">
-            Boundary
+            {pt("scope.boundary")}
           </p>
 
           <ul className="space-y-2.5">
@@ -52,7 +50,7 @@ export function ScopeBoundary() {
         </div>
 
         <p className="mt-5 border-t border-border pt-3 font-mono text-[10px] leading-relaxed text-muted-foreground">
-          Garis merah = batas scope yang disetujui. Perubahan yang melewatinya ditandai BLOCKED.
+          {pt("scope.footerNote")}
         </p>
       </div>
     </div>

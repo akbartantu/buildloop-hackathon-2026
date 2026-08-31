@@ -8,7 +8,7 @@ const OPTIONS: Array<{ locale: Locale; shortLabel: string }> = [
 ];
 
 export function LanguageSwitcher({ className }: { className?: string }) {
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, t } = useI18n();
 
   return (
     <div
@@ -16,7 +16,7 @@ export function LanguageSwitcher({ className }: { className?: string }) {
         "inline-flex items-center rounded-md border border-border bg-background p-0.5 font-mono text-[10px] uppercase tracking-[0.14em]",
         className,
       )}
-      aria-label="Language switcher"
+      aria-label={t("language.switchLabel")}
     >
       {OPTIONS.map((option) => (
         <button

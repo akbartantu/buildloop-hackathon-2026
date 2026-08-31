@@ -1,68 +1,50 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalPage, LegalSection } from "@/components/site/legal-page";
-
-const title = "Dokumentasi BuildLoop — konsep dan aturan loop";
-const description =
-  "Ringkasan konsep BuildLoop: Build Contract, evidence yang terikat commit SHA, arti status PASS, BLOCKED, NEEDS HUMAN REVIEW, dan STALE.";
+import { publicEn } from "@/i18n/public-pages";
+import { usePublicI18n, usePublicPageMeta } from "@/i18n/use-public-i18n";
 
 export const Route = createFileRoute("/docs")({
   head: () => ({
     meta: [
-      { title },
-      { name: "description", content: description },
-      { property: "og:title", content: title },
-      { property: "og:description", content: description },
+      { title: publicEn.docs.metaTitle },
+      { name: "description", content: publicEn.docs.metaDescription },
+      { property: "og:title", content: publicEn.docs.metaTitle },
+      { property: "og:description", content: publicEn.docs.metaDescription },
     ],
   }),
   component: Docs,
 });
 
 function Docs() {
+  const { pt } = usePublicI18n();
+  usePublicPageMeta("docs.metaTitle", "docs.metaDescription");
+
   return (
-    <LegalPage
-      title="Dokumentasi"
-      intro="Halaman ini menjelaskan konsep dasar BuildLoop. Cakupannya masih ringkas dan akan berkembang seiring produk dibangun."
-    >
-      <LegalSection heading="Build Contract">
-        <p>
-          Build Contract ditulis sebelum coding dimulai dan berisi Goal, In Scope, Out of Scope,
-          Protected Areas, Acceptance Criteria, serta Required Checks.
-        </p>
-        <p>
-          Contract yang telah disetujui bersifat read-only. Perubahan scope membuat versi baru yang
-          harus melewati approval lagi.
-        </p>
+    <LegalPage title={pt("docs.title")} intro={pt("docs.intro")}>
+      <LegalSection heading={pt("docs.contractHeading")}>
+        <p>{pt("docs.contractP1")}</p>
+        <p>{pt("docs.contractP2")}</p>
       </LegalSection>
 
-      <LegalSection heading="Evidence terikat commit">
-        <p>
-          Setiap temuan pada Check Report diikat pada satu commit SHA. Jika commit berubah, hasil
-          check sebelumnya ditandai STALE dan harus dijalankan ulang.
-        </p>
+      <LegalSection heading={pt("docs.evidenceHeading")}>
+        <p>{pt("docs.evidenceP1")}</p>
       </LegalSection>
 
-      <LegalSection heading="Status">
+      <LegalSection heading={pt("docs.statusHeading")}>
         <ul className="list-disc space-y-2 pl-5">
-          <li>PASS — aturan tersebut memiliki evidence yang lulus.</li>
-          <li>BLOCKED — aturan keras gagal, keputusan Close dinonaktifkan.</li>
-          <li>NEEDS HUMAN REVIEW — hasil tidak dapat dipastikan secara otomatis.</li>
-          <li>STALE — commit berubah sejak check dibuat.</li>
+          <li>{pt("docs.statusPass")}</li>
+          <li>{pt("docs.statusBlocked")}</li>
+          <li>{pt("docs.statusReview")}</li>
+          <li>{pt("docs.statusStale")}</li>
         </ul>
       </LegalSection>
 
-      <LegalSection heading="Keputusan manusia">
-        <p>
-          Setelah Check Report tersedia, manusia memilih Revise (perbaikan terfokus pada failure
-          evidence), Escalate (butuh penilaian manusia lebih lanjut), atau Close.
-        </p>
+      <LegalSection heading={pt("docs.decisionHeading")}>
+        <p>{pt("docs.decisionP1")}</p>
       </LegalSection>
 
-      <LegalSection heading="Batas versi saat ini">
-        <p>
-          Halaman publik ini belum terhubung ke repository mana pun, belum memiliki akun, dan belum
-          menjalankan pemeriksaan apa pun. Semua contoh tampilan diberi label sebagai contoh
-          ilustratif.
-        </p>
+      <LegalSection heading={pt("docs.limitsHeading")}>
+        <p>{pt("docs.limitsP1")}</p>
       </LegalSection>
     </LegalPage>
   );

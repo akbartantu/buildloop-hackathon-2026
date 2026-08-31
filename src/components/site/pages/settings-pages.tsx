@@ -108,10 +108,13 @@ function ProfileFormPanel() {
 
   const displayName =
     user != null
-      ? resolveUserDisplayName({
-          email: user.email,
-          userMetadata: user.user_metadata as UserMetadata | undefined,
-        })
+      ? resolveUserDisplayName(
+          {
+            email: user.email,
+            userMetadata: user.user_metadata as UserMetadata | undefined,
+          },
+          t("common.userFallback"),
+        )
       : "—";
 
   const languageLabel = locale === "id" ? t("language.indonesian") : t("language.english");

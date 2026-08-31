@@ -30,10 +30,13 @@ export function resolveProfileFullName(metadata?: UserMetadataLike | null | unde
   return metadata?.name?.trim() ?? "";
 }
 
-export function resolveUserDisplayName(input: {
-  email?: string | null | undefined;
-  userMetadata?: UserMetadataLike | null | undefined;
-}): string {
+export function resolveUserDisplayName(
+  input: {
+    email?: string | null | undefined;
+    userMetadata?: UserMetadataLike | null | undefined;
+  },
+  fallback = "User",
+): string {
   const fullName = input.userMetadata?.full_name?.trim();
   if (fullName) {
     return fullName;
@@ -49,7 +52,7 @@ export function resolveUserDisplayName(input: {
     return localPart;
   }
 
-  return "Pengguna";
+  return fallback;
 }
 
 export function resolveAuthProviderLabel(user: AuthUserLike): string {

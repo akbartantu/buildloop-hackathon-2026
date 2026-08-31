@@ -19,6 +19,8 @@ import { signUpSchema } from "@/lib/auth/auth-schema";
 import { DISPOSABLE_EMAIL_MESSAGE } from "@/lib/auth/disposable-email";
 import { interpretSignupResponse } from "@/lib/auth/signup-flow";
 import { normalizeFullName } from "@/lib/auth/user-display";
+import { useI18n } from "@/i18n/context";
+import { LanguageSwitcher } from "@/i18n/language-switcher";
 
 export const Route = createFileRoute("/auth/sign-up")({
   ssr: false,
@@ -35,6 +37,7 @@ type FieldErrors = Partial<Record<"fullName" | "email" | "password" | "confirmPa
 
 function SignUpPage() {
   const navigate = useNavigate();
+  const { t } = useI18n();
   const precheckSignup = useServerFn(precheckEmailSignup);
 
   const [fullName, setFullName] = useState("");
@@ -82,12 +85,12 @@ function SignUpPage() {
       }
 
       if (precheck.status === "error") {
-        setFormError("Could not create your account. Please try again.");
+        setFormError(t("auth.accountCreateError"));
         return;
       }
 
       if (precheck.status !== "ok") {
-        setFormError("Could not create your account. Please try again.");
+        setFormError(t("auth.accountCreateError"));
         return;
       }
 
@@ -106,30 +109,28 @@ function SignUpPage() {
         const mapped = mapSignupError(error);
 
         if (mapped.status === "email_taken") {
-          setFormError("An account with this email already exists. Sign in or use a different email.");
+          setFormError(t("auth.emailTaken"));
           return;
         }
 
         if (mapped.status === "weak_password") {
-          setErrors({
-            password: "Password does not meet the minimum requirements. Use at least 6 characters.",
-          });
+          setErrors({ password: t("auth.weakPassword") });
           return;
         }
 
         if (mapped.status === "rate_limited") {
-          setFormError("Too many attempts. Please wait a moment and try again.");
+          setFormError(t("auth.rateLimited"));
           return;
         }
 
-        setFormError("Could not create your account. Please try again.");
+        setFormError(t("auth.accountCreateError"));
         return;
       }
 
       const completion = interpretSignupResponse(data);
 
       if (completion.status === "email_taken") {
-        setFormError("An account with this email already exists. Sign in or use a different email.");
+        setFormError(t("auth.emailTaken"));
         return;
       }
 
@@ -139,13 +140,13 @@ function SignUpPage() {
       }
 
       if (completion.status === "error") {
-        setFormError("Could not create your account. Please try again.");
+        setFormError(t("auth.accountCreateError"));
         return;
       }
 
       navigate({ to: "/app", replace: true });
     } catch {
-      setFormError("Something went wrong. Please try again.");
+      setFormError(t("auth.genericError"));
     } finally {
       setLoading(false);
     }
@@ -154,27 +155,30 @@ function SignUpPage() {
   if (needsConfirmation) {
     return (
       <AuthShell
-        title="Check your email"
-        description="We sent a confirmation link to finish setting up your account."
+        title={t("auth.checkEmailTitle")}
+        description={t("auth.checkEmailDescription")}
         footer={
           <div className="border-t border-border px-6 pb-6">
             <p className="text-center text-sm text-muted-foreground">
               <Link to="/auth" className="font-medium text-foreground underline hover:no-underline">
-                Back to sign in
+                {t("auth.backToSignIn")}
               </Link>
             </p>
           </div>
         }
       >
         <p className="text-sm text-muted-foreground">
-          Open the link in your inbox to verify <span className="font-medium text-foreground">{email.trim().toLowerCase()}</span>, then sign in to continue.
+          {t("auth.verifyEmailHint", { email: email.trim().toLowerCase() })}
         </p>
       </AuthShell>
     );
   }
 
   return (
-    <AuthShell title="Create your account" description="Securely continue to your workspace.">
+    <AuthShell title={t("auth.signUpTitle")} description={t("auth.signUpDescription")}>
+      <div className="mb-4 flex justify-end">
+        <LanguageSwitcher />
+      </div>
       <GoogleSignInButton disabled={loading} onError={setFormError} />
       <AuthDivider />
 
@@ -182,7 +186,7 @@ function SignUpPage() {
 
       <form onSubmit={handleSubmit} noValidate className="space-y-4">
         <div>
-          <Label htmlFor="sign-up-full-name">Full name</Label>
+          <Label htmlFor="sign-up-full-name">{t("auth.fullName")}</Label>
           <Input
             id="sign-up-full-name"
             name="fullName"
@@ -199,7 +203,7 @@ function SignUpPage() {
         </div>
 
         <div>
-          <Label htmlFor="sign-up-email">Email</Label>
+          <Label htmlFor="sign-up-email">{t("auth.email")}</Label>
           <Input
             id="sign-up-email"
             name="email"
@@ -215,7 +219,7 @@ function SignUpPage() {
         </div>
 
         <div>
-          <Label htmlFor="sign-up-password">Password</Label>
+          <Label htmlFor="sign-up-password">{t("auth.password")}</Label>
           <PasswordField
             id="sign-up-password"
             name="password"
@@ -232,7 +236,7 @@ function SignUpPage() {
         </div>
 
         <div>
-          <Label htmlFor="sign-up-confirm-password">Confirm password</Label>
+          <Label htmlFor="sign-up-confirm-password">{t("auth.confirmPassword")}</Label>
           <PasswordField
             id="sign-up-confirm-password"
             name="confirmPassword"
@@ -249,14 +253,14 @@ function SignUpPage() {
         </div>
 
         <Button type="submit" disabled={loading} className="w-full" size="lg">
-          {loading ? "Creating account…" : "Create account"}
+          {loading ? t("auth.creatingAccount") : t("auth.createAccount")}
         </Button>
       </form>
 
       <p className="mt-4 text-center text-sm text-muted-foreground">
-        Already have an account?{" "}
+        {t("auth.hasAccount")}{" "}
         <Link to="/auth" className="font-medium text-foreground underline hover:no-underline">
-          Sign in
+          {t("auth.signIn")}
         </Link>
       </p>
     </AuthShell>

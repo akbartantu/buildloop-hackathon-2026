@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { useI18n } from "@/i18n/context";
 
 type AuthShellProps = {
   title?: string;
@@ -8,12 +9,9 @@ type AuthShellProps = {
   footer?: ReactNode;
 };
 
-export function AuthShell({
-  title = "Welcome to BuildLoop",
-  description = "Securely continue to your workspace.",
-  children,
-  footer,
-}: AuthShellProps) {
+export function AuthShell({ title, description, children, footer }: AuthShellProps) {
+  const { t } = useI18n();
+
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] items-center justify-center px-4 py-12">
       <div className="w-full max-w-md overflow-hidden rounded-lg border border-border bg-card shadow-sm">
@@ -23,8 +21,12 @@ export function AuthShell({
             <p className="font-mono text-[11px] uppercase tracking-[0.18em] text-muted-foreground">
               BuildLoop
             </p>
-            <h1 className="mt-2 text-lg font-semibold tracking-tight text-foreground">{title}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            <h1 className="mt-2 text-lg font-semibold tracking-tight text-foreground">
+              {title ?? t("auth.welcomeTitle")}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {description ?? t("auth.welcomeDescription")}
+            </p>
           </div>
         </div>
 
@@ -33,17 +35,17 @@ export function AuthShell({
         {footer ?? (
           <div className="border-t border-border px-6 pb-6">
             <p className="text-center text-xs text-muted-foreground">
-              By continuing, you agree to BuildLoop&apos;s{" "}
+              {t("auth.termsPrefix")}{" "}
               <Link to="/terms" className="underline hover:text-foreground">
-                Terms
+                {t("auth.terms")}
               </Link>
               ,{" "}
               <Link to="/privacy" className="underline hover:text-foreground">
-                Privacy Policy
+                {t("auth.privacyPolicy")}
               </Link>
-              , and{" "}
+              , {t("auth.and")}{" "}
               <Link to="/cookies" className="underline hover:text-foreground">
-                Cookie & Local Storage Policy
+                {t("auth.cookiesPolicy")}
               </Link>
               .
             </p>
@@ -55,13 +57,15 @@ export function AuthShell({
 }
 
 export function AuthDivider() {
+  const { t } = useI18n();
+
   return (
     <div className="relative my-6">
       <div className="absolute inset-0 flex items-center">
         <span className="w-full border-t border-border" />
       </div>
       <div className="relative flex justify-center text-xs uppercase">
-        <span className="bg-card px-2 text-muted-foreground">or</span>
+        <span className="bg-card px-2 text-muted-foreground">{t("auth.orDivider")}</span>
       </div>
     </div>
   );

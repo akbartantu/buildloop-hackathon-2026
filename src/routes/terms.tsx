@@ -1,57 +1,45 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalPage, LegalSection } from "@/components/site/legal-page";
-
-const title = "Terms — BuildLoop";
-const description =
-  "Draft ketentuan penggunaan BuildLoop: status layanan masih pilot invite-only dan keputusan akhir tetap berada pada manusia.";
+import { publicEn } from "@/i18n/public-pages";
+import { usePublicI18n, usePublicPageMeta } from "@/i18n/use-public-i18n";
 
 export const Route = createFileRoute("/terms")({
   head: () => ({
     meta: [
-      { title },
-      { name: "description", content: description },
-      { property: "og:title", content: title },
-      { property: "og:description", content: description },
+      { title: publicEn.terms.metaTitle },
+      { name: "description", content: publicEn.terms.metaDescription },
+      { property: "og:title", content: publicEn.terms.metaTitle },
+      { property: "og:description", content: publicEn.terms.metaDescription },
     ],
   }),
   component: Terms,
 });
 
 function Terms() {
+  const { pt } = usePublicI18n();
+  usePublicPageMeta("terms.metaTitle", "terms.metaDescription");
+
   return (
     <LegalPage
-      title="Terms"
+      title={pt("terms.title")}
       draft
-      intro="Ketentuan ini masih draft minimum dan menjelaskan batas layanan BuildLoop pada tahap sekarang."
-      updatedNote="Isi halaman ini akan diperbarui sebelum pilot dibuka."
+      intro={pt("terms.draftIntro")}
+      updatedNote={pt("terms.updatedNote")}
     >
-      <LegalSection heading="Status layanan">
-        <p>
-          BuildLoop sedang dalam pengembangan. Halaman publik ini bersifat informasi saja dan belum
-          menyediakan layanan berjalan. Pilot direncanakan invite-only.
-        </p>
+      <LegalSection heading={pt("terms.serviceHeading")}>
+        <p>{pt("terms.serviceP1")}</p>
       </LegalSection>
 
-      <LegalSection heading="Tanggung jawab pengguna">
-        <p>
-          BuildLoop tidak menggantikan penilaian manusia. Keputusan Revise, Escalate, atau Close
-          tetap diambil oleh pengguna, termasuk keputusan untuk menggabungkan perubahan pada
-          repository.
-        </p>
+      <LegalSection heading={pt("terms.responsibilityHeading")}>
+        <p>{pt("terms.responsibilityP1")}</p>
       </LegalSection>
 
-      <LegalSection heading="Batas hasil pemeriksaan">
-        <p>
-          Hasil pemeriksaan hanya menampilkan apa yang dapat dibaca dari perubahan repository pada
-          satu commit tertentu. Tidak ada jaminan bahwa seluruh masalah pada kode akan terdeteksi.
-        </p>
+      <LegalSection heading={pt("terms.limitsHeading")}>
+        <p>{pt("terms.limitsP1")}</p>
       </LegalSection>
 
-      <LegalSection heading="Perubahan ketentuan">
-        <p>
-          Ketentuan ini dapat berubah seiring produk berkembang. Versi yang berlaku akan
-          dipublikasikan di halaman ini.
-        </p>
+      <LegalSection heading={pt("terms.changesHeading")}>
+        <p>{pt("terms.changesP1")}</p>
       </LegalSection>
     </LegalPage>
   );

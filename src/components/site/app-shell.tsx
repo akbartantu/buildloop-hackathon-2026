@@ -6,6 +6,8 @@ import { CheckCircle2, Circle, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useSession } from "@/hooks/use-session";
 import { isDevAuthBypassEnabled } from "@/lib/dev-auth-bypass";
+import { resolveUserDisplayName } from "@/lib/auth/user-display";
+import { useI18n } from "@/i18n/context";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +24,7 @@ type WorkspaceView = "workspace" | "form" | "detail";
 
 export function AppShell() {
   const user = useSession();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -85,11 +88,13 @@ export function AppShell() {
     },
   });
 
-  const displayName =
-    (user?.user_metadata?.["full_name"] as string | undefined) ||
-    (user?.user_metadata?.["name"] as string | undefined) ||
-    user?.email?.split("@")[0] ||
-    "Pengguna";
+  const displayName = resolveUserDisplayName(
+    {
+      email: user?.email,
+      userMetadata: user?.user_metadata as { full_name?: string; name?: string } | undefined,
+    },
+    t("common.userFallback"),
+  );
   const email = user?.email;
   const avatarUrl = user?.user_metadata?.["avatar_url"] as string | undefined;
 

@@ -1,0 +1,214 @@
+export const publicId = {
+  meta: {
+    title: "BuildLoop — Guardrail untuk AI coding",
+    description:
+      "BuildLoop mengunci batas task sebelum coding, memeriksa perubahan aktual di repository, lalu membantu manusia memilih Revise, Escalate, atau Close berdasarkan evidence.",
+  },
+  header: {
+    navLabel: "Navigasi utama",
+    howItWorks: "Cara Kerja",
+    features: "Fitur",
+    faq: "FAQ",
+    docs: "Dokumentasi",
+    signIn: "Masuk",
+    signUp: "Daftar",
+    app: "App",
+    workspaceAria: "Ke ruang kerja",
+    openMenu: "Buka menu navigasi",
+    menuTitle: "Navigasi",
+    userFallback: "Pengguna",
+  },
+  hero: {
+    eyebrow: "Guardrail untuk AI coding",
+    titleLine1: "AI boleh membangun.",
+    titleLine2: "BuildLoop menjaga batasnya.",
+    subtitle:
+      "Batas task dikunci sebelum coding dimulai, lalu perubahan aktual di repository diperiksa dan diikat pada satu commit SHA.",
+    signUp: "Daftar",
+    signIn: "Masuk",
+    readDocs: "Baca Dokumentasi",
+  },
+  scope: {
+    approvedScope: "Approved scope",
+    illustrativeExample: "Contoh ilustratif",
+    boundary: "Boundary",
+    footerNote:
+      "Garis merah = batas scope yang disetujui. Perubahan yang melewatinya ditandai BLOCKED.",
+  },
+  lifecycle: {
+    define: "Define",
+    defineText:
+      "Tulis Build Contract: goal, scope, protected areas, acceptance criteria.",
+    approve: "Approve",
+    approveText: "Manusia menyetujui contract. Contract yang disetujui menjadi read-only.",
+    build: "Build",
+    buildText: "AI mengerjakan perubahan di repository seperti biasa, di luar BuildLoop.",
+    check: "Check",
+    checkText: "Perubahan aktual dibaca dari repository dan diikat pada satu commit SHA.",
+    decide: "Decide",
+    decideText: "Manusia memilih Revise, Escalate, atau Close berdasarkan evidence.",
+  },
+  evidence: {
+    eyebrow: "Evidence",
+    title: "Setiap keputusan harus punya bukti.",
+    description:
+      "BuildLoop mengikat kontrak, perubahan file, hasil check, dan keputusan manusia pada satu commit.",
+  },
+  howItWorks: {
+    eyebrow: "Core loop",
+    title: "Lima tahap yang harus dilalui berurutan",
+    description: "Tidak ada tahap yang boleh dilewati, dan tidak ada kesimpulan tanpa evidence.",
+  },
+  problems: {
+    eyebrow: "Masalah",
+    title: "Tiga kebocoran yang paling sering terjadi",
+    p1Title: "File di luar scope ikut berubah.",
+    p1Text: "Diff menyentuh direktori yang tidak pernah dibicarakan, dan baru terlihat setelah merge.",
+    p2Title: "Dependency baru masuk tanpa approval.",
+    p2Text: "Paket tambahan ikut terpasang di dalam commit fitur, tenggelam di antara perubahan lain.",
+    p3Title: "Task disebut selesai tanpa evidence.",
+    p3Text: "Status selesai bersandar pada narasi, bukan pada hasil check yang terikat satu commit.",
+  },
+  features: {
+    eyebrow: "Fitur",
+    title: "Tiga pemeriksaan yang menjaga batas",
+    description:
+      "Setiap temuan disajikan terpisah agar mudah ditelusuri, dan tidak ada temuan yang disimpulkan tanpa dasar.",
+    f1Title: "protected paths",
+    f1Text:
+      "Direktori dan file sensitif dideklarasikan sebelum coding. Jika diff menyentuhnya, hasil check ditandai BLOCKED dan Close dinonaktifkan.",
+    f2Title: "dependency check",
+    f2Text:
+      "Penambahan atau perubahan dependency dilaporkan sebagai temuan tersendiri, bukan detail yang tenggelam di dalam diff.",
+    f3Title: "focused revision",
+    f3Text:
+      "Revision Prompt disusun hanya dari failure evidence, sehingga perbaikan berikutnya tidak melebar keluar contract.",
+  },
+  pilot: {
+    title: "Gabung pilot BuildLoop",
+    description:
+      "Pilot bersifat invite-only dan dibuka bertahap. Isi formulir singkat ini, lalu pendaftar dihubungi berurutan saat kuota tersedia.",
+    limitRepo: "1 repository / project",
+    limitTask: "1 active task / project",
+    limitContract: "contract read-only setelah approve",
+  },
+  faq: {
+    eyebrow: "FAQ",
+    title: "Pertanyaan yang sering muncul",
+    q1: "Apakah BuildLoop menulis kode untuk saya?",
+    a1: "Tidak. BuildLoop adalah lapisan kontrol: mengunci batas task, membaca perubahan yang benar-benar terjadi, dan menyiapkan keputusan untuk manusia.",
+    q2: "Apa arti status PASS, BLOCKED, NEEDS HUMAN REVIEW, dan STALE?",
+    a2: "PASS berarti aturan tersebut punya evidence yang lulus. BLOCKED berarti aturan keras gagal. NEEDS HUMAN REVIEW berarti hasilnya tidak dapat dipastikan otomatis. STALE berarti commit berubah sejak check dibuat sehingga hasilnya tidak lagi mewakili kode terbaru.",
+    q3: "Apakah contract bisa diubah setelah disetujui?",
+    a3: "Contract yang disetujui bersifat read-only. Perubahan scope membuat versi baru yang harus disetujui ulang.",
+    q4: "Seluas apa cakupan pilot?",
+    a4: "Pilot dibatasi satu repository dan satu active task per project, agar loop-nya mudah dievaluasi.",
+    q5: "Bagaimana integrasi repository direncanakan?",
+    a5: "Rencananya melalui GitHub App dengan permission granular per repository. Bagian ini belum tersedia pada halaman ini.",
+  },
+  checkPreview: {
+    reportLabel: "Check Report",
+    illustrativeExample: "Contoh ilustratif",
+    approvedBoundary: "Batas yang disetujui",
+    inScope: "In Scope",
+    protected: "Protected",
+    dependency: "Dependency",
+    dependencyRule: "Tidak boleh menambah dependency",
+    actualChanges: "Perubahan aktual",
+    allowed: "DIIZINKAN",
+    outOfScope: "DI LUAR BATAS",
+    newDependency: "DEPENDENCY BARU",
+    summary: "2 perubahan melewati batas yang disetujui.",
+    detail:
+      "BuildLoop menahan Close sampai pelanggaran diperbaiki atau dieskalasikan untuk keputusan manusia.",
+    close: "Close",
+    revisionPrompt: "Buat Revision Prompt",
+    disclaimer: "Contoh ilustratif — tombol ini tidak menjalankan aksi",
+  },
+  waitlist: {
+    sent: "Terkirim",
+    success: "Terima kasih. Email kamu sudah masuk daftar pilot.",
+    duplicate: "Email ini sudah terdaftar. Tidak ada data baru yang ditambahkan.",
+    followUp:
+      "Belum ada email otomatis pada tahap ini. Kabar pilot akan dikirim manual saat pendaftaran dibuka.",
+    role: "Peran",
+    painLabel: "Masalah utama saat membangun dengan AI (opsional)",
+    consent: "Saya setuju BuildLoop menggunakan data ini untuk menghubungi saya terkait pilot.",
+    submit: "Gabung Pilot",
+    submitting: "Mengirim…",
+    privacyNote: "Hanya email, peran, dan persetujuan yang disimpan.",
+    submitError: "Pengiriman gagal. Coba lagi sebentar lagi.",
+    roles: {
+      solo_builder: "Solo builder",
+      developer: "Developer",
+      product_manager: "Product manager",
+      founder: "Founder",
+      other: "Lainnya",
+    },
+    errors: {
+      emailRequired: "Email wajib diisi.",
+      emailMax: "Email maksimal 255 karakter.",
+      emailInvalid: "Format email tidak valid.",
+      roleRequired: "Peran wajib dipilih.",
+      painMax: "Maksimal {max} karakter.",
+      consentRequired: "Persetujuan wajib dicentang.",
+      disposableEmail: "Alamat email disposable tidak diizinkan.",
+    },
+  },
+  docs: {
+    metaTitle: "Dokumentasi BuildLoop — konsep dan aturan loop",
+    metaDescription:
+      "Ringkasan konsep BuildLoop: Build Contract, evidence yang terikat commit SHA, arti status PASS, BLOCKED, NEEDS HUMAN REVIEW, dan STALE.",
+    title: "Dokumentasi",
+    intro:
+      "Halaman ini menjelaskan konsep dasar BuildLoop. Cakupannya masih ringkas dan akan berkembang seiring produk dibangun.",
+    contractHeading: "Build Contract",
+    contractP1:
+      "Build Contract ditulis sebelum coding dimulai dan berisi Goal, In Scope, Out of Scope, Protected Areas, Acceptance Criteria, serta Required Checks.",
+    contractP2:
+      "Contract yang telah disetujui bersifat read-only. Perubahan scope membuat versi baru yang harus melewati approval lagi.",
+    evidenceHeading: "Evidence terikat commit",
+    evidenceP1:
+      "Setiap temuan pada Check Report diikat pada satu commit SHA. Jika commit berubah, hasil check sebelumnya ditandai STALE dan harus dijalankan ulang.",
+    statusHeading: "Status",
+    statusPass: "PASS — aturan tersebut memiliki evidence yang lulus.",
+    statusBlocked: "BLOCKED — aturan keras gagal, keputusan Close dinonaktifkan.",
+    statusReview: "NEEDS HUMAN REVIEW — hasil tidak dapat dipastikan secara otomatis.",
+    statusStale: "STALE — commit berubah sejak check dibuat.",
+    decisionHeading: "Keputusan manusia",
+    decisionP1:
+      "Setelah Check Report tersedia, manusia memilih Revise (perbaikan terfokus pada failure evidence), Escalate (butuh penilaian manusia lebih lanjut), atau Close.",
+    limitsHeading: "Batas versi saat ini",
+    limitsP1:
+      "Halaman publik ini belum terhubung ke repository mana pun, belum memiliki akun, dan belum menjalankan pemeriksaan apa pun. Semua contoh tampilan diberi label sebagai contoh ilustratif.",
+  },
+  terms: {
+    metaTitle: "Terms — BuildLoop",
+    metaDescription:
+      "Draft ketentuan penggunaan BuildLoop: status layanan masih pilot invite-only dan keputusan akhir tetap berada pada manusia.",
+    title: "Terms",
+    draftIntro:
+      "Ketentuan ini masih draft minimum dan menjelaskan batas layanan BuildLoop pada tahap sekarang.",
+    updatedNote: "Isi halaman ini akan diperbarui sebelum pilot dibuka.",
+    serviceHeading: "Status layanan",
+    serviceP1:
+      "BuildLoop sedang dalam pengembangan. Halaman publik ini bersifat informasi saja dan belum menyediakan layanan berjalan. Pilot direncanakan invite-only.",
+    responsibilityHeading: "Tanggung jawab pengguna",
+    responsibilityP1:
+      "BuildLoop tidak menggantikan penilaian manusia. Keputusan Revise, Escalate, atau Close tetap diambil oleh pengguna, termasuk keputusan untuk menggabungkan perubahan pada repository.",
+    limitsHeading: "Batas hasil pemeriksaan",
+    limitsP1:
+      "Hasil pemeriksaan hanya menampilkan apa yang dapat dibaca dari perubahan repository pada satu commit tertentu. Tidak ada jaminan bahwa seluruh masalah pada kode akan terdeteksi.",
+    changesHeading: "Perubahan ketentuan",
+    changesP1:
+      "Ketentuan ini dapat berubah seiring produk berkembang. Versi yang berlaku akan dipublikasikan di halaman ini.",
+  },
+  errors: {
+    notFoundTitle: "Halaman tidak ditemukan",
+    notFoundDescription: "Halaman yang Anda cari tidak ada atau sudah dipindahkan.",
+    loadTitle: "Halaman ini gagal dimuat",
+    loadDescription: "Terjadi masalah di sisi kami. Coba muat ulang atau kembali ke beranda.",
+    tryAgain: "Coba lagi",
+    goHome: "Ke beranda",
+  },
+} as const;

@@ -1,30 +1,20 @@
 import { cn } from "@/lib/utils";
+import { usePublicI18n } from "@/i18n/use-public-i18n";
 
-export const lifecycle = [
-  {
-    step: "Define",
-    text: "Tulis Build Contract: goal, scope, protected areas, acceptance criteria.",
-  },
-  {
-    step: "Approve",
-    text: "Manusia menyetujui contract. Contract yang disetujui menjadi read-only.",
-  },
-  {
-    step: "Build",
-    text: "AI mengerjakan perubahan di repository seperti biasa, di luar BuildLoop.",
-  },
-  {
-    step: "Check",
-    text: "Perubahan aktual dibaca dari repository dan diikat pada satu commit SHA.",
-  },
-  {
-    step: "Decide",
-    text: "Manusia memilih Revise, Escalate, atau Close berdasarkan evidence.",
-  },
-];
+function useLifecycleSteps() {
+  const { pt } = usePublicI18n();
+  return [
+    { step: pt("lifecycle.define"), text: pt("lifecycle.defineText") },
+    { step: pt("lifecycle.approve"), text: pt("lifecycle.approveText") },
+    { step: pt("lifecycle.build"), text: pt("lifecycle.buildText") },
+    { step: pt("lifecycle.check"), text: pt("lifecycle.checkText") },
+    { step: pt("lifecycle.decide"), text: pt("lifecycle.decideText") },
+  ];
+}
 
-/** Rail ringkas: hanya nama tahap, dipakai di bawah copy hero. */
 export function LifecycleRailCompact({ className }: { className?: string }) {
+  const lifecycle = useLifecycleSteps();
+
   return (
     <ol className={cn("flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-0", className)}>
       {lifecycle.map((item, i) => (
@@ -47,8 +37,9 @@ export function LifecycleRailCompact({ className }: { className?: string }) {
   );
 }
 
-/** Rail bertahap dengan deskripsi, dipakai pada seksi Core loop. */
 export function LifecycleRailDetailed({ className }: { className?: string }) {
+  const lifecycle = useLifecycleSteps();
+
   return (
     <ol className={cn("relative", className)}>
       {lifecycle.map((item, i) => (

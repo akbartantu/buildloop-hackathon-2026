@@ -23,6 +23,7 @@ export const contractSchema = z.object({
   outOfScope: z.array(z.string().min(1)),
   acceptanceCriteria: z.array(z.string().min(1)).min(1),
   protectedAreas: z.array(z.string().min(1)).min(1),
+  approvalRequiredPaths: z.array(z.string().min(1)).default([]),
   allowedCommands: z.array(z.string()),
   allowedPaths: z.array(z.string()),
   maximumCorrections: z.number().int().min(0).max(10).default(MAX_ATTEMPTS),
@@ -49,6 +50,7 @@ export function createDraftContract(input: {
   acceptanceCriteria: string[];
   allowedCommands?: string[];
   allowedPaths?: string[];
+  approvalRequiredPaths?: string[];
   maximumCorrections?: number;
 }): Contract {
   const now = new Date().toISOString();
@@ -62,6 +64,7 @@ export function createDraftContract(input: {
     outOfScope: input.outOfScope,
     acceptanceCriteria: input.acceptanceCriteria,
     protectedAreas: [...PROTECTED_PATHS],
+    approvalRequiredPaths: input.approvalRequiredPaths ?? [],
     allowedCommands: input.allowedCommands ?? [],
     allowedPaths: input.allowedPaths ?? [],
     maximumCorrections: input.maximumCorrections ?? MAX_ATTEMPTS,

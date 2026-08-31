@@ -17,6 +17,7 @@ import {
   canRerunFailedTask,
   captureContractInputs,
 } from "@/lib/task-rerun";
+import { extractApprovedProtectedPaths } from "@/lib/protected-path-approval";
 import type { RunStatus } from "@/orchestrator/types";
 import {
   buildActiveRunRunnerState,
@@ -131,6 +132,13 @@ export const executeTaskRun = createServerFn({ method: "POST" })
         runSandboxId,
         ...(workingTask.runnerState?.humanRevisionInstruction
           ? { humanRevisionInstruction: workingTask.runnerState.humanRevisionInstruction }
+          : {}),
+        ...(extractApprovedProtectedPaths(workingTask.runnerState?.protectedPathApprovals).length
+          ? {
+              approvedProtectedPaths: extractApprovedProtectedPaths(
+                workingTask.runnerState?.protectedPathApprovals,
+              ),
+            }
           : {}),
         onRunStatusChange: ({ status, runId, phase }) => persistActiveRunStatus(status, runId, phase),
       });

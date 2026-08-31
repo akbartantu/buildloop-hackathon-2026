@@ -19,6 +19,12 @@ import {
 } from "@/lib/planning/clarification-policy";
 import { buildPlanningContext } from "@/lib/planning/planning-context";
 import type { PlanningSource, TaskClarification } from "@/lib/planning/planning-source";
+import {
+  deriveContractGovernance,
+  validateContractConsistency,
+  type ContractGovernancePlan,
+} from "@/lib/contract-governance";
+import { computeManifestRevision } from "@/orchestrator/manifest/revision";
 import type { ClarificationChoiceSet, ClarificationOption } from "@/lib/planning/clarification-options";
 import type { PlanningSpecificationEntry } from "@/lib/specifications/specification-set-record";
 import { planWork, workPlanToContractFields } from "@/orchestrator/agents/planner/planner";
@@ -79,18 +85,27 @@ function buildContractFromWorkPlan(
     sourcesUsed?: PlanningSource[];
     clarification?: TaskClarification;
     planningSummary?: string;
+    governance?: ContractGovernancePlan;
   },
 ): TaskContract {
   const fields = workPlanToContractFields(workPlan);
   const base = buildContract(goal);
+  const governance = extras?.governance;
   return withContractVersion(
     {
       ...base,
       goal: fields.goal,
-      inScope: fields.inScope,
-      acceptanceCriteria: fields.acceptanceCriteria,
+      inScope: governance?.inScope.length ? governance.inScope : fields.inScope,
+      outOfScope: governance?.outOfScope ?? base.outOfScope,
+      acceptanceCriteria: governance?.acceptanceCriteria ?? fields.acceptanceCriteria,
       requiredChecks: fields.requiredChecks,
       maxAttempts: fields.maxAttempts,
+      ...(governance?.approvalRequiredPaths.length
+        ? { approvalRequiredPaths: governance.approvalRequiredPaths }
+        : {}),
+      ...(governance?.executionAllowedPaths.length
+        ? { executionAllowedPaths: governance.executionAllowedPaths }
+        : {}),
       workPlan: {
         userGoal: workPlan.userGoal,
         decomposed: workPlan.decomposed,
@@ -137,6 +152,18 @@ function buildPlanningSummary(input: {
     return `Planning used ${input.specCount} specification(s) and ${input.sourceCount} repository reference(s).`;
   }
   return input.evaluation.reason ?? "Planning requires clarification before contract approval.";
+}
+
+async function listRepositoryManifestPaths(repositoryRoot: string | null | undefined): Promise<string[]> {
+  if (!repositoryRoot) {
+    return [];
+  }
+  try {
+    const manifest = await computeManifestRevision(repositoryRoot);
+    return manifest.entries.map((entry) => entry.path);
+  } catch {
+    return [];
+  }
 }
 
 async function resolvePlanning(input: TaskPlanningInput) {
@@ -202,6 +229,27 @@ async function resolvePlanning(input: TaskPlanningInput) {
     ...(input.clarificationAnswer ? { answer: input.clarificationAnswer } : {}),
   });
 
+  const derivedFields = workPlanToContractFields(workPlan);
+  const repositoryManifestPaths = await listRepositoryManifestPaths(input.repositoryRoot);
+  const governance = deriveContractGovernance({
+    goal: input.goal,
+    specifications: planningContext.relevantSpecifications,
+    repositoryManifestPaths,
+    derived: {
+      expectedScope: derivedFields.inScope,
+      acceptanceCriteria: derivedFields.acceptanceCriteria,
+      requiredChecks: derivedFields.requiredChecks,
+      needsClarification: workPlanNeedsClarification(workPlan),
+    },
+    ...(effectiveCriteria.length ? { userCriteria: effectiveCriteria } : {}),
+  });
+  const consistency = validateContractConsistency(governance);
+  const governanceNeedsClarification =
+    governance.needsClarification || !consistency.ok;
+  const governanceClarificationReason =
+    governance.clarificationReason ??
+    (consistency.ok ? undefined : consistency.reason);
+
   return {
     sensitiveBlocked,
     planningContext,
@@ -210,20 +258,28 @@ async function resolvePlanning(input: TaskPlanningInput) {
     effectiveCriteria,
     workPlan,
     clarification,
+    governance,
+    governanceNeedsClarification,
+    governanceClarificationReason,
   };
 }
 
 export async function analyzeTaskGoal(input: TaskPlanningInput): Promise<TaskGoalAnalysis> {
   const resolved = await resolvePlanning(input);
   const fields = workPlanToContractFields(resolved.workPlan);
+  const contractFields = resolved.governance.inScope.length
+    ? { ...fields, inScope: resolved.governance.inScope, acceptanceCriteria: resolved.governance.acceptanceCriteria }
+    : fields;
   const needsClarification =
-    resolved.needsPolicyClarification || workPlanNeedsClarification(resolved.workPlan);
+    resolved.needsPolicyClarification ||
+    resolved.governanceNeedsClarification ||
+    workPlanNeedsClarification(resolved.workPlan);
   const userProvided = Boolean(input.acceptanceCriteria?.length);
 
   if (resolved.sensitiveBlocked.length > 0) {
     return {
-      acceptanceCriteria: fields.acceptanceCriteria,
-      expectedScope: fields.inScope,
+      acceptanceCriteria: contractFields.acceptanceCriteria,
+      expectedScope: contractFields.inScope,
       needsClarification: false,
       suggestedFromGoal: false,
       sourcesUsed: resolved.planningContext.sourcesUsed,
@@ -235,10 +291,14 @@ export async function analyzeTaskGoal(input: TaskPlanningInput): Promise<TaskGoa
     return {
       acceptanceCriteria: resolved.effectiveCriteria.length
         ? resolved.effectiveCriteria
-        : fields.acceptanceCriteria,
-      expectedScope: fields.inScope,
+        : contractFields.acceptanceCriteria,
+      expectedScope: contractFields.inScope,
       needsClarification: true,
-      ...(resolved.evaluation.reason ? { clarificationMessage: resolved.evaluation.reason } : {}),
+      ...(resolved.governanceClarificationReason
+        ? { clarificationMessage: resolved.governanceClarificationReason }
+        : resolved.evaluation.reason
+          ? { clarificationMessage: resolved.evaluation.reason }
+          : {}),
       ...(resolved.evaluation.question ? { clarificationQuestion: resolved.evaluation.question } : {}),
       ...(resolved.evaluation.options ? { clarificationOptions: resolved.evaluation.options } : {}),
       ...(choiceSet?.presentationMode === "choices"
@@ -256,8 +316,8 @@ export async function analyzeTaskGoal(input: TaskPlanningInput): Promise<TaskGoa
   }
 
   return {
-    acceptanceCriteria: fields.acceptanceCriteria,
-    expectedScope: fields.inScope,
+    acceptanceCriteria: contractFields.acceptanceCriteria,
+    expectedScope: contractFields.inScope,
     needsClarification,
     suggestedFromGoal: !userProvided,
     sourcesUsed: resolved.planningContext.sourcesUsed,
@@ -268,7 +328,9 @@ export async function planAndEvaluateTask(input: TaskPlanningInput): Promise<Tas
   const policy = await loadProjectGovernance(input.workspaceRoot);
   const resolved = await resolvePlanning(input);
   const needsClarification =
-    resolved.needsPolicyClarification || workPlanNeedsClarification(resolved.workPlan);
+    resolved.needsPolicyClarification ||
+    resolved.governanceNeedsClarification ||
+    workPlanNeedsClarification(resolved.workPlan);
 
   const contract = buildContractFromWorkPlan(
     input.goal,
@@ -283,6 +345,7 @@ export async function planAndEvaluateTask(input: TaskPlanningInput): Promise<Tas
         specCount: resolved.planningContext.relevantSpecifications.length,
         sourceCount: resolved.planningContext.sourcesUsed.length,
       }),
+      governance: resolved.governance,
     },
   );
 

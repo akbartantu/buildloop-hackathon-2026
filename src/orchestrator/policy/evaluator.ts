@@ -1,4 +1,5 @@
 import { detectSensitiveIntent, type BlockedReason } from "@/lib/sensitive-intent";
+import { evaluateProtectedPathPolicy } from "@/lib/contract-governance";
 import type { ResolvedProjectPolicy } from "./policy-schema";
 
 export type PolicyDecision = "AUTO_APPROVED" | "HUMAN_APPROVAL_REQUIRED" | "BLOCKED";
@@ -9,6 +10,8 @@ export type PolicyEvaluationInput = {
   riskClassification?: "low" | "medium" | "high" | "security";
   policy: ResolvedProjectPolicy;
   sensitiveActions?: string[];
+  approvalRequiredPaths?: string[];
+  approvedProtectedPaths?: string[];
 };
 
 export type PolicyEvaluationResult = {
@@ -72,23 +75,6 @@ export function requiresSecurityReview(input: {
   return false;
 }
 
-function matchesProtectedPath(file: string, protectedPaths: string[]): boolean {
-  const normalized = file.replace(/\\/g, "/");
-  return protectedPaths.some((pattern) => {
-    if (pattern.endsWith("/**")) {
-      const prefix = pattern.slice(0, -3);
-      return normalized === prefix || normalized.startsWith(`${prefix}/`);
-    }
-    if (pattern.includes("*")) {
-      const regex = new RegExp(
-        `^${pattern.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*")}$`,
-      );
-      return regex.test(normalized);
-    }
-    return normalized === pattern;
-  });
-}
-
 /** Deterministic policy engine — separate from Security Reviewer LLM/heuristic. */
 export function evaluatePolicy(input: PolicyEvaluationInput): PolicyEvaluationResult {
   const blockedReasons = detectSensitiveIntent(input.goal);
@@ -111,20 +97,40 @@ export function evaluatePolicy(input: PolicyEvaluationInput): PolicyEvaluationRe
   }
 
   for (const file of input.changedFiles ?? []) {
-    if (matchesProtectedPath(file, input.policy.protected_paths)) {
+    const protectedEval = evaluateProtectedPathPolicy({
+      changedFiles: [file],
+      protectedPaths: input.policy.protected_paths,
+      approvalRequiredPaths: input.approvalRequiredPaths ?? [],
+      ...(input.approvedProtectedPaths ? { approvedProtectedPaths: input.approvedProtectedPaths } : {}),
+    });
+
+    if (protectedEval.decision === "FORBIDDEN") {
       matchedRules.push("PROTECTED_PATH_ACCESS");
       return {
         decision: "BLOCKED",
-        reason: `Protected path access detected: ${file}`,
+        reason: protectedEval.reason ?? `Protected path access detected: ${file}`,
         blockedReasons: [
           {
             rule: "PROTECTED_PATH_ACCESS",
             matchedText: file,
-            explanation: "Worker attempted to modify a protected path.",
+            explanation: "Worker attempted to modify a forbidden protected path.",
             protectedTarget: file,
           },
         ],
         requiresSecurityReview: false,
+        matchedRules,
+      };
+    }
+
+    if (protectedEval.decision === "REQUIRES_PROTECTED_PATH_APPROVAL") {
+      matchedRules.push("PROTECTED_PATH_APPROVAL_REQUIRED");
+      return {
+        decision: "HUMAN_APPROVAL_REQUIRED",
+        reason:
+          protectedEval.reason ??
+          `Protected path "${file}" requires explicit human approval before modification.`,
+        blockedReasons: [],
+        requiresSecurityReview: requiresSecurityReviewFlag,
         matchedRules,
       };
     }

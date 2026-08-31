@@ -4,6 +4,11 @@ import path from "node:path";
 import type { LockedContract } from "../contract/schema";
 import type { WorkerReport } from "../types";
 import {
+  ProtectedPathApprovalRequiredError,
+  extractApprovedProtectedPaths,
+  resolvePatchProtectedPathDecision,
+} from "@/lib/protected-path-approval";
+import {
   GeminiClientError,
   parseWorkerStructuredOutput,
   type WorkerStructuredOutput,
@@ -47,13 +52,23 @@ async function applyStructuredPatch(
   sandboxRoot: string,
   contract: LockedContract,
   output: WorkerStructuredOutput,
+  approvedProtectedPaths: string[] = [],
 ): Promise<string[]> {
   const changed: string[] = [];
+  const approvalRequiredPaths = contract.approvalRequiredPaths ?? [];
   for (const file of output.changedFiles) {
     const normalized = file.path.replace(/\\/g, "/");
-    const allowed = contract.allowedPaths.some((pattern) => globMatch(normalized, pattern));
-    const protectedHit = contract.protectedAreas.some((pattern) => globMatch(normalized, pattern));
-    if (!allowed || protectedHit) {
+    const decision = resolvePatchProtectedPathDecision({
+      filePath: normalized,
+      allowedPaths: contract.allowedPaths,
+      protectedAreas: contract.protectedAreas,
+      approvalRequiredPaths,
+      approvedProtectedPaths,
+    });
+    if (decision === "requires_approval") {
+      throw new ProtectedPathApprovalRequiredError(normalized);
+    }
+    if (decision === "forbidden") {
       throw new Error(`Patch rejected for out-of-scope or protected path: ${normalized}`);
     }
     const absolute = path.join(sandboxRoot, normalized);
@@ -120,7 +135,12 @@ export class AdkGeminiWorker implements CodingWorker {
         userPrompt: buildUserPrompt(input),
       });
       const structured = parseWorkerStructuredOutput(result.text);
-      const filesChanged = await applyStructuredPatch(input.sandboxRoot, input.contract, structured);
+      const filesChanged = await applyStructuredPatch(
+        input.sandboxRoot,
+        input.contract,
+        structured,
+        input.approvedProtectedPaths ?? [],
+      );
 
       return {
         workerId: this.id,
@@ -140,6 +160,19 @@ export class AdkGeminiWorker implements CodingWorker {
         },
       };
     } catch (error) {
+      if (error instanceof ProtectedPathApprovalRequiredError) {
+        const message = error.message;
+        return {
+          workerId: this.id,
+          attemptNumber: input.attemptNumber,
+          filesChanged: [],
+          commandsRequested: ["adk.runEphemeral"],
+          commandsExecuted: [],
+          summary: message,
+          patchSummary: message,
+          error: { code: "PROTECTED_PATH_APPROVAL_REQUIRED", message },
+        };
+      }
       const rawCode = error instanceof GeminiClientError ? error.code : "WORKER_ERROR";
       const rawMessage = error instanceof Error ? error.message : String(error);
       const normalized = normalizeOperationalWorkerError(rawCode, rawMessage);
@@ -185,7 +218,12 @@ export class FixtureAdkGeminiWorker implements CodingWorker {
   async execute(input: WorkerInput): Promise<WorkerReport> {
     try {
       const structured = await this.handler(input);
-      const filesChanged = await applyStructuredPatch(input.sandboxRoot, input.contract, structured);
+      const filesChanged = await applyStructuredPatch(
+        input.sandboxRoot,
+        input.contract,
+        structured,
+        input.approvedProtectedPaths ?? [],
+      );
       return {
         workerId: this.id,
         attemptNumber: input.attemptNumber,

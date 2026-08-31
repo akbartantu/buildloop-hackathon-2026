@@ -32,6 +32,7 @@ export type ProductRunRequest = {
   projectId?: string | null;
   repositoryUrl?: string;
   humanRevisionInstruction?: string;
+  approvedProtectedPaths?: string[];
   onRunStatusChange?: RunStatusChangeHandler;
 };
 
@@ -59,6 +60,9 @@ export class ProductOrchestrator {
       ...(request.sourceCommitSha ? { sourceCommitSha: request.sourceCommitSha } : {}),
       ...(request.runSandboxId ? { runSandboxId: request.runSandboxId } : {}),
       ...(request.humanRevisionInstruction ? { humanRevisionInstruction: request.humanRevisionInstruction } : {}),
+      ...(request.approvedProtectedPaths?.length
+        ? { approvedProtectedPaths: request.approvedProtectedPaths }
+        : {}),
       ...(request.onRunStatusChange ? { onRunStatusChange: request.onRunStatusChange } : {}),
     });
 
@@ -72,6 +76,10 @@ export class ProductOrchestrator {
     ) {
       const stored = request.storedContract;
       plannerSummary = "Executing locked task contract.";
+      const allowedPaths =
+        stored.executionAllowedPaths?.length
+          ? stored.executionAllowedPaths
+          : stored.inScope;
       const contract = lockContract(
         createDraftContract({
           id: request.contractId,
@@ -82,8 +90,9 @@ export class ProductOrchestrator {
           inScope: stored.inScope,
           outOfScope: stored.outOfScope,
           acceptanceCriteria: stored.acceptanceCriteria,
-          allowedPaths: stored.inScope,
-          allowedCommands: deriveAllowedCommands(stored.inScope),
+          allowedPaths,
+          allowedCommands: deriveAllowedCommands(allowedPaths),
+          approvalRequiredPaths: stored.approvalRequiredPaths ?? [],
           maximumCorrections: (await loadProjectGovernance(this.workspaceRoot)).execution.max_corrections,
         }),
       );

@@ -1,10 +1,13 @@
+import {
+  GOVERNANCE_CRITERION_STRICT,
+  appendGovernanceCriterion,
+} from "@/lib/contract-governance";
+
 const FILE_NAME_PATTERN =
   /\b([A-Za-z0-9_./-]+\.(?:md|markdown|txt|rst|tsx?|jsx?|json|ya?ml|css|html))\b/gi;
 const README_PATTERN = /\breadme(?:\.md)?\b/i;
 const SRC_PATH_PATTERN = /\b(src\/[A-Za-z0-9_./-]+)\b/g;
 const DOCS_PATH_PATTERN = /\b(docs\/[A-Za-z0-9_./-]+(?:\.[A-Za-z0-9]+)?)\b/g;
-
-const GOVERNANCE_CRITERION = "No protected paths are modified.";
 
 export type DeriveTaskContractInput = {
   goal: string;
@@ -99,19 +102,15 @@ export function deriveRequiredChecks(scope: string[]): string[] {
   return ["typecheck", "relevant test", "protected-path check"];
 }
 
-function appendGovernanceCriterion(criteria: string[]): string[] {
-  const normalized = criteria.map((item) => item.trim()).filter(Boolean);
-  if (normalized.some((item) => /protected path/i.test(item))) {
-    return normalized;
-  }
-  return [...normalized, GOVERNANCE_CRITERION];
+function appendGovernanceCriterionLocal(criteria: string[]): string[] {
+  return appendGovernanceCriterion(criteria, false);
 }
 
 function deriveDefaultAcceptanceCriteria(goal: string, scope: string[]): string[] {
   if (scope.length === 0) {
     return [
       "Clarify the exact files or directories BuildLoop may modify before execution.",
-      GOVERNANCE_CRITERION,
+      GOVERNANCE_CRITERION_STRICT,
     ];
   }
 
@@ -121,7 +120,7 @@ function deriveDefaultAcceptanceCriteria(goal: string, scope: string[]): string[
       `Fulfill the requested README change: ${goal.trim()}`,
       "Do not modify dependencies, configuration, credentials, deployment files, or application code.",
       "Existing README structure remains intact.",
-      GOVERNANCE_CRITERION,
+      GOVERNANCE_CRITERION_STRICT,
     ];
   }
 
@@ -130,7 +129,7 @@ function deriveDefaultAcceptanceCriteria(goal: string, scope: string[]): string[
       `Only the approved documentation paths are modified: ${scope.join(", ")}.`,
       `Fulfill the requested documentation change: ${goal.trim()}`,
       "Do not modify dependencies, configuration, credentials, deployment files, or unrelated application code.",
-      GOVERNANCE_CRITERION,
+      GOVERNANCE_CRITERION_STRICT,
     ];
   }
 
@@ -138,14 +137,14 @@ function deriveDefaultAcceptanceCriteria(goal: string, scope: string[]): string[
     return [
       `Implement the requested change within ${scope[0]}.`,
       "Relevant checks pass.",
-      GOVERNANCE_CRITERION,
+      GOVERNANCE_CRITERION_STRICT,
     ];
   }
 
   return [
     `Implement the requested change within the approved scope: ${scope.join(", ")}.`,
     "Relevant checks pass.",
-    GOVERNANCE_CRITERION,
+    GOVERNANCE_CRITERION_STRICT,
   ];
 }
 
@@ -194,7 +193,7 @@ export function deriveTaskContractFields(input: DeriveTaskContractInput): Derive
 
   const acceptanceCriteria =
     userCriteria.length > 0
-      ? appendGovernanceCriterion(userCriteria)
+      ? appendGovernanceCriterionLocal(userCriteria)
       : deriveDefaultAcceptanceCriteria(goal, expectedScope);
 
   return {

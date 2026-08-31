@@ -89,6 +89,10 @@ export type TaskContract = {
   acceptanceCriteria: string[];
   allowedActions: string[];
   protectedPaths: string[];
+  /** Protected paths the task may require after explicit human approval (not contract approval). */
+  approvalRequiredPaths?: string[];
+  /** File path patterns the worker may modify autonomously during execution. */
+  executionAllowedPaths?: string[];
   requiredChecks: string[];
   maxAttempts: number;
   workPlan?: {
@@ -153,6 +157,19 @@ export type RunnerState = {
     worktreePath?: string;
   };
   humanApprovals?: HumanApprovalRecord[];
+  /** Explicit approvals for bounded protected-path writes during execution. */
+  protectedPathApprovals?: Array<{
+    paths: string[];
+    actorUserId: string;
+    createdAt: string;
+    note?: string | null;
+  }>;
+  /** Pending protected-path approval request surfaced before the first protected write. */
+  pendingProtectedPathApproval?: {
+    paths: string[];
+    reason: string;
+    requestedAt: string;
+  };
   evidence?: Array<{
     category: string;
     name: string;

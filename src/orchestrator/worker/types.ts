@@ -10,6 +10,7 @@ export type WorkerInput = {
   correctionInstruction?: string;
   humanRevisionInstruction?: string;
   priorEvidenceSummary?: string;
+  approvedProtectedPaths?: string[];
 };
 
 export interface CodingWorker {

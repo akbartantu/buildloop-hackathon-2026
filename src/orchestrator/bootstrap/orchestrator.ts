@@ -10,6 +10,7 @@ import { isOperationalWorkerError } from "../gemini/retry-policy";
 import { computeManifestRevision } from "../manifest/revision";
 import { runPreflight } from "../preflight/index";
 import { evaluatePolicy } from "../policy/evaluator";
+import { extractApprovedProtectedPaths } from "@/lib/protected-path-approval";
 import { loadProjectGovernance } from "../policy/project-policy";
 import { runSecurityReview } from "../agents/security-reviewer/reviewer";
 import { defaultWorktreePath, runWorkspacePreflight } from "../preflight/workspace";
@@ -78,6 +79,7 @@ export type BootstrapOrchestratorOptions = {
   sourceCommitSha?: string;
   runSandboxId?: string;
   humanRevisionInstruction?: string;
+  approvedProtectedPaths?: string[];
   onRunStatusChange?: RunStatusChangeHandler;
 };
 
@@ -93,6 +95,7 @@ export class BootstrapOrchestrator {
   private readonly sourceCommitSha?: string;
   private readonly runSandboxId?: string;
   private readonly humanRevisionInstruction?: string;
+  private readonly approvedProtectedPaths: string[];
   private readonly onRunStatusChange?: RunStatusChangeHandler;
 
   constructor(options: BootstrapOrchestratorOptions) {
@@ -111,6 +114,7 @@ export class BootstrapOrchestrator {
     if (options.humanRevisionInstruction) {
       this.humanRevisionInstruction = options.humanRevisionInstruction;
     }
+    this.approvedProtectedPaths = options.approvedProtectedPaths ?? [];
     if (options.onRunStatusChange) {
       this.onRunStatusChange = options.onRunStatusChange;
     }
@@ -346,6 +350,7 @@ export class BootstrapOrchestrator {
           workspaceRoot: this.workspaceRoot,
           sourceRevision: sourceRevisionAtStart,
           attemptNumber,
+          approvedProtectedPaths: this.approvedProtectedPaths,
           ...(decision.correctionInstruction
             ? {
                 correctionInstruction: decision.correctionInstruction,
@@ -406,13 +411,33 @@ export class BootstrapOrchestrator {
       evidence.push(...checkerResult.evidence);
 
       const changedFiles = workerReport.filesChanged;
+      let runtimeEscalation: "AWAITING_APPROVAL" | "BLOCKED" | null = null;
+
+      if (workerReport.error?.code === "PROTECTED_PATH_APPROVAL_REQUIRED") {
+        runtimeEscalation = "AWAITING_APPROVAL";
+        evidence.push({
+          id: crypto.randomUUID(),
+          runId,
+          attemptNumber,
+          category: "preflight",
+          name: "protected_path_approval_required",
+          status: "fail",
+          summary: workerReport.error.message,
+          details: "PROTECTED_PATH_APPROVAL_REQUIRED",
+          affectedFiles: changedFiles,
+          severity: "warning",
+          createdAt: new Date().toISOString(),
+        });
+      }
+
       const runtimePolicy = evaluatePolicy({
         goal: input.contract.goal,
         changedFiles,
         policy: projectPolicy,
+        approvalRequiredPaths: input.contract.approvalRequiredPaths ?? [],
+        approvedProtectedPaths: this.approvedProtectedPaths,
       });
 
-      let runtimeEscalation: "AWAITING_APPROVAL" | "BLOCKED" | null = null;
       if (runtimePolicy.decision === "BLOCKED") {
         runtimeEscalation = "BLOCKED";
         evidence.push({
@@ -428,7 +453,7 @@ export class BootstrapOrchestrator {
           severity: "critical",
           createdAt: new Date().toISOString(),
         });
-      } else if (runtimePolicy.decision === "HUMAN_APPROVAL_REQUIRED") {
+      } else if (runtimePolicy.decision === "HUMAN_APPROVAL_REQUIRED" && !runtimeEscalation) {
         runtimeEscalation = "AWAITING_APPROVAL";
         evidence.push({
           id: crypto.randomUUID(),

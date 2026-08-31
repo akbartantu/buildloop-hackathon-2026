@@ -1,4 +1,5 @@
 import type { RunnerState, TaskStatus } from "@/lib/task-contract";
+import { zeroChangeRunnerState } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import {
@@ -15,39 +16,122 @@ export type ProtectedPathApprovalEvidence = {
   runId?: string | null;
 };
 
+export type PersistedEvidenceItem = NonNullable<RunnerState["evidence"]>[number];
+
 const PATH_FROM_STOP_MESSAGE =
   /protected path approval required before writing:\s*(.+)$/i;
+const PATH_FROM_QUOTED_POLICY =
+  /protected path "([^"]+)" requires(?: explicit human approval)?/i;
+const PATH_FROM_DETAILS_CODE =
+  /PROTECTED_PATH_APPROVAL_REQUIRED(?::\s*)?(?:Protected path approval required before writing:\s*)?(.+?)$/i;
+
+const PROTECTED_PATH_EVIDENCE_NAMES = new Set([
+  "protected_path_approval_required",
+  "worker_error",
+  "runtime_escalation_approval",
+]);
 
 export function parseProtectedPathFromStopMessage(message: string): string | null {
-  const match = message.trim().match(PATH_FROM_STOP_MESSAGE);
-  if (!match?.[1]) {
+  const trimmed = message.trim();
+  if (!trimmed) {
     return null;
   }
-  return match[1].replace(/\\/g, "/").trim();
+
+  const patterns = [PATH_FROM_STOP_MESSAGE, PATH_FROM_QUOTED_POLICY, PATH_FROM_DETAILS_CODE];
+  for (const pattern of patterns) {
+    const match = trimmed.match(pattern);
+    const candidate = match?.[1]?.replace(/\\/g, "/").trim();
+    if (candidate) {
+      return candidate.split(/\s+/)[0] ?? candidate;
+    }
+  }
+
+  return null;
+}
+
+export function parseProtectedPathFromWorkerError(text: string): string | null {
+  return parseProtectedPathFromStopMessage(text);
+}
+
+function evidenceItemIndicatesProtectedPathStop(item: PersistedEvidenceItem): boolean {
+  if (PROTECTED_PATH_EVIDENCE_NAMES.has(item.name)) {
+    return true;
+  }
+  const haystack = `${item.summary ?? ""}\n${"details" in item ? String(item.details ?? "") : ""}`;
+  return /PROTECTED_PATH_APPROVAL_REQUIRED|protected path approval required before writing/i.test(haystack);
+}
+
+export function shouldPersistEvidenceDetails(item: {
+  name?: string;
+  details?: string;
+}): boolean {
+  if (!item.name) {
+    return false;
+  }
+  if (PROTECTED_PATH_EVIDENCE_NAMES.has(item.name)) {
+    return true;
+  }
+  return Boolean(item.details?.includes("PROTECTED_PATH_APPROVAL_REQUIRED"));
+}
+
+export function summarizeEvidenceForTaskPersistence(
+  evidence: Array<{
+    category: string;
+    name: string;
+    status: string;
+    summary: string;
+    attemptNumber?: number;
+    details?: string;
+  }>,
+): PersistedEvidenceItem[] {
+  return evidence.map((item) => ({
+    category: item.category,
+    name: item.name,
+    status: item.status,
+    summary: item.summary,
+    ...(item.attemptNumber !== undefined ? { attemptNumber: item.attemptNumber } : {}),
+    ...(shouldPersistEvidenceDetails(item) && item.details ? { details: item.details } : {}),
+  }));
+}
+
+function extractPathFromEvidenceEntry(entry: PersistedEvidenceItem): string | null {
+  const candidates = [
+    entry.summary ?? "",
+    "details" in entry ? String(entry.details ?? "") : "",
+  ];
+  for (const candidate of candidates) {
+    const path = parseProtectedPathFromWorkerError(candidate);
+    if (path) {
+      return path;
+    }
+  }
+  return null;
 }
 
 export function findProtectedPathApprovalEvidence(
-  evidence: Array<{ name?: string; summary?: string; details?: string; attemptNumber?: number }> | undefined,
+  evidence: Array<PersistedEvidenceItem & { details?: string }> | undefined,
   runId?: string | null,
 ): ProtectedPathApprovalEvidence | null {
   if (!evidence?.length) {
     return null;
   }
-  const entry = [...evidence]
-    .reverse()
-    .find((item) => item.name === "protected_path_approval_required");
-  if (!entry?.summary) {
-    return null;
+
+  for (const entry of [...evidence].reverse()) {
+    if (!evidenceItemIndicatesProtectedPathStop(entry)) {
+      continue;
+    }
+    const path = extractPathFromEvidenceEntry(entry);
+    if (!path) {
+      continue;
+    }
+    return {
+      path,
+      reason: entry.summary ?? ("details" in entry ? String(entry.details ?? "") : "") ?? path,
+      ...(runId ? { runId } : {}),
+    };
   }
-  const path = parseProtectedPathFromStopMessage(entry.summary);
-  if (!path) {
-    return null;
-  }
-  return {
-    path,
-    reason: entry.summary,
-    ...(runId ? { runId } : {}),
-  };
+
+  return null;
 }
 
 export function buildPendingProtectedPathApprovalRequest(input: {
@@ -80,13 +164,27 @@ export function describeProtectedPathApprovalReason(input: {
   operation?: "create" | "modify";
   contractGoal?: string;
 }): string {
+  const normalizedPath = input.path.replace(/\\/g, "/");
   const operation =
     input.operation ??
     (input.contractGoal ? inferProtectedPathOperation(input.path, input.contractGoal) : "modify");
-  if (operation === "create") {
-    return `BuildLoop needs to create this protected file (${input.path}) to establish the approved task baseline.`;
+
+  if (
+    normalizedPath === "package.json" &&
+    input.contractGoal &&
+    /\b(initializ|bootstrap|scaffold|foundation|baseline|next\.?js|frontend)\b/i.test(input.contractGoal)
+  ) {
+    return "The approved Next.js frontend bootstrap requires creating or modifying this protected dependency manifest.";
   }
-  return `BuildLoop needs to modify this protected file (${input.path}) to complete the approved task scope.`;
+
+  if (normalizedPath === "bun.lock" && operation === "create") {
+    return "The approved frontend bootstrap may require creating this protected lockfile after package manifest approval.";
+  }
+
+  if (operation === "create") {
+    return `BuildLoop needs to create this protected file (${normalizedPath}) to establish the approved task baseline.`;
+  }
+  return `BuildLoop needs to modify this protected file (${normalizedPath}) to complete the approved task scope.`;
 }
 
 export function isPendingProtectedPathApproval(task: {
@@ -122,6 +220,26 @@ export function canRespondToProtectedPathApproval(task: {
     return false;
   }
   return isPendingProtectedPathApproval(task);
+}
+
+export function isProtectedPathApprovalStop(task: TaskRecord): boolean {
+  if (task.runnerState?.rejected) {
+    return false;
+  }
+  if (isPendingProtectedPathApproval(task)) {
+    return true;
+  }
+  if (task.status !== "AWAITING_APPROVAL") {
+    return false;
+  }
+  if ((task.runnerState?.filesChanged ?? 0) > 0) {
+    return false;
+  }
+  return Boolean(findProtectedPathApprovalEvidence(task.runnerState?.evidence, task.runnerState?.runId));
+}
+
+export function shouldPreferProtectedPathApprovalSurface(task: TaskRecord): boolean {
+  return isPendingProtectedPathApproval(task) || isProtectedPathApprovalStop(task);
 }
 
 export type ProtectedPathApprovalActionResult = {
@@ -217,7 +335,7 @@ export function applyProtectedPathApprovalAction(input: {
 
 export function mergeProtectedPathApprovalRunState(input: {
   runnerState: RunnerState;
-  evidence: Array<{ name?: string; summary?: string; details?: string }>;
+  evidence: Array<PersistedEvidenceItem & { details?: string }>;
   runId?: string | null;
   contractGoal: string;
   preserveExistingPending?: boolean;
@@ -255,6 +373,87 @@ export function mergeProtectedPathApprovalRunState(input: {
     ...(input.runId ? { runId: input.runId } : {}),
     operation: inferProtectedPathOperation(stopEvidence.path, input.contractGoal),
   });
-  next.note = stopEvidence.reason;
+  next.note =
+    "Worker paused before protected-path write pending human approval. No protected files were changed.";
   return next;
+}
+
+export function finalizeRunnerStateAfterOrchestration(input: {
+  baseRunner: RunnerState;
+  verdict: string | null;
+  evidence: Array<{
+    category: string;
+    name: string;
+    status: string;
+    summary: string;
+    attemptNumber?: number;
+    details?: string;
+  }>;
+  contractGoal: string;
+  blockedPreflightNote?: string;
+}): RunnerState {
+  const evidenceSummary = summarizeEvidenceForTaskPersistence(input.evidence);
+  const protectedPathStop = Boolean(findProtectedPathApprovalEvidence(input.evidence, input.baseRunner.runId));
+
+  const seededRunner: RunnerState =
+    input.verdict === "BLOCKED" && !protectedPathStop
+      ? {
+          ...zeroChangeRunnerState(
+            input.blockedPreflightNote ??
+              "Runner tidak dipanggil karena task dihentikan oleh pre-flight check.",
+          ),
+          ...(input.baseRunner.runId ? { runId: input.baseRunner.runId } : {}),
+          evidence: evidenceSummary,
+        }
+      : {
+          ...input.baseRunner,
+          evidence: evidenceSummary,
+        };
+
+  return mergeProtectedPathApprovalRunState({
+    runnerState: seededRunner,
+    evidence: evidenceSummary,
+    ...(input.baseRunner.runId ? { runId: input.baseRunner.runId } : {}),
+    contractGoal: input.contractGoal,
+    preserveExistingPending: false,
+  });
+}
+
+export function hydrateTaskProtectedPathApproval(task: TaskRecord): TaskRecord {
+  if (!task.runnerState || task.runnerState.rejected) {
+    return task;
+  }
+  if (isPendingProtectedPathApproval(task)) {
+    return task;
+  }
+  if (!isProtectedPathApprovalStop(task)) {
+    return task;
+  }
+
+  const merged = mergeProtectedPathApprovalRunState({
+    runnerState: task.runnerState,
+    evidence: task.runnerState.evidence ?? [],
+    ...(task.runnerState.runId ? { runId: task.runnerState.runId } : {}),
+    contractGoal: task.goal,
+    preserveExistingPending: true,
+  });
+
+  if (!isPendingProtectedPathApproval({ runnerState: merged, status: task.status })) {
+    return task;
+  }
+
+  return {
+    ...task,
+    runnerState: merged,
+  };
+}
+
+export function resolveApprovalSurface(task: TaskRecord): "protected_path" | "commit" | "not_ready" {
+  if (shouldPreferProtectedPathApprovalSurface(task)) {
+    return "protected_path";
+  }
+  if (task.status === "AWAITING_APPROVAL" || task.status === "PASS") {
+    return "commit";
+  }
+  return "not_ready";
 }

@@ -7,6 +7,7 @@ import type { RunnerState, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import { sanitizeTaskRecordForClient, resolveAuthorizedDeliveryHandoff, DeliveryArtifactAccessError, type AuthorizedDeliveryHandoff } from "@/lib/delivery-artifact-gate";
+import { hydrateTaskProtectedPathApproval } from "@/lib/protected-path-approval-flow";
 import { buildPlanningInputForTask, type PlanningDeps } from "@/lib/planning/build-planning-input";
 import { planAndEvaluateTask } from "@/lib/task-planning";
 import { DEV_AUTH_BYPASS_USER_ID } from "@/lib/dev-auth-bypass";
@@ -100,7 +101,7 @@ function toRawRecord(task: DevTaskStore["tasks"][number]): TaskRecord {
 }
 
 function toRecord(task: DevTaskStore["tasks"][number]): TaskRecord {
-  return sanitizeTaskRecordForClient(toRawRecord(task));
+  return hydrateTaskProtectedPathApproval(sanitizeTaskRecordForClient(toRawRecord(task)));
 }
 
 export type DevTaskRepository = ReturnType<typeof createDevTaskRepository>;

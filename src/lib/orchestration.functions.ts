@@ -18,7 +18,9 @@ import {
   captureContractInputs,
 } from "@/lib/task-rerun";
 import { extractApprovedProtectedPaths } from "@/lib/protected-path-approval";
-import { mergeProtectedPathApprovalRunState } from "@/lib/protected-path-approval-flow";
+import {
+  finalizeRunnerStateAfterOrchestration,
+} from "@/lib/protected-path-approval-flow";
 import type { RunStatus } from "@/orchestrator/types";
 import {
   buildActiveRunRunnerState,
@@ -246,16 +248,18 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       ...(result.changeArtifact ? { changeArtifact: result.changeArtifact } : {}),
       ...(result.deliveryHandoff ? { deliveryHandoff: result.deliveryHandoff } : {}),
     };
-    const runnerState =
-      result.run.verdict === "BLOCKED"
-        ? zeroChangeRunnerState("Runner tidak dipanggil karena task dihentikan oleh pre-flight check.")
-        : mergeProtectedPathApprovalRunState({
-            runnerState: baseRunner,
-            evidence: summarizeEvidence(result.evidence),
-            runId: result.run.id,
-            contractGoal: workingTask.goal,
-            preserveExistingPending: false,
-          });
+    const runnerState = finalizeRunnerStateAfterOrchestration({
+      baseRunner,
+      verdict: result.run.verdict,
+      evidence: result.evidence,
+      contractGoal: workingTask.goal,
+      ...(result.run.verdict === "BLOCKED"
+        ? {
+            blockedPreflightNote:
+              "Runner tidak dipanggil karena task dihentikan oleh pre-flight check.",
+          }
+        : {}),
+    });
 
     const updated = await context.tasks.updateAfterRun({
       id: data.id,

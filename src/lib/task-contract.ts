@@ -180,6 +180,7 @@ export type RunnerState = {
     status: string;
     summary: string;
     attemptNumber?: number;
+    details?: string;
   }>;
   decisionLog?: Array<{
     rule: string;

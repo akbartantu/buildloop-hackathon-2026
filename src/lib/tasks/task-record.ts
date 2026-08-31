@@ -2,6 +2,7 @@ import type { TaskContract, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import { sanitizeTaskRecordForClient } from "@/lib/delivery-artifact-gate";
+import { hydrateTaskProtectedPathApproval } from "@/lib/protected-path-approval-flow";
 
 export type TaskRowShape = {
   id: string;
@@ -36,5 +37,5 @@ export function fromTaskRow(row: TaskRowShape): TaskRecord {
 }
 
 export function toTaskRecord(row: TaskRowShape): TaskRecord {
-  return sanitizeTaskRecordForClient(fromTaskRow(row));
+  return hydrateTaskProtectedPathApproval(sanitizeTaskRecordForClient(fromTaskRow(row)));
 }

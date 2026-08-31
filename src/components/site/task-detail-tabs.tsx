@@ -84,7 +84,7 @@ import {
   ProtectedPathApprovalOutcome,
   ProtectedPathApprovalPanel,
 } from "@/components/site/protected-path-approval-panel";
-import { isPendingProtectedPathApproval } from "@/lib/protected-path-approval-flow";
+import { shouldPreferProtectedPathApprovalSurface } from "@/lib/protected-path-approval-flow";
 import { canRerunFailedTask, formatRunHistoryLabel, listTaskRunHistory } from "@/lib/task-rerun";
 import { buildRunHistoryTimingViewModel } from "@/lib/run-timing-presentation";
 import { isOrchestrationEligible } from "@/lib/task-lifecycle-ops";
@@ -1211,7 +1211,7 @@ function ApprovalView({
     return "NEEDS HUMAN REVIEW";
   }
 
-  if (isPendingProtectedPathApproval(task)) {
+  if (shouldPreferProtectedPathApprovalSurface(task)) {
     return (
       <>
         <DemoPageHeader

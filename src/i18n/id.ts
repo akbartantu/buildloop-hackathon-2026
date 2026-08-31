@@ -1026,6 +1026,7 @@ export const id = {
         reasonLabel: "Alasan BuildLoop berhenti",
         boundedNote:
           "Menyetujui permintaan ini hanya mengizinkan perubahan protected path ini. Protected path lain tetap diblokir.",
+        scopedApproval: "Approval ini hanya berlaku untuk {path}.",
         approve: "Setujui perubahan protected path",
         reject: "Tolak",
         rejecting: "Menolak…",
@@ -1235,7 +1236,11 @@ export const id = {
     orchestrationStep: {
       planning: { label: "Planning", detail: "Planner memecah goal menjadi contract" },
       preflight: { label: "Preflight", detail: "Policy engine mengevaluasi contract" },
-      worker: { label: "Worker", detail: "Worker implementasi menerapkan patch" },
+      worker: {
+        label: "Worker",
+        detail: "Worker implementasi menerapkan patch",
+        detailProtectedPathPause: "Dihentikan sebelum menulis protected path — menunggu approval Anda",
+      },
       checker: { label: "Checker", detail: "Checker fungsional memverifikasi secara independen" },
       security: { label: "Security Review", detail: "Security reviewer saat dipicu" },
       correction: { label: "Correction", detail: "Loop koreksi terbatas (maks 2)" },
@@ -1273,6 +1278,9 @@ export const id = {
       overviewRecommendApprove: "Rekomendasi BuildLoop: Approve commit",
       overviewFixFirst: "Belum disarankan untuk di-approve",
       overviewHumanReview: "Perlu review manusia",
+      overviewProtectedPathPending: "Approval protected path diperlukan sebelum BuildLoop dapat melanjutkan",
+      descProtectedPathPending:
+        "Worker berhenti sebelum mengubah protected path. Tidak ada file protected yang diubah.",
       labelCommitApproved: "Commit telah disetujui",
       labelHumanReview: "Perlu review manusia",
       labelFixFirst: "Belum disarankan untuk di-approve",

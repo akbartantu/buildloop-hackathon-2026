@@ -4,8 +4,8 @@ import { translate, type Locale } from "@/i18n";
 import type { TranslationKey } from "@/i18n/en";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import {
-  isPendingProtectedPathApproval,
   pendingProtectedPathApprovalPaths,
+  shouldPreferProtectedPathApprovalSurface,
 } from "@/lib/protected-path-approval-flow";
 
 type ProtectedPathApprovalPanelProps = {
@@ -30,7 +30,7 @@ export function ProtectedPathApprovalPanel({
   const pending = task.runnerState?.pendingProtectedPathApproval;
   const paths = pendingProtectedPathApprovalPaths(task);
 
-  if (!isPendingProtectedPathApproval(task) || !pending) {
+  if (!shouldPreferProtectedPathApprovalSurface(task) || !pending) {
     return null;
   }
 
@@ -42,8 +42,11 @@ export function ProtectedPathApprovalPanel({
           <DemoSectionLabel>{t("taskDetail.approval.protectedPath.pathLabel")}</DemoSectionLabel>
           <ul className="mt-2 space-y-1">
             {paths.map((path) => (
-              <li key={path} className="font-mono text-sm text-foreground">
-                {path}
+              <li key={path} className="space-y-1">
+                <span className="font-mono text-sm text-foreground">{path}</span>
+                <p className="text-xs text-muted-foreground">
+                  {t("taskDetail.approval.protectedPath.scopedApproval", { path })}
+                </p>
               </li>
             ))}
           </ul>

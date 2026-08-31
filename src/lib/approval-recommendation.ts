@@ -7,6 +7,7 @@ import {
   formatBlockedReasonExplanationList,
   formatPrimaryBlockedExplanation,
 } from "@/lib/blocked-reason-presentation";
+import { isPendingProtectedPathApproval, isProtectedPathApprovalStop } from "@/lib/protected-path-approval-flow";
 
 export type TaskLifecycleCore = Omit<TaskLifecycleViewModel, "approval" | "progress" | "evidenceSummary">;
 
@@ -230,6 +231,21 @@ export function deriveApprovalRecommendation(
     lifecycle.delivery.commit === "APPROVED" && !runner?.commit
       ? translate(locale, "lifecycle.approvalRecommendation.commitAutomationNote")
       : null;
+
+  if (isPendingProtectedPathApproval(task) || isProtectedPathApprovalStop(task)) {
+    return {
+      kind: "HUMAN_REVIEW_REQUIRED",
+      label: translate(locale, "taskDetail.approval.protectedPath.title"),
+      description: translate(locale, "lifecycle.approvalRecommendation.descProtectedPathPending"),
+      reasonBullets: [],
+      unresolvedIssues: [],
+      historicalCorrection,
+      finalChecksSummary,
+      overviewSummary: translate(locale, "lifecycle.approvalRecommendation.overviewProtectedPathPending"),
+      canRecommendApprove: false,
+      commitAutomationNote: null,
+    };
+  }
 
   if (runner?.commitApproved) {
     return {

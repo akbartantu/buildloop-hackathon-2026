@@ -1021,6 +1021,7 @@ export const en = {
         reasonLabel: "Why BuildLoop stopped",
         boundedNote:
           "Approving this request permits this protected-path change only. Other protected paths remain blocked.",
+        scopedApproval: "This approval applies only to {path}.",
         approve: "Approve protected-path change",
         reject: "Reject",
         rejecting: "Rejecting…",
@@ -1229,7 +1230,11 @@ export const en = {
     orchestrationStep: {
       planning: { label: "Planning", detail: "Planner decomposes goal into contracts" },
       preflight: { label: "Preflight", detail: "Policy engine evaluates contract" },
-      worker: { label: "Worker", detail: "Implementation worker applies patch" },
+      worker: {
+        label: "Worker",
+        detail: "Implementation worker applies patch",
+        detailProtectedPathPause: "Paused before protected-path write — awaiting your approval",
+      },
       checker: { label: "Checker", detail: "Functional checker verifies independently" },
       security: { label: "Security Review", detail: "Security reviewer when triggered" },
       correction: { label: "Correction", detail: "Bounded correction loop (max 2)" },
@@ -1267,6 +1272,9 @@ export const en = {
       overviewRecommendApprove: "BuildLoop recommendation: Approve commit",
       overviewFixFirst: "Not recommended for approval yet",
       overviewHumanReview: "Human review required",
+      overviewProtectedPathPending: "Protected path approval required before BuildLoop can continue",
+      descProtectedPathPending:
+        "The worker stopped before modifying a protected path. No protected files were changed.",
       labelCommitApproved: "Commit approved",
       labelHumanReview: "Human review required",
       labelFixFirst: "Not recommended for approval yet",

@@ -5,6 +5,7 @@ import type { TranslationKey } from "@/i18n/en";
 import { countPassedChecks, contractSections } from "@/lib/task-display";
 import { analyzeChecks, buildTaskLifecycleViewModel, taskHasRun } from "@/lib/task-lifecycle";
 import { isActiveRun, isOrchestrated } from "@/lib/contract-handoff";
+import { getContractVersion } from "@/lib/task-lifecycle-ops";
 
 export type JourneyStepState = "complete" | "current" | "upcoming" | "blocked";
 
@@ -61,17 +62,21 @@ export function friendlyStatusLabel(status: TaskStatus, locale: Locale = DEFAULT
   return FRIENDLY_STATUS_EN[status] ?? status.replaceAll("_", " ");
 }
 
-export function contractVersionLabel(task: TaskRecord): string {
-  return task.lockedAt ? "v1 · Locked" : "v1 · Draft";
+export function contractVersionLabel(task: TaskRecord, locale: Locale = DEFAULT_LOCALE): string {
+  const version = getContractVersion(task.contract);
+  if (task.lockedAt) {
+    return locale === "id" ? `v${version} · Terkunci` : `v${version} · Locked`;
+  }
+  return locale === "id" ? `v${version} · Draft` : `v${version} · Draft`;
 }
 
-export function getJourneySteps(status: TaskStatus): JourneyStep[] {
+export function getJourneySteps(status: TaskStatus, locale: Locale = DEFAULT_LOCALE): JourneyStep[] {
   const steps: JourneyStep[] = [
-    { key: "contract", label: "Contract", state: "upcoming" },
-    { key: "preflight", label: "Preflight", state: "upcoming" },
-    { key: "orchestration", label: "Orchestration", state: "upcoming" },
-    { key: "check", label: "Check", state: "upcoming" },
-    { key: "approval", label: "Approval", state: "upcoming" },
+    { key: "contract", label: translate(locale, "overview.journey.contract"), state: "upcoming" },
+    { key: "preflight", label: translate(locale, "overview.journey.preflight"), state: "upcoming" },
+    { key: "orchestration", label: translate(locale, "overview.journey.orchestration"), state: "upcoming" },
+    { key: "check", label: translate(locale, "overview.journey.check"), state: "upcoming" },
+    { key: "approval", label: translate(locale, "overview.journey.approval"), state: "upcoming" },
   ];
 
   const setUpTo = (index: number, state: JourneyStepState = "complete") => {
@@ -141,31 +146,17 @@ export function getJourneySteps(status: TaskStatus): JourneyStep[] {
   return steps;
 }
 
-export function getJourneyDescription(status: TaskStatus): string {
-  const descriptions: Partial<Record<TaskStatus, string>> = {
-    DRAFT: "Lengkapi goal dan tinjau contract sebelum eksekusi.",
-    CONTRACT_READY: "Contract siap ditinjau. Setujui untuk mengunci batas kerja.",
-    APPROVED_FOR_EXECUTION:
-      "Contract sudah disetujui. BuildLoop siap menjalankan worker sesuai batas kerja.",
-    INSPECTING: "Preflight memeriksa policy dan batas contract.",
-    RUNNING: "Worker menerapkan perubahan dalam scope yang disetujui.",
-    CHECKING: "Checker independen memverifikasi hasil worker.",
-    NEEDS_CORRECTION: "Orchestrator menyiapkan koreksi terbatas.",
-    PASS: "Verdict PASS — tinjau evidence sebelum tindakan sensitif.",
-    AWAITING_APPROVAL:
-      "Pekerjaan otonom selesai. Commit, push, merge, dan deploy membutuhkan approval Anda.",
-    CLOSED:
-      "Eksekusi task selesai. Delivery actions (commit/push/deploy) terpisah dari lifecycle eksekusi.",
-    FAILED: "Checker gagal setelah batas koreksi — tinjau evidence.",
-    BLOCKED: "BuildLoop berhenti karena guardrail — worker tidak dijalankan.",
-  };
-  return descriptions[status] ?? "Lanjutkan alur task.";
+export function getJourneyDescription(status: TaskStatus, locale: Locale = DEFAULT_LOCALE): string {
+  const key = `overview.journeyDescription.${status}` as TranslationKey;
+  const translated = translate(locale, key);
+  if (translated !== key) return translated;
+  return translate(locale, "overview.journeyDescription.default");
 }
 
-export function buildActivityEvents(task: TaskRecord): ActivityEvent[] {
+export function buildActivityEvents(task: TaskRecord, locale: Locale = DEFAULT_LOCALE): ActivityEvent[] {
   const events: ActivityEvent[] = [
     {
-      label: "Task dibuat",
+      label: translate(locale, "overview.activity.taskCreated"),
       timestamp: task.createdAt,
       tone: "neutral",
     },
@@ -173,7 +164,7 @@ export function buildActivityEvents(task: TaskRecord): ActivityEvent[] {
 
   if (task.status !== "DRAFT" && task.status !== "BLOCKED") {
     events.push({
-      label: "Contract dibuat",
+      label: translate(locale, "overview.activity.contractCreated"),
       timestamp: task.createdAt,
       tone: "neutral",
     });
@@ -181,7 +172,7 @@ export function buildActivityEvents(task: TaskRecord): ActivityEvent[] {
 
   if (task.lockedAt) {
     events.push({
-      label: "Contract disetujui",
+      label: translate(locale, "overview.activity.contractApproved"),
       timestamp: task.lockedAt,
       tone: "pass",
     });
@@ -202,9 +193,10 @@ export function buildActivityEvents(task: TaskRecord): ActivityEvent[] {
   }
 
   if (log.length === 0) {
-    if (statusToActivityLabel(task.status)) {
+    const activityLabel = statusToActivityLabel(task.status, locale);
+    if (activityLabel) {
       events.push({
-        label: statusToActivityLabel(task.status)!,
+        label: activityLabel,
         timestamp: task.updatedAt,
         tone: task.status === "BLOCKED" ? "blocked" : isActiveRun(task.status) ? "review" : "neutral",
       });
@@ -213,7 +205,7 @@ export function buildActivityEvents(task: TaskRecord): ActivityEvent[] {
 
   if (task.status === "AWAITING_APPROVAL" || task.status === "PASS") {
     events.push({
-      label: "Menunggu approval manusia",
+      label: translate(locale, "overview.activity.awaitingHumanApproval"),
       timestamp: task.updatedAt,
       tone: "review",
     });
@@ -222,29 +214,30 @@ export function buildActivityEvents(task: TaskRecord): ActivityEvent[] {
   return events.slice(-5);
 }
 
-function statusToActivityLabel(status: TaskStatus): string | null {
-  const labels: Partial<Record<TaskStatus, string>> = {
-    APPROVED_FOR_EXECUTION: "Siap menjalankan orchestrator",
-    INSPECTING: "Preflight dimulai",
-    RUNNING: "Worker dimulai",
-    CHECKING: "Checker memverifikasi",
-    NEEDS_CORRECTION: "Koreksi terbatas dimulai",
-    PASS: "Verdict PASS",
-    FAILED: "Verdict FAILED",
-    BLOCKED: "Preflight BLOCKED",
-    AWAITING_APPROVAL: "Verdict PASS — approval gate",
+function statusToActivityLabel(status: TaskStatus, locale: Locale): string | null {
+  const map: Partial<Record<TaskStatus, TranslationKey>> = {
+    APPROVED_FOR_EXECUTION: "overview.activity.readyToRun",
+    INSPECTING: "overview.activity.preflightStarted",
+    RUNNING: "overview.activity.workerStarted",
+    CHECKING: "overview.activity.checkerVerifying",
+    NEEDS_CORRECTION: "overview.activity.limitedCorrectionStarted",
+    PASS: "overview.activity.passVerdict",
+    FAILED: "overview.activity.failedVerdict",
+    BLOCKED: "overview.activity.preflightBlocked",
+    AWAITING_APPROVAL: "overview.activity.passApprovalGate",
   };
-  return labels[status] ?? null;
+  const key = map[status];
+  return key ? translate(locale, key) : null;
 }
 
-export function getAttentionState(task: TaskRecord): AttentionState {
+export function getAttentionState(task: TaskRecord, locale: Locale = DEFAULT_LOCALE): AttentionState {
   if (task.status === "BLOCKED") {
     return {
-      title: "Perlu perhatian",
+      title: translate(locale, "overview.attention.needsAttention"),
       description:
         task.blockedReasons[0]?.explanation ??
-        "BuildLoop berhenti karena tindakan menyentuh protected boundary.",
-      ctaLabel: "Tinjau block",
+        translate(locale, "taskDetail.evidence.blockedFallback"),
+      ctaLabel: translate(locale, "overview.attention.reviewBlock"),
       ctaTab: "evidence",
     };
   }
@@ -252,19 +245,22 @@ export function getAttentionState(task: TaskRecord): AttentionState {
   if (task.status === "AWAITING_APPROVAL") {
     const lifecycle = buildTaskLifecycleViewModel(task);
     return {
-      title: lifecycle.approval.canRecommendApprove ? "Siap untuk approval" : "Perlu tinjauan approval",
+      title: lifecycle.approval.canRecommendApprove
+        ? translate(locale, "overview.attention.readyForApproval")
+        : translate(locale, "overview.attention.needsApprovalReview"),
       description: lifecycle.approval.description,
-      ctaLabel: lifecycle.approval.canRecommendApprove ? "Setujui commit" : "Tinjau approval",
+      ctaLabel: lifecycle.approval.canRecommendApprove
+        ? translate(locale, "overview.attention.approveCommit")
+        : translate(locale, "overview.attention.reviewApproval"),
       ctaTab: "approval",
     };
   }
 
   if (task.status === "FAILED") {
     return {
-      title: "Perlu tinjauan",
-      description:
-        "Orchestrator selesai dengan FAILED setelah batas koreksi. Tinjau evidence sebelum memutuskan langkah berikutnya.",
-      ctaLabel: "Lihat hasil",
+      title: translate(locale, "overview.attention.needsReview"),
+      description: translate(locale, "overview.attention.failedDescription"),
+      ctaLabel: translate(locale, "overview.attention.viewResults"),
       ctaTab: "evidence",
     };
   }

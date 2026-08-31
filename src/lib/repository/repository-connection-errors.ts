@@ -16,6 +16,9 @@ export const REPOSITORY_INSPECTION_FAILED_MESSAGE =
 export const PROJECT_PERSISTENCE_FAILED_MESSAGE =
   "Project persistence failed. The repository was cloned but could not be saved.";
 
+export const DIFFERENT_REPOSITORY_REQUIRES_NEW_WORKSPACE_MESSAGE =
+  "This workspace is bound to a different repository. Create a new workspace to connect another repository.";
+
 export const UNEXPECTED_REPOSITORY_ERROR_MESSAGE =
   "An unexpected server error occurred while connecting the repository.";
 
@@ -26,6 +29,7 @@ export type RepositoryConnectionFailureCategory =
   | "clone_failed"
   | "inspection_failed"
   | "persistence_failed"
+  | "different_repository_requires_new_workspace"
   | "unexpected";
 
 export type RepositoryProbeDiagnostics = {
@@ -69,6 +73,8 @@ export function repositoryConnectionMessage(category: RepositoryConnectionFailur
       return REPOSITORY_INSPECTION_FAILED_MESSAGE;
     case "persistence_failed":
       return PROJECT_PERSISTENCE_FAILED_MESSAGE;
+    case "different_repository_requires_new_workspace":
+      return DIFFERENT_REPOSITORY_REQUIRES_NEW_WORKSPACE_MESSAGE;
     case "unexpected":
       return UNEXPECTED_REPOSITORY_ERROR_MESSAGE;
   }

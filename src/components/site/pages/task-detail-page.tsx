@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { DemoPageHeader, DemoPanel } from "@/components/site/demo-ui";
 import { TaskDetailTabs } from "@/components/site/task-detail-tabs";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
+import { useI18n } from "@/i18n/context";
 import type { DemoTab } from "@/lib/task-display";
 
 type TaskDetailPageProps = {
@@ -12,23 +13,29 @@ type TaskDetailPageProps = {
 
 export function TaskDetailPage({ taskId, initialTab }: TaskDetailPageProps) {
   const navigate = useNavigate();
-  const { tasks, isLoading, lockMutation, runMutation, humanApprovalMutation } = useWorkspaceTasks();
+  const { t } = useI18n();
+  const {
+    tasks,
+    isLoading,
+    lockMutation,
+    runMutation,
+    humanApprovalMutation,
+    refreshContractMutation,
+    reviseTaskMutation,
+  } = useWorkspaceTasks();
   const task = tasks.find((entry) => entry.id === taskId) ?? null;
 
   if (isLoading) {
-    return <p className="text-sm text-muted-foreground">Memuat task…</p>;
+    return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
   }
 
   if (!task) {
     return (
       <div className="space-y-6">
-        <DemoPageHeader
-          title="Task tidak ditemukan"
-          description="Task mungkin dihapus atau ID tidak valid."
-        />
+        <DemoPageHeader title={t("tasks.notFound")} description={t("tasks.notFound")} />
         <DemoPanel>
           <Button asChild>
-            <Link to="/app/tasks">Kembali ke tasks</Link>
+            <Link to="/app/tasks">{t("taskDetail.backToTasks")}</Link>
           </Button>
         </DemoPanel>
       </div>
@@ -36,8 +43,20 @@ export function TaskDetailPage({ taskId, initialTab }: TaskDetailPageProps) {
   }
 
   const mutationError =
-    (lockMutation.error ?? runMutation.error ?? humanApprovalMutation.error) instanceof Error
-      ? (lockMutation.error ?? runMutation.error ?? humanApprovalMutation.error)?.message ?? null
+    (
+      lockMutation.error ??
+      runMutation.error ??
+      humanApprovalMutation.error ??
+      refreshContractMutation.error ??
+      reviseTaskMutation.error
+    ) instanceof Error
+      ? (
+          lockMutation.error ??
+          runMutation.error ??
+          humanApprovalMutation.error ??
+          refreshContractMutation.error ??
+          reviseTaskMutation.error
+        )?.message ?? null
       : null;
 
   return (
@@ -47,10 +66,14 @@ export function TaskDetailPage({ taskId, initialTab }: TaskDetailPageProps) {
       approving={lockMutation.isPending}
       running={runMutation.isPending}
       submittingHumanApproval={humanApprovalMutation.isPending}
+      refreshing={refreshContractMutation.isPending}
+      revising={reviseTaskMutation.isPending}
       error={mutationError}
       onApprove={() => lockMutation.mutate(task.id)}
       onRun={() => runMutation.mutate(task.id)}
       onSubmitHumanApproval={(input) => humanApprovalMutation.mutate({ id: task.id, ...input })}
+      onRefreshContract={() => refreshContractMutation.mutate(task.id)}
+      onReviseTask={() => reviseTaskMutation.mutate({ id: task.id })}
       onEdit={() => {
         navigate({
           to: "/app/tasks/new",

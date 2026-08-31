@@ -42,6 +42,12 @@ import {
   taskVersion,
   type DemoTab,
 } from "@/lib/task-display";
+import { useProjects } from "@/hooks/use-projects";
+import {
+  canReviseTask,
+  detectSourceCommitDrift,
+  taskHasExecuted,
+} from "@/lib/task-lifecycle-ops";
 import type { TaskRecord } from "@/lib/tasks-schema";
 import type { HumanGateDecision } from "@/lib/human-approval";
 import {
@@ -59,6 +65,7 @@ import {
 import { isApprovalGateOpen, isOrchestrationInProgress } from "@/lib/evidence-analysis";
 import { cn } from "@/lib/utils";
 import { TaskOverviewView } from "@/components/site/task-overview-view";
+import { formatPlanningSourceLabel } from "@/lib/planning/planning-source";
 import { friendlyStatusLabel } from "@/lib/task-overview";
 import { useI18n } from "@/i18n/context";
 import type { TranslationKey } from "@/i18n/en";
@@ -77,6 +84,10 @@ type TaskDetailTabsProps = {
   onSubmitHumanApproval: (input: { decision: HumanGateDecision; note?: string }) => void;
   onEdit: () => void;
   onBack: () => void;
+  onRefreshContract?: () => void;
+  onReviseTask?: () => void;
+  refreshing?: boolean;
+  revising?: boolean;
 };
 
 const TAB_VALUES: DemoTab[] = ["overview", "contract", "orchestration", "evidence", "approval"];
@@ -101,12 +112,19 @@ export function TaskDetailTabs({
   onSubmitHumanApproval,
   onEdit,
   onBack,
+  onRefreshContract,
+  onReviseTask,
+  refreshing = false,
+  revising = false,
 }: TaskDetailTabsProps) {
   const { t, locale } = useI18n();
+  const { source } = useProjects();
   const [tab, setTab] = useState<DemoTab>(() => initialTab ?? suggestedTab(task.status));
   const blocked = task.status === "BLOCKED";
   const locked = task.status === "APPROVED_FOR_EXECUTION" || Boolean(task.lockedAt);
   const canRun = task.status === "APPROVED_FOR_EXECUTION";
+  const sourceCommitDrift = detectSourceCommitDrift(task, source?.commitSha);
+  const showRevise = canReviseTask(task) && !taskHasExecuted(task);
   const lifecycle = buildTaskLifecycleViewModel(task);
   const taskRef = formatTaskRef(task.id);
 
@@ -132,6 +150,35 @@ export function TaskDetailTabs({
 
   return (
     <div className="space-y-6">
+      {sourceCommitDrift ? (
+        <div className="space-y-3">
+          <DemoStatusBanner
+            status="BLOCKED"
+            title={t("tasks.sourceCommitDrift")}
+            description={t("tasks.sourceCommitDriftHelp")}
+          />
+          {onRefreshContract ? (
+            <Button size="sm" onClick={onRefreshContract} disabled={refreshing}>
+              {refreshing ? t("common.saving") : t("tasks.refreshContract")}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {showRevise && onReviseTask ? (
+        <DemoPanel title={t("tasks.reviseTask")}>
+          <p className="text-sm text-muted-foreground">{t("tasks.lockedImmutable")}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="outline" size="sm" onClick={onReviseTask} disabled={revising}>
+              {revising ? t("common.saving") : t("tasks.reviseTask")}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={onEdit}>
+              {t("tasks.duplicateAsNew")}
+            </Button>
+          </div>
+        </DemoPanel>
+      ) : null}
+
       <Tabs value={tab} onValueChange={(value) => setTab(value as DemoTab)}>
         <TabsList className="h-auto w-full justify-start gap-0 rounded-none border-b border-border bg-transparent p-0">
           {TAB_VALUES.map((value, index) => {
@@ -312,6 +359,27 @@ function ContractReview({
               <DemoSectionLabel>{t("taskDetail.contract.limits")}</DemoSectionLabel>
               <DemoBulletList items={sections.limits} />
             </div>
+            {sections.sourcesUsed.length > 0 ? (
+              <div>
+                <DemoSectionLabel>{t("tasks.sourcesUsed")}</DemoSectionLabel>
+                <DemoBulletList
+                  items={sections.sourcesUsed.map((sourceItem) =>
+                    formatPlanningSourceLabel(sourceItem),
+                  )}
+                />
+              </div>
+            ) : null}
+            {sections.clarification?.question ? (
+              <div>
+                <DemoSectionLabel>{t("tasks.clarificationNeeded")}</DemoSectionLabel>
+                <p className="mt-2 text-sm text-foreground">{sections.clarification.question}</p>
+                {sections.clarification.answer ? (
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    {sections.clarification.answer}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -798,7 +866,7 @@ function EvidenceView({
 
         {runner?.evidence?.length ? (
           <div className="mt-4 border-t border-border pt-4">
-            <DemoSectionLabel>Riwayat checker (teknis)</DemoSectionLabel>
+            <DemoSectionLabel>{t("taskDetail.evidence.checkHistory")}</DemoSectionLabel>
             <ul className="mt-3 space-y-3">
               {runner.evidence.map((item) => (
                 <li key={`${item.category}-${item.name}`} className="border-l-2 border-border pl-3">
@@ -920,7 +988,7 @@ function ApprovalView({
     return (
       <>
         <DemoPageHeader
-          title="Keputusan approval"
+          title={t("taskDetail.approval.title")}
           meta={`${taskRef} · ${friendlyStatusLabel(task.status)}`}
         />
         <DemoStatusBanner
@@ -1020,10 +1088,10 @@ function ApprovalView({
       ) : null}
 
       {recommendation.historicalCorrection ? (
-        <DemoPanel title="Koreksi otomatis">
+        <DemoPanel title={t("taskDetail.approval.autoCorrection")}>
           <p className="text-sm text-foreground">{recommendation.historicalCorrection.summary}</p>
           <div className="mt-4">
-            <DemoCollapsible title="Lihat detail koreksi">
+            <DemoCollapsible title={t("taskDetail.orchestration.technicalActivity")}>
               <DemoBulletList
                 items={recommendation.historicalCorrection.timeline.map(
                   (entry) => `${entry.phase}: ${entry.detail}`,

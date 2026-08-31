@@ -4,7 +4,7 @@ import type { Database } from "@/integrations/supabase/types";
 import { toProjectRecord, type ProjectRecord, type ProjectRowShape } from "./project-record";
 
 const SELECT_COLUMNS =
-  "id, name, source_type, repository_url, repository_owner, repository_name, default_branch, connected_commit_sha, created_at, updated_at";
+  "id, name, source_type, repository_url, repository_owner, repository_name, default_branch, connected_commit_sha, disconnected_at, created_at, updated_at";
 
 export type SupabaseProjectRepository = ReturnType<typeof createSupabaseProjectRepository>;
 
@@ -38,6 +38,7 @@ export function createSupabaseProjectRepository(supabase: SupabaseClient<Databas
             name: input.name,
             default_branch: input.defaultBranch,
             connected_commit_sha: input.connectedCommitSha,
+            disconnected_at: null,
           })
           .eq("id", existing.id)
           .eq("user_id", input.userId)
@@ -63,6 +64,7 @@ export function createSupabaseProjectRepository(supabase: SupabaseClient<Databas
           repository_name: input.repositoryName,
           default_branch: input.defaultBranch,
           connected_commit_sha: input.connectedCommitSha,
+          disconnected_at: null,
         })
         .select(SELECT_COLUMNS)
         .single();
@@ -70,6 +72,55 @@ export function createSupabaseProjectRepository(supabase: SupabaseClient<Databas
       if (error || !row) {
         console.error("upsertPublicGitHubProject insert failed", error?.code);
         throw new Error("Project gagal disimpan.");
+      }
+
+      return toProjectRecord(row as ProjectRowShape);
+    },
+
+    async refreshPublicGitHubProject(input: {
+      userId: string;
+      projectId: string;
+      defaultBranch: string;
+      connectedCommitSha: string;
+    }): Promise<ProjectRecord> {
+      const { data: row, error } = await supabase
+        .from("projects")
+        .update({
+          default_branch: input.defaultBranch,
+          connected_commit_sha: input.connectedCommitSha,
+          disconnected_at: null,
+        })
+        .eq("id", input.projectId)
+        .eq("user_id", input.userId)
+        .select(SELECT_COLUMNS)
+        .single();
+
+      if (error || !row) {
+        console.error("refreshPublicGitHubProject failed", error?.code);
+        throw new Error("Project gagal diperbarui.");
+      }
+
+      return toProjectRecord(row as ProjectRowShape);
+    },
+
+    async disconnectPublicGitHubProject(input: {
+      userId: string;
+      projectId: string;
+    }): Promise<ProjectRecord> {
+      const now = new Date().toISOString();
+      const { data: row, error } = await supabase
+        .from("projects")
+        .update({
+          disconnected_at: now,
+        })
+        .eq("id", input.projectId)
+        .eq("user_id", input.userId)
+        .select(SELECT_COLUMNS)
+        .single();
+
+      if (error || !row) {
+        console.error("disconnectPublicGitHubProject failed", error?.code);
+        throw new Error("Project gagal diputus.");
       }
 
       return toProjectRecord(row as ProjectRowShape);

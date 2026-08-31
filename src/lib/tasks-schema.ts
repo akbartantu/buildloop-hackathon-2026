@@ -4,19 +4,41 @@ import type { RunnerState, TaskContract, TaskStatus } from "./task-contract";
 
 export const GOAL_MAX = 1000;
 
+export const taskIdSchema = z.object({
+  id: z.string().uuid(),
+});
+
 export const createTaskSchema = z.object({
-  goal: z.string().trim().min(10, "Goal terlalu pendek").max(GOAL_MAX),
+  goal: z.string().trim().min(10, "Goal is too short").max(GOAL_MAX),
   workspace: z.string().trim().min(1).optional(),
   projectId: z.string().uuid().optional(),
+  acceptanceCriteria: z.array(z.string().trim().min(3)).min(1).max(20).optional(),
+  clarificationAnswer: z.string().trim().min(1).max(500).optional(),
+});
+
+export const updateDraftTaskSchema = taskIdSchema.extend({
+  goal: z.string().trim().min(10, "Goal is too short").max(GOAL_MAX),
+  acceptanceCriteria: z.array(z.string().trim().min(3)).min(1).max(20).optional(),
+});
+
+export const analyzeTaskGoalSchema = z.object({
+  goal: z.string().trim().min(10, "Goal is too short").max(GOAL_MAX),
+  projectId: z.string().uuid().optional(),
+  acceptanceCriteria: z.array(z.string().trim().min(3)).min(1).max(20).optional(),
+  clarificationAnswer: z.string().trim().min(1).max(500).optional(),
+});
+
+export const answerTaskClarificationSchema = taskIdSchema.extend({
+  answer: z.string().trim().min(1).max(500),
+});
+
+export const reviseTaskSchema = taskIdSchema.extend({
+  goal: z.string().trim().min(10, "Goal is too short").max(GOAL_MAX).optional(),
   acceptanceCriteria: z.array(z.string().trim().min(3)).min(1).max(20).optional(),
 });
 
 export const listTasksSchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
-});
-
-export const taskIdSchema = z.object({
-  id: z.string().uuid(),
 });
 
 export const executeTaskRunSchema = taskIdSchema.extend({

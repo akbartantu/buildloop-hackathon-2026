@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { createTask, listTasks, lockContract, recordHumanApproval } from "@/lib/tasks.functions";
+import { createTask, listTasks, lockContract, recordHumanApproval, refreshContract, reviseTask } from "@/lib/tasks.functions";
 import { executeTaskRun } from "@/lib/orchestration.functions";
 import type { HumanGateDecision, SensitiveApprovalAction } from "@/lib/human-approval";
 import { useProjects } from "@/hooks/use-projects";
@@ -14,6 +14,8 @@ export function useWorkspaceTasks() {
   const approveContract = useServerFn(lockContract);
   const runOrchestrator = useServerFn(executeTaskRun);
   const submitHumanApproval = useServerFn(recordHumanApproval);
+  const refreshContractFn = useServerFn(refreshContract);
+  const reviseTaskFn = useServerFn(reviseTask);
 
   const tasksQuery = useQuery({
     queryKey: ["tasks", projectScope],
@@ -76,6 +78,21 @@ export function useWorkspaceTasks() {
     },
   });
 
+  const refreshContractMutation = useMutation({
+    mutationFn: (id: string) => refreshContractFn({ data: { id } }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
+  const reviseTaskMutation = useMutation({
+    mutationFn: (input: { id: string; goal?: string; acceptanceCriteria?: string[] }) =>
+      reviseTaskFn({ data: input }),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+  });
+
   return {
     tasks: tasksQuery.data ?? [],
     projectScope,
@@ -85,5 +102,7 @@ export function useWorkspaceTasks() {
     lockMutation,
     runMutation,
     humanApprovalMutation,
+    refreshContractMutation,
+    reviseTaskMutation,
   };
 }

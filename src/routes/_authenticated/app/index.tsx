@@ -8,7 +8,7 @@ export const Route = createFileRoute("/_authenticated/app/")({
       { title: "Home — BuildLoop" },
       {
         name: "description",
-        content: "Ringkasan operasional workspace BuildLoop.",
+        content: "BuildLoop workspace operational overview.",
       },
     ],
   }),

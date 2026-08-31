@@ -1,5 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,8 +9,11 @@ import { DemoPageHeader, DemoPanel } from "@/components/site/demo-ui";
 import { useProjects } from "@/hooks/use-projects";
 import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
 import { useI18n } from "@/i18n/context";
+import { analyzeTaskGoalPreview } from "@/lib/tasks.functions";
 import { abbreviateCommitSha } from "@/lib/repository/task-source-display";
+import { formatPlanningSourceLabel } from "@/lib/planning/planning-source";
 import { MAX_ATTEMPTS, PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
+import type { TaskGoalAnalysis } from "@/lib/task-planning";
 
 function parseAcceptanceCriteria(raw: string): string[] | undefined {
   const criteria = raw
@@ -24,26 +29,74 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   const { t } = useI18n();
   const { tasks, createMutation } = useWorkspaceTasks();
   const { source, activeProject } = useProjects();
+  const analyzeGoal = useServerFn(analyzeTaskGoalPreview);
   const sourceTask = fromTaskId ? (tasks.find((task) => task.id === fromTaskId) ?? null) : null;
   const [taskGoal, setTaskGoal] = useState("");
   const [acceptanceCriteriaText, setAcceptanceCriteriaText] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
+  const [analysis, setAnalysis] = useState<TaskGoalAnalysis | null>(null);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [userEditedCriteria, setUserEditedCriteria] = useState(false);
+  const [clarificationAnswer, setClarificationAnswer] = useState("");
   const workspaceLabel = source?.repoName ?? WORKSPACE_NAME;
 
   useEffect(() => {
     if (sourceTask) {
       setTaskGoal(sourceTask.goal);
       setAcceptanceCriteriaText(sourceTask.contract.acceptanceCriteria.join("\n"));
+      setUserEditedCriteria(true);
     }
   }, [sourceTask]);
 
+  async function handleAnalyze() {
+    setFormError(null);
+    setAnalyzing(true);
+    try {
+      const userCriteria = parseAcceptanceCriteria(acceptanceCriteriaText);
+      const result = await analyzeGoal({
+        data: {
+          goal: taskGoal,
+          ...(activeProject?.id ? { projectId: activeProject.id } : {}),
+          ...(userCriteria ? { acceptanceCriteria: userCriteria } : {}),
+          ...(clarificationAnswer.trim() ? { clarificationAnswer: clarificationAnswer.trim() } : {}),
+        },
+      });
+      setAnalysis(result);
+      if (!userEditedCriteria && result.suggestedFromGoal) {
+        setAcceptanceCriteriaText(result.acceptanceCriteria.join("\n"));
+      }
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : t("tasks.createError"));
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  function handleAcceptSuggested() {
+    if (analysis?.acceptanceCriteria.length) {
+      setAcceptanceCriteriaText(analysis.acceptanceCriteria.join("\n"));
+      setUserEditedCriteria(true);
+    }
+  }
+
+  function handleAddCriterion() {
+    setAcceptanceCriteriaText((current) => (current.trim() ? `${current.trim()}\n` : ""));
+    setUserEditedCriteria(true);
+  }
+
   async function handleSubmit() {
     setFormError(null);
+    if (analysis?.needsClarification && analysis.clarificationQuestion && !clarificationAnswer.trim()) {
+      setFormError(t("tasks.clarificationAnswerRequired"));
+      return;
+    }
+
     try {
       const acceptanceCriteria = parseAcceptanceCriteria(acceptanceCriteriaText);
       const task = await createMutation.mutateAsync({
         goal: taskGoal,
         ...(acceptanceCriteria ? { acceptanceCriteria } : {}),
+        ...(clarificationAnswer.trim() ? { clarificationAnswer: clarificationAnswer.trim() } : {}),
         ...(activeProject?.id
           ? { projectId: activeProject.id }
           : source
@@ -60,32 +113,118 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
     }
   }
 
+  const canAnalyze = taskGoal.trim().length >= 10;
+
   return (
     <div className="space-y-6">
       <DemoPageHeader title={t("tasks.formTitle")} description={t("tasks.formDescription")} />
 
-      <DemoPanel title={t("tasks.formPanelTitle")}>
+      <DemoPanel title={t("tasks.formPanelTitle")} tourTarget="task-goal">
         <div className="space-y-2">
           <Label htmlFor="task-goal">{t("tasks.goalLabel")}</Label>
           <Textarea
             id="task-goal"
             value={taskGoal}
-            onChange={(event) => setTaskGoal(event.target.value)}
+            onChange={(event) => {
+              setTaskGoal(event.target.value);
+              setAnalysis(null);
+            }}
             placeholder={t("tasks.goalPlaceholder")}
             rows={4}
           />
+          <p className="text-xs text-muted-foreground">{t("tasks.goalPrivacyHint")}</p>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!canAnalyze || analyzing}
+              onClick={handleAnalyze}
+            >
+              {analyzing ? t("tasks.analyzing") : t("tasks.analyzeGoal")}
+            </Button>
+          </div>
         </div>
+
+        {analysis?.needsClarification ? (
+          <div className="mt-4 rounded-md border border-status-review/40 bg-status-review/5 p-4">
+            <p className="text-sm font-medium text-foreground">{t("tasks.clarificationPrompt")}</p>
+            <p className="mt-2 text-sm text-foreground">
+              {analysis.clarificationQuestion ?? analysis.clarificationMessage ?? t("tasks.criteriaOptional")}
+            </p>
+            {analysis.clarificationOptions?.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {analysis.clarificationOptions.map((option) => (
+                  <Button
+                    key={option}
+                    type="button"
+                    size="sm"
+                    variant={clarificationAnswer === option ? "default" : "outline"}
+                    onClick={() => setClarificationAnswer(option)}
+                  >
+                    {option}
+                  </Button>
+                ))}
+              </div>
+            ) : null}
+            <div className="mt-4 space-y-2">
+              <Label htmlFor="clarification-answer">{t("tasks.clarificationAnswerLabel")}</Label>
+              <Textarea
+                id="clarification-answer"
+                value={clarificationAnswer}
+                onChange={(event) => setClarificationAnswer(event.target.value)}
+                rows={2}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {analysis?.sourcesUsed?.length ? (
+          <div className="mt-4 rounded-md border border-border bg-muted/20 p-4">
+            <p className="text-sm font-medium text-foreground">{t("tasks.sourcesUsed")}</p>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+              {analysis.sourcesUsed.map((sourceItem) => (
+                <li key={`${sourceItem.sourceType}-${sourceItem.displayName}`}>
+                  · {formatPlanningSourceLabel(sourceItem)}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {analysis && !analysis.needsClarification && analysis.suggestedFromGoal ? (
+          <div className="mt-4 rounded-md border border-border bg-muted/20 p-4">
+            <p className="text-sm font-medium text-foreground">{t("tasks.suggestedCriteria")}</p>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+              {analysis.acceptanceCriteria.map((criterion) => (
+                <li key={criterion}>· {criterion}</li>
+              ))}
+            </ul>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={handleAcceptSuggested}>
+                {t("tasks.acceptSuggested")}
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={handleAddCriterion}>
+                <Plus className="mr-1 size-3.5" />
+                {t("tasks.addCriterion")}
+              </Button>
+            </div>
+          </div>
+        ) : null}
 
         <div className="mt-6 space-y-2">
           <Label htmlFor="task-criteria">{t("tasks.criteriaLabel")}</Label>
           <Textarea
             id="task-criteria"
             value={acceptanceCriteriaText}
-            onChange={(event) => setAcceptanceCriteriaText(event.target.value)}
+            onChange={(event) => {
+              setAcceptanceCriteriaText(event.target.value);
+              setUserEditedCriteria(true);
+            }}
             placeholder={t("tasks.criteriaPlaceholder")}
             rows={6}
           />
-          <p className="text-xs text-muted-foreground">{t("tasks.criteriaHelp")}</p>
+          <p className="text-xs text-muted-foreground">{t("tasks.criteriaOptional")}</p>
           {formError ? <p className="text-sm text-status-blocked">{formError}</p> : null}
         </div>
 

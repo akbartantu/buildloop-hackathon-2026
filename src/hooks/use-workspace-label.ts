@@ -1,14 +1,22 @@
 import { useProjects } from "@/hooks/use-projects";
+import { isProjectRepositoryConnected, projectDisplayName } from "@/lib/projects/project-record";
 import { WORKSPACE_NAME } from "@/lib/task-contract";
 
 export function useWorkspaceLabel() {
-  const { source, activeProject, isHydrated } = useProjects();
+  const { source, activeProject, isHydrated, isRepositoryConnected } = useProjects();
+
+  const label = activeProject
+    ? isRepositoryConnected
+      ? projectDisplayName(activeProject)
+      : activeProject.name
+    : WORKSPACE_NAME;
 
   return {
-    label: source?.repoName ?? WORKSPACE_NAME,
+    label,
     source,
     activeProject,
-    isConnected: Boolean(source),
+    isConnected: isRepositoryConnected,
+    isDemo: !activeProject,
     isHydrated,
   };
 }

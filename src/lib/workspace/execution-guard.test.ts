@@ -65,7 +65,19 @@ describe("assertTaskProjectExecutionSafe", () => {
           connectedCommitSha: "abc1234567890abcdef1234567890abcdef123456",
         },
       }),
-    ).toThrow(/source commit/i);
+    ).toThrow(/Repository changed since this contract was created/);
+  });
+
+  test("allows matching source commit A to A", () => {
+    expect(() =>
+      assertTaskProjectExecutionSafe({
+        task: task({ sourceCommitSha: "abc1234567890abcdef1234567890abcdef123456" }),
+        project: {
+          repositoryUrl: "https://github.com/owner/a",
+          connectedCommitSha: "abc1234567890abcdef1234567890abcdef123456",
+        },
+      }),
+    ).not.toThrow();
   });
 
   test("allows demo tasks without project linkage", () => {

@@ -13,7 +13,7 @@ const workspaceRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.ur
 describe("Local scenario validation", () => {
   test("Scenario A — autonomous safe work auto-approved", async () => {
     const planned = await planAndEvaluateTask({
-      goal: "Add a small safe feature and its focused test",
+      goal: "Update README subtitle to mention governed autonomous software delivery.",
       taskId: "11111111-1111-1111-1111-111111111111",
       workspaceRoot,
     });

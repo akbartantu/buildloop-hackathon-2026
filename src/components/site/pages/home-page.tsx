@@ -30,27 +30,28 @@ function latestRunTask(tasks: TaskRecord[]): TaskRecord | null {
 export function HomePage() {
   const { tasks, isLoading } = useWorkspaceTasks();
   const { label: workspaceLabel } = useWorkspaceLabel();
-  const { taskStatusLabel } = useI18n();
+  const { t, taskStatusLabel } = useI18n();
   const latestTask = tasks[0] ?? null;
   const recentRun = latestRunTask(tasks);
   const pendingApprovals = countPendingApprovals(tasks);
+  const flowSteps = [t("home.flowStep1"), t("home.flowStep2"), t("home.flowStep3"), t("home.flowStep4")];
 
   return (
     <div className="space-y-6">
       <DemoPageHeader
-        title="Ringkasan operasional"
-        description={`Workspace ${workspaceLabel} — lihat apa yang sedang berjalan di BuildLoop.`}
+        title={t("home.title")}
+        description={t("home.description").replace("{workspace}", workspaceLabel)}
       />
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <DemoMetricCard label="Workspace" value={workspaceLabel} />
+        <DemoMetricCard label={t("tasks.workspace")} value={workspaceLabel} />
         <DemoMetricCard
-          label="Task aktif"
+          label={t("home.activeTasks")}
           value={isLoading ? "…" : String(tasks.length)}
         />
         <DemoMetricCard
-          label="Run terakhir"
-          value={recentRun ? taskStatusLabel(recentRun.status) : "Belum ada"}
+          label={t("home.latestRun")}
+          value={recentRun ? taskStatusLabel(recentRun.status) : t("home.noneYet")}
           tone={
             recentRun?.status === "PASS" || recentRun?.status === "AWAITING_APPROVAL"
               ? "pass"
@@ -60,16 +61,16 @@ export function HomePage() {
           }
         />
         <DemoMetricCard
-          label="Approval tertunda"
+          label={t("home.pendingApprovals")}
           value={String(pendingApprovals)}
           tone={pendingApprovals > 0 ? "review" : "neutral"}
         />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <DemoPanel title="Task terbaru">
+        <DemoPanel title={t("home.latestTask")}>
           {isLoading ? (
-            <p className="text-sm text-muted-foreground">Memuat…</p>
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
           ) : latestTask ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -84,68 +85,57 @@ export function HomePage() {
               <p className="text-sm leading-relaxed text-foreground">{latestTask.goal}</p>
               <Button variant="outline" size="sm" asChild>
                 <Link to="/app/tasks/$taskId" params={{ taskId: latestTask.id }}>
-                  Buka task
+                  {t("home.openTask")}
                   <ArrowRight className="ml-2 size-3.5" />
                 </Link>
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Belum ada task. Buat task pertama untuk memulai alur contract → orchestrator.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("home.noTasksYet")}</p>
           )}
         </DemoPanel>
 
-        <DemoPanel title="Run terakhir">
+        <DemoPanel title={t("home.latestRun")}>
           {recentRun ? (
             <div className="space-y-3">
               <DemoBulletList
                 items={[
-                  `Status: ${recentRun.status}`,
-                  `Koreksi: ${recentRun.runnerState?.correctionCount ?? 0} / ${recentRun.contract.maxAttempts}`,
-                  `Worker dipanggil: ${recentRun.runnerState?.runnerInvoked ? "Ya" : "Tidak"}`,
+                  `${t("home.runStatus")}: ${taskStatusLabel(recentRun.status)}`,
+                  `${t("home.corrections")}: ${recentRun.runnerState?.correctionCount ?? 0} / ${recentRun.contract.maxAttempts}`,
+                  `${t("home.workerInvoked")}: ${recentRun.runnerState?.runnerInvoked ? t("home.yes") : t("home.no")}`,
                 ]}
               />
               <Button variant="outline" size="sm" asChild>
-                <Link to="/app/runs">Lihat semua run</Link>
+                <Link to="/app/runs">{t("home.viewAllRuns")}</Link>
               </Button>
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">
-              Belum ada run orchestrator. Setujui contract lalu jalankan orchestrator dari task detail.
-            </p>
+            <p className="text-sm text-muted-foreground">{t("home.noRunsYet")}</p>
           )}
         </DemoPanel>
       </div>
 
-      <DemoPanel title="Alur BuildLoop">
-        <DemoBulletList
-          items={[
-            "Task → Contract deterministik → Preflight",
-            "Worker → Checker → koreksi terbatas",
-            "Verdict PASS / FAILED / BLOCKED",
-            "Tindakan sensitif (commit, push, merge, deploy) menunggu approval manusia",
-          ]}
-        />
+      <DemoPanel title={t("home.flowTitle")}>
+        <DemoBulletList items={flowSteps} />
         <div className="mt-5 flex flex-wrap gap-3">
           <Button asChild>
             <Link to="/app/tasks/new">
               <Plus className="mr-2 size-4" />
-              Buat task baru
+              {t("home.createNewTask")}
             </Link>
           </Button>
           {pendingApprovals > 0 ? (
             <Button variant="outline" asChild>
               <Link to="/app/approvals">
                 <ShieldCheck className="mr-2 size-4" />
-                {pendingApprovals} approval tertunda
+                {t("home.pendingApprovalCount").replace("{count}", String(pendingApprovals))}
               </Link>
             </Button>
           ) : null}
         </div>
         <p className="mt-5 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
           <Lock className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-          Sandbox terkontrol — tidak ada tindakan sensitif tanpa contract dan approval eksplisit.
+          {t("home.sandboxNote")}
         </p>
       </DemoPanel>
 
@@ -153,11 +143,11 @@ export function HomePage() {
         <Button variant="ghost" size="sm" asChild>
           <Link to="/app/projects">
             <GitBranch className="mr-2 size-4" />
-            Lihat project
+            {t("home.viewProjects")}
           </Link>
         </Button>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/app/tasks">Semua task</Link>
+          <Link to="/app/tasks">{t("tasks.allTasks")}</Link>
         </Button>
       </div>
     </div>

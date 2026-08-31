@@ -49,6 +49,9 @@ export function contractSections(contract: TaskContract, locale: Locale = DEFAUL
       translate(locale, "taskDetail.contractLimits.stopSensitive"),
       translate(locale, "taskDetail.contractLimits.sandboxUntilApproval"),
     ],
+    sourcesUsed: contract.sourcesUsed ?? [],
+    clarification: contract.clarification,
+    planningSummary: contract.planningSummary,
   };
 }
 

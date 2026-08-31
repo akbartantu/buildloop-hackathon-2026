@@ -2,14 +2,20 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { randomUUID } from "node:crypto";
-
 import { WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
 import type { RunnerState, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { buildPlanningInputForTask, type PlanningDeps } from "@/lib/planning/build-planning-input";
 import { planAndEvaluateTask } from "@/lib/task-planning";
 import { DEV_AUTH_BYPASS_USER_ID } from "@/lib/dev-auth-bypass";
+import {
+  applyClarificationAnswer,
+  applyContractRefresh,
+  applyDraftUpdate,
+  applyTaskRevision,
+  newTaskId,
+} from "@/lib/tasks/task-mutations";
 import {
   applyHumanApproval,
   findExistingHumanApproval,
@@ -94,8 +100,16 @@ export type DevTaskRepository = ReturnType<typeof createDevTaskRepository>;
 
 export function createDevTaskRepository(
   projectLookup?: {
-    getProject(id: string, userId: string): Promise<{ repositoryUrl: string; connectedCommitSha: string | null } | null>;
+    getProject(
+      id: string,
+      userId: string,
+    ): Promise<{
+      repositoryUrl: string;
+      connectedCommitSha: string | null;
+      disconnectedAt?: string | null;
+    } | null>;
   },
+  planningDeps: PlanningDeps = {},
 ) {
   return {
     async createTask(input: {
@@ -104,6 +118,7 @@ export function createDevTaskRepository(
       workspace?: string;
       projectId?: string;
       acceptanceCriteria?: string[];
+      clarificationAnswer?: string;
     }): Promise<TaskRecord> {
       const store = await readStore();
       let workspace = input.workspace ?? WORKSPACE_NAME;
@@ -118,6 +133,9 @@ export function createDevTaskRepository(
         if (!project) {
           throw new Error("Project tidak ditemukan.");
         }
+        if (project.disconnectedAt) {
+          throw new Error("Repository is disconnected for this workspace.");
+        }
         workspace = project.repositoryUrl;
         projectId = input.projectId;
         sourceCommitSha = project.connectedCommitSha;
@@ -126,13 +144,25 @@ export function createDevTaskRepository(
         }
       }
 
-      const taskId = randomUUID();
-      const planned = await planAndEvaluateTask({
-        goal: input.goal,
-        taskId,
-        workspaceRoot: projectRoot(),
-        ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
-      });
+      const taskId = newTaskId();
+      const planningInput = await buildPlanningInputForTask(
+        {
+          id: taskId,
+          goal: input.goal,
+          projectId,
+          sourceCommitSha,
+          contract: {},
+          userId: input.userId,
+        },
+        {
+          goal: input.goal,
+          ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
+          ...(input.clarificationAnswer ? { clarificationAnswer: input.clarificationAnswer } : {}),
+        },
+        planningDeps,
+        { workspaceRoot: projectRoot() },
+      );
+      const planned = await planAndEvaluateTask(planningInput);
       const now = new Date().toISOString();
 
       const task = {
@@ -200,15 +230,15 @@ export function createDevTaskRepository(
       const store = await readStore();
       const index = store.tasks.findIndex((task) => task.id === input.id);
       if (index === -1) {
-        throw new Error("Task tidak ditemukan.");
+        throw new Error("Task not found.");
       }
 
       const task = store.tasks[index];
       if (!task) {
-        throw new Error("Task tidak ditemukan.");
+        throw new Error("Task not found.");
       }
-      if (task.status !== "CONTRACT_READY" || task.lockedAt) {
-        throw new Error("Contract tidak dapat dikunci pada status saat ini.");
+      if (!["DRAFT", "CONTRACT_READY"].includes(task.status) || task.lockedAt) {
+        throw new Error("Contract cannot be locked in the current status.");
       }
 
       const now = new Date().toISOString();
@@ -216,7 +246,7 @@ export function createDevTaskRepository(
       task.lockedAt = now;
       task.updatedAt = now;
       task.runnerState = zeroChangeRunnerState(
-        "Contract terkunci. Orchestrator siap dijalankan.",
+        "Contract locked. Orchestrator is ready to run.",
       );
 
       store.approvals.push({
@@ -316,6 +346,115 @@ export function createDevTaskRepository(
 
       await writeStore(store);
       return toRecord(task);
+    },
+
+    async updateDraftTask(input: {
+      id: string;
+      userId: string;
+      goal: string;
+      acceptanceCriteria?: string[];
+    }): Promise<TaskRecord> {
+      const store = await readStore();
+      const index = store.tasks.findIndex((task) => task.id === input.id);
+      if (index === -1) throw new Error("Task not found.");
+      const task = store.tasks[index]!;
+      const { task: updated } = await applyDraftUpdate(
+        task,
+        {
+          goal: input.goal,
+          ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
+        },
+        planningDeps,
+      );
+      updated.updatedAt = new Date().toISOString();
+      store.tasks[index] = updated;
+      await writeStore(store);
+      return toRecord(updated);
+    },
+
+    async reviseTask(input: {
+      id: string;
+      userId: string;
+      goal?: string;
+      acceptanceCriteria?: string[];
+    }): Promise<TaskRecord> {
+      const store = await readStore();
+      const index = store.tasks.findIndex((task) => task.id === input.id);
+      if (index === -1) throw new Error("Task not found.");
+      const task = store.tasks[index]!;
+      const { task: updated } = await applyTaskRevision(
+        task,
+        {
+          ...(input.goal ? { goal: input.goal } : {}),
+          ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
+        },
+        planningDeps,
+      );
+      updated.updatedAt = new Date().toISOString();
+      store.approvals.push({
+        taskId: input.id,
+        decision: "REVISE",
+        action: null,
+        runId: null,
+        actorUserId: input.userId,
+        note: "Contract revised before execution.",
+        createdAt: updated.updatedAt,
+      });
+      store.tasks[index] = updated;
+      await writeStore(store);
+      return toRecord(updated);
+    },
+
+    async refreshContract(input: { id: string; userId: string }): Promise<TaskRecord> {
+      const store = await readStore();
+      const index = store.tasks.findIndex((task) => task.id === input.id);
+      if (index === -1) throw new Error("Task not found.");
+      const task = store.tasks[index]!;
+      if (!task.projectId || !projectLookup) {
+        throw new Error("Project workspace could not be verified.");
+      }
+      const project = await projectLookup.getProject(task.projectId, input.userId);
+      if (!project) throw new Error("Project not found.");
+      const { task: updated } = await applyContractRefresh(
+        task,
+        project,
+        input.userId,
+        projectLookup,
+        planningDeps,
+      );
+      updated.updatedAt = new Date().toISOString();
+      store.approvals.push({
+        taskId: input.id,
+        decision: "REVISE",
+        action: null,
+        runId: null,
+        actorUserId: input.userId,
+        note: "Contract refreshed after repository commit change.",
+        createdAt: updated.updatedAt,
+      });
+      store.tasks[index] = updated;
+      await writeStore(store);
+      return toRecord(updated);
+    },
+
+    async answerTaskClarification(input: {
+      id: string;
+      userId: string;
+      answer: string;
+    }): Promise<TaskRecord> {
+      const store = await readStore();
+      const index = store.tasks.findIndex((task) => task.id === input.id);
+      if (index === -1) throw new Error("Task not found.");
+      const task = store.tasks[index]!;
+      const { task: updated } = await applyClarificationAnswer(
+        task,
+        { answer: input.answer },
+        planningDeps,
+      );
+      updated.updatedAt = new Date().toISOString();
+      store.tasks[index] = updated;
+      await writeStore(store);
+      return toRecord(updated);
     },
 
     async updateAfterRun(input: {

@@ -1,9 +1,11 @@
 /** localStorage key — remove in DevTools to replay the first-time tour. */
-export const PRODUCT_TOUR_STORAGE_KEY = "buildloop.productTour.completed.v1";
+export const PRODUCT_TOUR_STORAGE_KEY = "buildloop.productTour.completed.v2";
 
 export type TourStepId =
-  | "welcome"
-  | "tasks"
+  | "workspace"
+  | "repository"
+  | "specifications"
+  | "create-task"
   | "contract"
   | "orchestration"
   | "evidence"
@@ -23,60 +25,109 @@ export type ProductTourStep = {
   fallbackTarget?: string;
 };
 
-export const PRODUCT_TOUR_STEPS: ProductTourStep[] = [
+export type ProductTourStepDef = {
+  id: TourStepId;
+  titleKey: `productTour.steps.${TourStepId}.title`;
+  bodyKey: `productTour.steps.${TourStepId}.body`;
+  target?: string;
+  placement?: TourPlacement;
+  fallbackTarget?: string;
+};
+
+export const PRODUCT_TOUR_STEP_DEFS: ProductTourStepDef[] = [
   {
-    id: "welcome",
-    title: "Welcome to BuildLoop",
-    body: "BuildLoop helps you complete bounded development tasks while keeping sensitive actions under human control. This workspace is where tasks, runs, evidence, and approvals are managed.",
+    id: "workspace",
+    titleKey: "productTour.steps.workspace.title",
+    bodyKey: "productTour.steps.workspace.body",
     target: "workspace",
     placement: "right",
   },
   {
-    id: "tasks",
-    title: "Start with a task",
-    body: "Describe what needs to change. BuildLoop turns the request into a bounded task contract before execution begins.",
-    target: "nav-tasks",
-    placement: "right",
+    id: "repository",
+    titleKey: "productTour.steps.repository.title",
+    bodyKey: "productTour.steps.repository.body",
+    target: "projects-repository",
+    fallbackTarget: "nav-projects",
+    placement: "bottom",
+  },
+  {
+    id: "specifications",
+    titleKey: "productTour.steps.specifications.title",
+    bodyKey: "productTour.steps.specifications.body",
+    target: "projects-specifications",
+    fallbackTarget: "nav-projects",
+    placement: "top",
+  },
+  {
+    id: "create-task",
+    titleKey: "productTour.steps.create-task.title",
+    bodyKey: "productTour.steps.create-task.body",
+    target: "task-goal",
+    fallbackTarget: "nav-tasks",
+    placement: "bottom",
   },
   {
     id: "contract",
-    title: "Review the contract",
-    body: "The contract defines the goal, acceptance criteria, allowed scope, and protected boundaries before BuildLoop starts working.",
+    titleKey: "productTour.steps.contract.title",
+    bodyKey: "productTour.steps.contract.body",
     target: "tab-contract",
     fallbackTarget: "nav-tasks",
     placement: "bottom",
   },
   {
     id: "orchestration",
-    title: "BuildLoop orchestrates the work",
-    body: "Preflight checks the request, the worker performs the task, an independent checker verifies it, and BuildLoop can make up to two bounded correction attempts. The worker does not decide its own PASS result.",
+    titleKey: "productTour.steps.orchestration.title",
+    bodyKey: "productTour.steps.orchestration.body",
     target: "nav-runs",
     fallbackTarget: "tab-orchestration",
     placement: "right",
   },
   {
     id: "evidence",
-    title: "See why BuildLoop made its decision",
-    body: "Evidence records checks, attempts, changed files, and checker results so PASS, FAILED, or BLOCKED outcomes can be inspected.",
+    titleKey: "productTour.steps.evidence.title",
+    bodyKey: "productTour.steps.evidence.body",
     target: "tab-evidence",
     fallbackTarget: "nav-runs",
     placement: "bottom",
   },
   {
     id: "approval",
-    title: "You stay in control",
-    body: "Sensitive or irreversible actions such as commit, push, merge, or deploy require human approval before BuildLoop can continue.",
+    titleKey: "productTour.steps.approval.title",
+    bodyKey: "productTour.steps.approval.body",
     target: "nav-approvals",
     fallbackTarget: "tab-approval",
     placement: "right",
   },
   {
     id: "finish",
-    title: "You're ready",
-    body: "Create a bounded task and let BuildLoop plan, execute, check, correct, and stop for approval when needed.",
+    titleKey: "productTour.steps.finish.title",
+    bodyKey: "productTour.steps.finish.body",
     placement: "center",
   },
 ];
+
+/** @deprecated Use buildProductTourSteps() for localized copy. */
+export const PRODUCT_TOUR_STEPS: ProductTourStep[] = PRODUCT_TOUR_STEP_DEFS.map((def) => ({
+  id: def.id,
+  title: def.titleKey,
+  body: def.bodyKey,
+  ...(def.target ? { target: def.target } : {}),
+  ...(def.placement ? { placement: def.placement } : {}),
+  ...(def.fallbackTarget ? { fallbackTarget: def.fallbackTarget } : {}),
+}));
+
+export function buildProductTourSteps(
+  t: (key: ProductTourStepDef["titleKey"] | ProductTourStepDef["bodyKey"]) => string,
+): ProductTourStep[] {
+  return PRODUCT_TOUR_STEP_DEFS.map((def) => ({
+    id: def.id,
+    title: t(def.titleKey),
+    body: t(def.bodyKey),
+    ...(def.target ? { target: def.target } : {}),
+    ...(def.placement ? { placement: def.placement } : {}),
+    ...(def.fallbackTarget ? { fallbackTarget: def.fallbackTarget } : {}),
+  }));
+}
 
 function getTourStorage(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -129,3 +180,19 @@ export function resolveTourTarget(step: ProductTourStep): string | null {
   }
   return step.target;
 }
+
+export const PRODUCT_TOUR_TARGETS = [
+  "workspace",
+  "nav-projects",
+  "projects-repository",
+  "projects-specifications",
+  "task-goal",
+  "nav-tasks",
+  "tab-contract",
+  "nav-runs",
+  "tab-orchestration",
+  "tab-evidence",
+  "nav-approvals",
+  "tab-approval",
+  "main-content",
+] as const;

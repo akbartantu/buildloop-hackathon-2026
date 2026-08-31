@@ -4,6 +4,7 @@ import "./lib/env-validation";
 import { consumeLastCapturedError } from "./lib/error-capture";
 import { renderErrorPage } from "./lib/error-page";
 import { validateProductionEnvironment } from "./lib/env-validation";
+import { applySecurityHeaders } from "./lib/http-security-headers";
 import { isDevAuthBypassEnabled } from "./lib/dev-auth-bypass";
 import { resolvePersistenceMode } from "./orchestrator/persistence/store-factory";
 import { GeminiClient } from "./orchestrator/gemini/client";
@@ -53,9 +54,10 @@ export default {
   async fetch(request: Request, env: unknown, ctx: unknown) {
     const url = new URL(request.url);
     if (url.pathname === "/health") {
-      return new Response(
-        JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }),
-        { headers: { "Content-Type": "application/json" } },
+      return applySecurityHeaders(
+        new Response(JSON.stringify({ status: "ok", timestamp: new Date().toISOString() }), {
+          headers: { "Content-Type": "application/json" },
+        }),
       );
     }
     if (url.pathname === "/ready") {
@@ -70,22 +72,26 @@ export default {
         warnings: envValidation.warnings,
         timestamp: new Date().toISOString(),
       };
-      return new Response(JSON.stringify(body), {
-        status: envValidation.ok ? 200 : 503,
-        headers: { "Content-Type": "application/json" },
-      });
+      return applySecurityHeaders(
+        new Response(JSON.stringify(body), {
+          status: envValidation.ok ? 200 : 503,
+          headers: { "Content-Type": "application/json" },
+        }),
+      );
     }
 
     try {
       const handler = await getServerEntry();
       const response = await handler.fetch(request, env, ctx);
-      return await normalizeCatastrophicSsrResponse(response);
+      return applySecurityHeaders(await normalizeCatastrophicSsrResponse(response));
     } catch (error) {
       console.error(error);
-      return new Response(renderErrorPage(), {
-        status: 500,
-        headers: { "content-type": "text/html; charset=utf-8" },
-      });
+      return applySecurityHeaders(
+        new Response(renderErrorPage(), {
+          status: 500,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        }),
+      );
     }
   },
 };

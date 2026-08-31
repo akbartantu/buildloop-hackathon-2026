@@ -440,7 +440,8 @@ export class BootstrapOrchestrator {
         checkerResult,
         correctionCount,
         maximumCorrections: input.contract.maximumCorrections,
-        sourceStale: sourceRevisionAtStart !== sourceRevisionNow,
+        sourceStale:
+          !this.allowDirtyWorkspace && sourceRevisionAtStart !== sourceRevisionNow,
         securityReviewVerdict,
         runtimeEscalation,
       });

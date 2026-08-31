@@ -200,7 +200,7 @@ export function AppLayout() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => tour.start({ replay: true })}>
-                  Replay product tour
+                  {t("productTour.replay")}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

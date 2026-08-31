@@ -11,14 +11,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useProjects } from "@/hooks/use-projects";
 import { useI18n } from "@/i18n/context";
-import { projectDisplayName } from "@/lib/projects/project-record";
+import { isProjectRepositoryConnected, projectDisplayName } from "@/lib/projects/project-record";
 import { WORKSPACE_NAME } from "@/lib/task-contract";
 
 export function WorkspaceSwitcher() {
   const { projects, activeProject, setSelectedProjectId, isHydrated } = useProjects();
   const { t } = useI18n();
 
-  const label = activeProject ? projectDisplayName(activeProject) : WORKSPACE_NAME;
+  const label = activeProject
+    ? isProjectRepositoryConnected(activeProject)
+      ? projectDisplayName(activeProject)
+      : activeProject.name
+    : WORKSPACE_NAME;
 
   return (
     <DropdownMenu>
@@ -31,7 +35,7 @@ export function WorkspaceSwitcher() {
         >
           <span className="min-w-0">
             <span className="block font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-              Workspace
+              {t("workspace.label")}
             </span>
             <span className="mt-1 block truncate text-sm font-medium text-foreground">{label}</span>
           </span>
@@ -41,7 +45,7 @@ export function WorkspaceSwitcher() {
       <DropdownMenuContent align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
         <DropdownMenuLabel>{t("projects.title")}</DropdownMenuLabel>
         {projects.length === 0 ? (
-          <DropdownMenuItem disabled>{WORKSPACE_NAME}</DropdownMenuItem>
+          <DropdownMenuItem disabled>{t("workspace.switcherEmpty")}</DropdownMenuItem>
         ) : (
           projects.map((project) => (
             <DropdownMenuItem
@@ -55,9 +59,9 @@ export function WorkspaceSwitcher() {
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/app/projects" className="flex items-center gap-2">
+          <Link to="/app/projects" search={{ create: "1" }} className="flex items-center gap-2">
             <Plus className="size-4" />
-            {t("projects.connectButton")}
+            {t("projects.createWorkspace")}
           </Link>
         </DropdownMenuItem>
       </DropdownMenuContent>

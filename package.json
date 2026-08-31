@@ -22,7 +22,8 @@
     "orchestrator:validate": "bun src/orchestrator/cli.ts validate"
   },
   "overrides": {
-    "rolldown": "1.2.1"
+    "rolldown": "1.2.1",
+    "@jridgewell/remapping": "2.3.5"
   },
   "dependencies": {
     "@a2a-js/sdk": "^1.1.0",
@@ -85,7 +86,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
-    "@jridgewell/remapping": "^2.3.5",
+    "@jridgewell/remapping": "2.3.5",
     "@types/node": "^22.16.5",
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",

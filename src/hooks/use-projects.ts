@@ -1,10 +1,17 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { connectPublicRepository } from "@/lib/repository.functions";
+import {
+  connectPublicRepository,
+  disconnectPublicGitHubProject,
+  refreshPublicGitHubProject,
+} from "@/lib/repository.functions";
 import { listProjects } from "@/lib/projects.functions";
-import type { ProjectRecord } from "@/lib/projects/project-record";
-import { projectDisplayName } from "@/lib/projects/project-record";
+import {
+  isProjectRepositoryConnected,
+  projectDisplayName,
+  type ProjectRecord,
+} from "@/lib/projects/project-record";
 import type { ConnectedRepositorySource } from "@/lib/repository/repository-source";
 import {
   persistActiveProjectId,
@@ -12,7 +19,11 @@ import {
   resolveActiveProjectId,
 } from "@/lib/workspace/active-project";
 
-function toConnectedSource(project: ProjectRecord): ConnectedRepositorySource {
+function toConnectedSource(project: ProjectRecord): ConnectedRepositorySource | null {
+  if (!isProjectRepositoryConnected(project)) {
+    return null;
+  }
+
   return {
     url: project.repositoryUrl,
     repoName: projectDisplayName(project),
@@ -23,10 +34,14 @@ function toConnectedSource(project: ProjectRecord): ConnectedRepositorySource {
   };
 }
 
+export type ConnectIntent = "connect" | "create_workspace" | "reconnect";
+
 export function useProjects() {
   const queryClient = useQueryClient();
   const fetchProjects = useServerFn(listProjects);
   const connectRepository = useServerFn(connectPublicRepository);
+  const refreshRepository = useServerFn(refreshPublicGitHubProject);
+  const disconnectRepository = useServerFn(disconnectPublicGitHubProject);
   const [selectedProjectId, setSelectedProjectIdState] = useState<string | null>(() =>
     readStoredActiveProjectId(),
   );
@@ -52,17 +67,30 @@ export function useProjects() {
   }, [projects, selectedProjectId]);
 
   const source = activeProject ? toConnectedSource(activeProject) : null;
+  const isRepositoryConnected = Boolean(source);
 
-  const setSelectedProjectId = useCallback((projectId: string | null) => {
-    const resolved = resolveActiveProjectId(projects, projectId);
-    persistActiveProjectId(resolved);
-    setSelectedProjectIdState(resolved);
-    void queryClient.invalidateQueries({ queryKey: ["tasks"] });
-  }, [projects, queryClient]);
+  const setSelectedProjectId = useCallback(
+    (projectId: string | null) => {
+      const resolved = resolveActiveProjectId(projects, projectId);
+      persistActiveProjectId(resolved);
+      setSelectedProjectIdState(resolved);
+      void queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    [projects, queryClient],
+  );
 
   const connect = useCallback(
-    async (url: string) => {
-      const result = await connectRepository({ data: { url } });
+    async (
+      url: string,
+      options?: { intent?: ConnectIntent; projectId?: string },
+    ) => {
+      const result = await connectRepository({
+        data: {
+          url,
+          ...(options?.intent ? { intent: options.intent } : {}),
+          ...(options?.projectId ? { projectId: options.projectId } : {}),
+        },
+      });
       if (result.status === "ok") {
         setSelectedProjectId(result.projectId);
         await queryClient.invalidateQueries({ queryKey: ["projects"] });
@@ -73,6 +101,30 @@ export function useProjects() {
     [connectRepository, queryClient, setSelectedProjectId],
   );
 
+  const refresh = useCallback(
+    async (projectId: string) => {
+      const result = await refreshRepository({ data: { projectId } });
+      if (result.status === "ok") {
+        await queryClient.invalidateQueries({ queryKey: ["projects"] });
+        await queryClient.refetchQueries({ queryKey: ["projects"] });
+      }
+      return result;
+    },
+    [queryClient, refreshRepository],
+  );
+
+  const disconnect = useCallback(
+    async (projectId: string) => {
+      const result = await disconnectRepository({ data: { projectId } });
+      if (result.status === "ok") {
+        await queryClient.invalidateQueries({ queryKey: ["projects"] });
+        await queryClient.refetchQueries({ queryKey: ["projects"] });
+      }
+      return result;
+    },
+    [disconnectRepository, queryClient],
+  );
+
   return {
     projects,
     source,
@@ -80,6 +132,9 @@ export function useProjects() {
     selectedProjectId: activeProject?.id ?? null,
     setSelectedProjectId,
     connect,
+    refresh,
+    disconnect,
+    isRepositoryConnected,
     isLoading: projectsQuery.isLoading,
     isHydrated: !projectsQuery.isLoading,
   };

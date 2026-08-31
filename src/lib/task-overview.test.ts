@@ -90,9 +90,9 @@ describe("getEvidenceSnapshot", () => {
 
 describe("buildActivityEvents", () => {
   test("includes created and locked milestones", () => {
-    const events = buildActivityEvents(baseTask());
-    expect(events.some((e) => e.label === "Task dibuat")).toBe(true);
-    expect(events.some((e) => e.label === "Contract disetujui")).toBe(true);
+    const events = buildActivityEvents(baseTask(), "en");
+    expect(events.some((e) => e.label === "Task created")).toBe(true);
+    expect(events.some((e) => e.label === "Contract approved")).toBe(true);
   });
 });
 

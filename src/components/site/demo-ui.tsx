@@ -14,14 +14,19 @@ export function DemoPanel({
   badge,
   children,
   className,
+  tourTarget,
 }: {
   title?: string;
   badge?: ReactNode;
   children: ReactNode;
   className?: string;
+  tourTarget?: string;
 }) {
   return (
-    <div className={cn("rounded-lg border border-border bg-card", className)}>
+    <div
+      className={cn("rounded-lg border border-border bg-card", className)}
+      {...(tourTarget ? { "data-tour": tourTarget } : {})}
+    >
       {title || badge ? (
         <div className="flex items-start justify-between gap-3 border-b border-border px-5 py-4 sm:px-6">
           {title ? (

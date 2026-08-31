@@ -3,6 +3,8 @@
  * Planner mendekomposisi goal; buildContract tetap fallback deterministik.
  */
 
+import type { PlanningSource, TaskClarification } from "@/lib/planning/planning-source";
+
 export const WORKSPACE_NAME = "buildloop-demo";
 export const MAX_ATTEMPTS = 2;
 
@@ -101,6 +103,9 @@ export type TaskContract = {
       status: string;
     }>;
   };
+  sourcesUsed?: PlanningSource[];
+  clarification?: TaskClarification;
+  planningSummary?: string;
 };
 
 export type HumanApprovalRecord = {

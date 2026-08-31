@@ -11,6 +11,10 @@ import {
   isPendingHumanApproval,
 } from "@/lib/human-approval";
 import { buildContract, zeroChangeRunnerState } from "@/lib/task-contract";
+import {
+  assertTaskOrchestrationEligible,
+  isOrchestrationEligible,
+} from "@/lib/task-lifecycle-ops";
 
 describe("governance edge cases", () => {
   describe("task input validation", () => {
@@ -152,7 +156,11 @@ describe("orchestration duplicate guard", () => {
     });
 
     const task = await repo.getTask(created.id);
+    expect(task).toBeTruthy();
     expect(task?.status).toBe("AWAITING_APPROVAL");
-    expect(task?.status).not.toBe("APPROVED_FOR_EXECUTION");
+    expect(isOrchestrationEligible(task!)).toBe(false);
+    expect(() => assertTaskOrchestrationEligible(task!)).toThrow(
+      "Task harus berstatus APPROVED_FOR_EXECUTION sebelum diorkestrasi.",
+    );
   });
 });

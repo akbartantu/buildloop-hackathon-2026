@@ -58,16 +58,16 @@ export function TaskOverviewView({
   onHandoffAction,
   onGoToTab,
 }: TaskOverviewViewProps) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const taskRef = formatTaskRef(task.id);
   const runner = task.runnerState;
   const lifecycle = buildTaskLifecycleViewModel(task);
   const handoff = getContractHandoff(task, { running, approving }, locale);
-  const journey = getJourneySteps(task.status);
+  const journey = getJourneySteps(task.status, locale);
   const snapshot = getContractSnapshot(task);
   const evidence = getEvidenceSnapshot(task);
-  const activity = buildActivityEvents(task);
-  const attention = getAttentionState(task);
+  const activity = buildActivityEvents(task, locale);
+  const attention = getAttentionState(task, locale);
   const primaryDisabled =
     (handoff.primaryAction === "run" && running) ||
     (handoff.primaryAction === "approve" && approving);
@@ -81,7 +81,7 @@ export function TaskOverviewView({
             {task.goal}
           </h1>
           <p className="mt-1.5 font-mono text-[11px] text-muted-foreground">
-            {taskRef} · {taskWorkspaceLabel(task)} · {contractVersionLabel(task)}
+            {taskRef} · {taskWorkspaceLabel(task)} · {contractVersionLabel(task, locale)}
             {task.sourceCommitSha ? ` · ${abbreviateCommitSha(task.sourceCommitSha)}` : ""}
           </p>
         </div>
@@ -93,7 +93,7 @@ export function TaskOverviewView({
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Koreksi</dt>
+            <dt className="text-muted-foreground">{t("overview.corrections")}</dt>
             <dd className="font-mono text-foreground">
               {lifecycle.correctionsUsed} / {lifecycle.correctionLimit}
             </dd>
@@ -137,7 +137,7 @@ export function TaskOverviewView({
           ))}
         </ol>
         <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-          {lifecycle.plainLanguageSummary || getJourneyDescription(task.status)}
+          {lifecycle.plainLanguageSummary || getJourneyDescription(task.status, locale)}
         </p>
       </DemoPanel>
 
@@ -180,7 +180,7 @@ export function TaskOverviewView({
               className="mt-4 h-auto p-0 text-foreground"
               onClick={() => onGoToTab("contract")}
             >
-              Lihat contract lengkap
+              {t("overview.viewFullContract")}
               <ArrowRight className="ml-1 size-3.5" />
             </Button>
           </DemoPanel>
@@ -212,7 +212,7 @@ export function TaskOverviewView({
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-muted-foreground">Belum ada aktivitas.</p>
+              <p className="text-sm text-muted-foreground">{t("overview.noActivity")}</p>
             )}
             <Button
               variant="link"
@@ -220,7 +220,7 @@ export function TaskOverviewView({
               className="mt-3 h-auto p-0 text-foreground"
               onClick={() => onGoToTab("orchestration")}
             >
-              Lihat orchestration
+              {t("overview.viewOrchestration")}
               <ArrowRight className="ml-1 size-3.5" />
             </Button>
           </DemoPanel>
@@ -267,7 +267,7 @@ export function TaskOverviewView({
                 className="mt-3 h-auto p-0 text-foreground"
                 onClick={() => onGoToTab("evidence")}
               >
-                Lihat semua evidence
+                {t("overview.viewAllEvidence")}
                 <ArrowRight className="ml-1 size-3.5" />
               </Button>
             ) : null}
@@ -332,15 +332,13 @@ function OrchestrationSummary({
   primaryDisabled: boolean;
   onHandoffAction: (action: ContractHandoffAction) => void;
 }) {
-  const { locale } = useI18n();
+  const { locale, t } = useI18n();
   const runner = task.runnerState;
 
   if (task.status === "APPROVED_FOR_EXECUTION") {
     return (
       <>
-        <p className="text-sm text-muted-foreground">
-          Belum ada run. BuildLoop siap menjalankan task sesuai contract.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("overview.noRunYet")}</p>
         <Button
           className="mt-3"
           onClick={() => onHandoffAction("run")}
@@ -378,14 +376,14 @@ function OrchestrationSummary({
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="text-muted-foreground">Diperbarui</dt>
+            <dt className="text-muted-foreground">{t("overview.updated")}</dt>
             <dd className="font-mono text-[11px] text-foreground">
               {formatOverviewTimestamp(task.updatedAt) ?? "—"}
             </dd>
           </div>
         </dl>
         <Button className="mt-3" variant="outline" onClick={() => onHandoffAction("view-orchestration")}>
-          Lihat Orchestration
+          {t("overview.viewOrchestration")}
         </Button>
       </>
     );
@@ -400,7 +398,9 @@ function OrchestrationSummary({
           {" · "}
           Worker {lifecycle.workerAttemptNumber}/{lifecycle.workerAttemptLimit}
           {" · "}
-          Koreksi {lifecycle.correctionsUsed}/{lifecycle.correctionLimit}
+          {t("overview.correctionCount")
+            .replace("{used}", String(lifecycle.correctionsUsed))
+            .replace("{limit}", String(lifecycle.correctionLimit))}
         </p>
         <p className="mt-2 text-xs text-muted-foreground">{lifecycle.plainLanguageSummary}</p>
         {lifecycle.approval.historicalCorrection ? (
@@ -414,11 +414,11 @@ function OrchestrationSummary({
           </p>
         ) : (
           <p className="mt-2 text-xs text-muted-foreground">
-            PASS tidak melakukan commit, push, merge, atau deploy otomatis.
+            {t("overview.passNoCommit")}
           </p>
         )}
         <Button className="mt-3" onClick={() => onHandoffAction(task.status === "CLOSED" ? "view-approval" : "view-evidence")}>
-          {task.status === "CLOSED" ? "Lihat approval" : "Lihat Evidence"}
+          {task.status === "CLOSED" ? t("overview.viewApproval") : t("overview.viewEvidence")}
         </Button>
       </>
     );
@@ -428,14 +428,16 @@ function OrchestrationSummary({
     return (
       <>
         <p className="text-sm text-status-blocked">
-          FAILED · Worker {lifecycle.workerAttemptNumber}/{lifecycle.workerAttemptLimit} · Koreksi{" "}
-          {lifecycle.correctionsUsed}/{lifecycle.correctionLimit}
+          FAILED · Worker {lifecycle.workerAttemptNumber}/{lifecycle.workerAttemptLimit} ·{" "}
+          {t("overview.correctionCount")
+            .replace("{used}", String(lifecycle.correctionsUsed))
+            .replace("{limit}", String(lifecycle.correctionLimit))}
         </p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {runner?.note ?? "Checker gagal setelah batas koreksi."}
+          {runner?.note ?? t("overview.failedAfterLimit")}
         </p>
         <Button className="mt-3" variant="outline" onClick={() => onHandoffAction("view-evidence")}>
-          Lihat hasil
+          {t("overview.viewResults")}
         </Button>
       </>
     );
@@ -444,12 +446,12 @@ function OrchestrationSummary({
   if (task.status === "BLOCKED") {
     return (
       <>
-        <p className="text-sm text-status-blocked">BLOCKED sebelum worker dipanggil.</p>
+        <p className="text-sm text-status-blocked">{t("overview.blockedBeforeWorker")}</p>
         <p className="mt-2 text-sm text-muted-foreground">
-          {task.blockedReasons[0]?.explanation ?? "Guardrail mencegah eksekusi otomatis."}
+          {task.blockedReasons[0]?.explanation ?? t("overview.guardrailNote")}
         </p>
         <Button className="mt-3" variant="outline" onClick={() => onHandoffAction("view-evidence")}>
-          Tinjau alasan block
+          {t("overview.reviewBlockReasons")}
         </Button>
       </>
     );
@@ -458,9 +460,7 @@ function OrchestrationSummary({
   if (task.status === "CONTRACT_READY" || task.status === "DRAFT") {
     return (
       <>
-        <p className="text-sm text-muted-foreground">
-          Setujui contract terlebih dahulu sebelum orchestration dapat dimulai.
-        </p>
+        <p className="text-sm text-muted-foreground">{t("overview.approveContractFirst")}</p>
         <Button
           className="mt-3"
           onClick={() => onHandoffAction("approve")}
@@ -473,6 +473,6 @@ function OrchestrationSummary({
   }
 
   return (
-    <p className="text-sm text-muted-foreground">{handoff.statusNote ?? "Lanjutkan alur task."}</p>
+    <p className="text-sm text-muted-foreground">{handoff.statusNote ?? t("overview.continueFlow")}</p>
   );
 }

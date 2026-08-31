@@ -19,7 +19,7 @@ AI coding tools can change files outside scope, add dependencies without review,
 
 ## What works today
 
-- Public landing page, docs, security, privacy, and terms routes
+- Public landing page, docs, privacy, cookies, security, and terms routes
 - Pilot waitlist form with server-side validation
 - Google OAuth sign-in and protected workspace (`/app`)
 - Multi-workspace projects with active workspace switching and project-scoped tasks
@@ -104,7 +104,7 @@ For Cloud Run, pass `VITE_SUPABASE_*` as Docker build args (see `cloudbuild.yaml
 | `/`                                        | Public landing                       |
 | `/auth`, `/auth/callback`                  | Sign-in                              |
 | `/app`                                     | Authenticated workspace              |
-| `/docs`, `/security`, `/privacy`, `/terms` | Public                               |
+| `/docs`, `/privacy`, `/cookies`, `/security`, `/terms` | Public legal & docs pages          |
 | `/sitemap.xml`                             | Public sitemap (uses `APP_BASE_URL`) |
 
 ## Validation commands
@@ -125,6 +125,8 @@ bun run build
 - PASS does not auto-commit, push, merge, or deploy
 - Protected paths include `.env*`, CI workflows, migrations, Supabase integration, and lockfiles
 - Secrets are never stored in evidence or client bundles
+
+See also [SECURITY.md](SECURITY.md) and the in-app Privacy, Cookie, and Security pages (`/privacy`, `/cookies`, `/security`).
 
 ## Known limitations
 

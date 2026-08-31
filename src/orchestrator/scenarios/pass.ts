@@ -1,5 +1,5 @@
 export const PASS_DEMO_GOAL =
-  "Perjelas penjelasan workspace agar pengguna baru memahami bahwa task dijalankan di sandbox dan tindakan sensitif membutuhkan approval.";
+  "Perjelas penjelasan workspace di src/components/site/app-shell.tsx agar pengguna baru memahami bahwa task dijalankan di sandbox dan tindakan sensitif membutuhkan approval.";
 
 export const PASS_DEMO_TARGET_RELATIVE = "src/components/site/app-shell.tsx";
 

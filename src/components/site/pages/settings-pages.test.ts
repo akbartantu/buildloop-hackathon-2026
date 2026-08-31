@@ -1,173 +1,134 @@
 import { describe, expect, test } from "bun:test";
-import {
-  canChangePassword,
-  isValidPhone,
-  normalizePhone,
-  resolveUserDisplayName,
-} from "@/lib/auth/user-display";
+
+import { translate } from "@/i18n";
+import { buildEnvironmentFields } from "@/components/site/pages/settings-pages";
+import type { RuntimeSnapshot } from "@/lib/runtime/runtime-status";
 
 const settingsSourcePath = new URL("./settings-pages.tsx", import.meta.url);
-const workspaceSessionSourcePath = new URL("../../../hooks/use-workspace-session.ts", import.meta.url);
 
 async function readSettingsSource() {
   return Bun.file(settingsSourcePath).text();
 }
 
+const tEn = (key: Parameters<typeof translate>[1]) => translate("en", key);
+
 describe("settings information architecture", () => {
   test("profile tab does not render environment diagnostics", async () => {
     const source = await readSettingsSource();
-
     const profileSection = source.slice(
       source.indexOf("function ProfileFormPanel"),
       source.indexOf("export function EnvironmentSettingsSection"),
     );
 
-    expect(profileSection).not.toContain("WORKSPACE_NAME");
-    expect(profileSection).not.toContain("DEV AUTH BYPASS");
-    expect(profileSection).not.toContain("import.meta.env.DEV");
+    expect(profileSection).not.toContain("connectedSourceCommit");
+    expect(profileSection).not.toContain("BUILDLOOP_PERSISTENCE");
   });
 
-  test("environment section contains workspace and runtime diagnostics", async () => {
+  test("settings includes workspace tab", async () => {
     const source = await readSettingsSource();
+    expect(source).toContain("settings.tabs.workspace");
+    expect(source).toContain("WorkspaceSettingsSection");
+    expect(source).toContain("useWorkspaceLabel");
+  });
 
+  test("environment section uses shared workspace source of truth", async () => {
+    const source = await readSettingsSource();
     const environmentSection = source.slice(source.indexOf("export function EnvironmentSettingsSection"));
 
-    expect(environmentSection).toContain("WORKSPACE_NAME");
-    expect(environmentSection).toContain("isDevAuthBypassEnabled");
-    expect(environmentSection).toContain("import.meta.env.DEV");
+    expect(environmentSection).toContain("useWorkspaceLabel");
+    expect(environmentSection).toContain("useRuntimeSnapshot");
+    expect(environmentSection).toContain("isDemo");
   });
 
-  test("settings page defaults to profile tab", async () => {
+  test("integrations page does not claim GitHub OAuth is connected", async () => {
     const source = await readSettingsSource();
-    expect(source).toContain('defaultValue="profile"');
-    expect(source).toContain('<TabsTrigger value="profile">Profile</TabsTrigger>');
-    expect(source).toContain('<TabsTrigger value="environment">Environment</TabsTrigger>');
+    const integrationsSection = source.slice(source.indexOf("export function IntegrationsPage"));
+
+    expect(integrationsSection).not.toMatch(/GitHub OAuth/i);
+    expect(integrationsSection).not.toContain("oauth");
+    expect(integrationsSection).toContain("IntegrationStatusRow");
   });
 
-  test("profile persists full_name and phone via updateUser", async () => {
-    const source = await readSettingsSource();
-    expect(source).toContain("supabase.auth.updateUser");
-    expect(source).toContain("full_name:");
-    expect(source).toContain("phone:");
-  });
-
-  test("email field remains read-only", async () => {
-    const source = await readSettingsSource();
-    expect(source).toContain('id="settings-email"');
-    expect(source).toContain("readOnly");
-    expect(source).toContain("Email is managed by your authentication account.");
-  });
-
-  test("password change uses schema validation and updateUser", async () => {
-    const source = await readSettingsSource();
-    expect(source).toContain("changePasswordSchema");
-    expect(source).toContain('updateUser({ password: parsed.data.password })');
-    expect(source).toContain("Password updated.");
-  });
-
-  test("oauth-only users skip password form via canChangePassword", async () => {
-    const source = await readSettingsSource();
-    expect(source).toContain("canChangePassword");
-    expect(source).toContain(
-      "Password changes are not available for accounts that sign in with an external provider.",
-    );
-  });
-
-  test("account information keeps provider and last sign-in read-only", async () => {
-    const source = await readSettingsSource();
-    const accountPanel = source.slice(
-      source.indexOf("function AccountInformationPanel"),
-      source.indexOf("export function ProfileSettingsSection"),
-    );
-
-    expect(accountPanel).toContain("resolveAuthProviderLabel");
-    expect(accountPanel).toContain("formatLastSignIn");
-    expect(accountPanel).not.toContain("<Input");
-    expect(accountPanel).not.toContain("<form");
-  });
-
-  test("settings pages do not expose secrets or service credentials", async () => {
+  test("settings and integrations pages do not expose secrets", async () => {
     const source = await readSettingsSource();
     expect(source).not.toMatch(/service[_-]?role/i);
     expect(source).not.toMatch(/sb_secret/i);
     expect(source).not.toMatch(/GEMINI_API_KEY/);
     expect(source).not.toMatch(/SUPABASE_SERVICE_ROLE_KEY/);
   });
-});
 
-describe("profile metadata behavior", () => {
-  test("full_name loads from metadata for display resolution", () => {
-    expect(
-      resolveUserDisplayName({
-        email: "akbartantu29@gmail.com",
-        userMetadata: { full_name: "Akbar Tantu" },
-      }),
-    ).toBe("Akbar Tantu");
+  test("profile shows language from i18n context", async () => {
+    const source = await readSettingsSource();
+    expect(source).toContain("settings.profile.language");
+    expect(source).toContain("language.indonesian");
+    expect(source).toContain("language.english");
   });
 
-  test("display name falls back to email local-part when full_name is missing", () => {
-    expect(
-      resolveUserDisplayName({
-        email: "akbartantu29@gmail.com",
-        userMetadata: {},
-      }),
-    ).toBe("akbartantu29");
-  });
-
-  test("phone metadata normalizes whitespace", () => {
-    expect(normalizePhone("  +62 812 3456 7890  ")).toBe("+62 812 3456 7890");
-  });
-
-  test("empty phone is allowed", () => {
-    expect(normalizePhone("   ")).toBe("");
-    expect(isValidPhone("")).toBe(true);
-  });
-
-  test("invalid phone values are rejected", () => {
-    expect(isValidPhone("not-a-phone")).toBe(false);
-    expect(isValidPhone("abc123")).toBe(false);
-  });
-
-  test("valid international phone formats are accepted", () => {
-    expect(isValidPhone("+1 (555) 123-4567")).toBe(true);
-    expect(isValidPhone("+62 812-3456-7890")).toBe(true);
+  test("profile includes privacy and data links", async () => {
+    const source = await readSettingsSource();
+    expect(source).toContain("settings.privacy.title");
+    expect(source).toContain('to="/privacy"');
+    expect(source).toContain('to="/cookies"');
+    expect(source).toContain('to="/security"');
   });
 });
 
-describe("password eligibility", () => {
-  test("email users can change password", () => {
-    expect(canChangePassword({ app_metadata: { provider: "email" } })).toBe(true);
-  });
+describe("buildEnvironmentFields", () => {
+  const snapshot: RuntimeSnapshot = {
+    persistence: "firestore",
+    geminiConfigured: true,
+    supabaseConfigured: true,
+    devAuthBypass: false,
+    isProduction: true,
+  };
 
-  test("google oauth users cannot change password", () => {
-    expect(
-      canChangePassword({
-        app_metadata: { provider: "google" },
-        identities: [{ provider: "google" }],
-      }),
-    ).toBe(false);
-  });
-});
-
-describe("sidebar display wiring", () => {
-  test("workspace session resolves display name from auth metadata", async () => {
-    const source = await Bun.file(workspaceSessionSourcePath).text();
-    expect(source).toContain("resolveUserDisplayName");
-    expect(source).toContain("user_metadata");
-  });
-});
-
-describe("password mismatch validation", () => {
-  test("changePasswordSchema rejects mismatched passwords", async () => {
-    const { changePasswordSchema } = await import("@/lib/auth/auth-schema");
-    const parsed = changePasswordSchema.safeParse({
-      password: "secret123",
-      confirmPassword: "different456",
+  test("real active project overrides demo fallback", () => {
+    const fields = buildEnvironmentFields(tEn, {
+      workspaceLabel: "akbartantu/buildloop-hackathon-2026",
+      isDemo: false,
+      sourceBranch: "main",
+      sourceCommit: "e82bb6b0123456789abcdef0123456789abcdef01",
+      snapshot,
     });
 
-    expect(parsed.success).toBe(false);
-    if (!parsed.success) {
-      expect(parsed.error.issues.some((issue) => issue.path[0] === "confirmPassword")).toBe(true);
+    expect(fields.activeWorkspace).toBe("akbartantu/buildloop-hackathon-2026");
+    expect(fields.activeWorkspace).not.toContain("buildloop-demo");
+    expect(fields.source).toBe("Public GitHub");
+    expect(fields.branch).toBe("main");
+    expect(fields.connectedCommit).toBe("e82bb6b0");
+  });
+
+  test("demo fallback appears only without active project", () => {
+    const fields = buildEnvironmentFields(tEn, {
+      workspaceLabel: "buildloop-demo",
+      isDemo: true,
+      snapshot,
+    });
+
+    expect(fields.activeWorkspace).toContain("buildloop-demo");
+    expect(fields.source).toContain("Controlled local demo workspace");
+    expect(fields.branch).toBe("Unavailable");
+    expect(fields.connectedCommit).toBe("Unavailable");
+  });
+});
+
+describe("integrations i18n", () => {
+  test("English integrations copy contains no Indonesian leak", () => {
+    const leaks = ["Integrasi eksternal", "Status integrasi", "hackathon sandbox", "belum terhubung"];
+    for (const key of [
+      "integrations.description",
+      "integrations.panelTitle",
+      "integrations.items.publicGithub.description",
+    ] as const) {
+      const value = translate("en", key);
+      for (const leak of leaks) {
+        expect(value.toLowerCase()).not.toContain(leak.toLowerCase());
+      }
     }
+  });
+
+  test("Indonesian integrations copy works", () => {
+    expect(translate("id", "integrations.items.gemini.name")).toBe("Gemini");
+    expect(translate("id", "integrations.status.available")).toBe("Tersedia");
   });
 });

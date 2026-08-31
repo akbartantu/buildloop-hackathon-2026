@@ -37,7 +37,7 @@ describe("resolveAuthenticatedRequestContext", () => {
 
     const task = await context.tasks.createTask({
       userId: context.auth.userId,
-      goal: "Ubah teks penjelasan workspace menjadi lebih jelas.",
+      goal: "Update README subtitle to mention governed autonomous software delivery.",
     });
     expect(task.status).toBe("APPROVED_FOR_EXECUTION");
   });
@@ -55,7 +55,7 @@ describe("resolveAuthenticatedRequestContext", () => {
     const context = await resolveAuthenticatedRequestContext();
     const created = await context.tasks.createTask({
       userId: DEV_AUTH_BYPASS_USER_ID,
-      goal: "Ubah teks penjelasan workspace menjadi lebih jelas.",
+      goal: "Update README subtitle to mention governed autonomous software delivery.",
     });
     const listed = await context.tasks.listTasks(DEV_AUTH_BYPASS_USER_ID);
     expect(listed.some((task) => task.id === created.id)).toBe(true);

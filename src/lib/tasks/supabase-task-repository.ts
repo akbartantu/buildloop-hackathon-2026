@@ -5,9 +5,16 @@ import { WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
 import type { RunnerState, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { buildPlanningInputForTask, type PlanningDeps } from "@/lib/planning/build-planning-input";
 import { planAndEvaluateTask } from "@/lib/task-planning";
 import { getWorkspaceRoot } from "@/orchestrator/product/orchestrator";
 import { toTaskRecord, type TaskRowShape } from "@/lib/tasks/task-record";
+import {
+  applyClarificationAnswer,
+  applyContractRefresh,
+  applyDraftUpdate,
+  applyTaskRevision,
+} from "@/lib/tasks/task-mutations";
 import {
   applyHumanApproval,
   findExistingHumanApproval,
@@ -23,8 +30,16 @@ export type SupabaseTaskRepository = ReturnType<typeof createSupabaseTaskReposit
 export function createSupabaseTaskRepository(
   supabase: SupabaseClient<Database>,
   projectLookup?: {
-    getProject(id: string, userId: string): Promise<{ repositoryUrl: string; connectedCommitSha: string | null } | null>;
+    getProject(
+      id: string,
+      userId: string,
+    ): Promise<{
+      repositoryUrl: string;
+      connectedCommitSha: string | null;
+      disconnectedAt?: string | null;
+    } | null>;
   },
+  planningDeps: PlanningDeps = {},
 ) {
   return {
     async createTask(input: {
@@ -33,6 +48,7 @@ export function createSupabaseTaskRepository(
       workspace?: string;
       projectId?: string;
       acceptanceCriteria?: string[];
+      clarificationAnswer?: string;
     }): Promise<TaskRecord> {
       let workspace = input.workspace ?? WORKSPACE_NAME;
       let projectId: string | null = null;
@@ -46,6 +62,9 @@ export function createSupabaseTaskRepository(
         if (!project) {
           throw new Error("Project tidak ditemukan.");
         }
+        if (project.disconnectedAt) {
+          throw new Error("Repository is disconnected for this workspace.");
+        }
         workspace = project.repositoryUrl;
         projectId = input.projectId;
         sourceCommitSha = project.connectedCommitSha;
@@ -55,12 +74,24 @@ export function createSupabaseTaskRepository(
       }
 
       const taskId = crypto.randomUUID();
-      const planned = await planAndEvaluateTask({
-        goal: input.goal,
-        taskId,
-        workspaceRoot: getWorkspaceRoot(),
-        ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
-      });
+      const planningInput = await buildPlanningInputForTask(
+        {
+          id: taskId,
+          goal: input.goal,
+          projectId,
+          sourceCommitSha,
+          contract: {},
+          userId: input.userId,
+        },
+        {
+          goal: input.goal,
+          ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
+          ...(input.clarificationAnswer ? { clarificationAnswer: input.clarificationAnswer } : {}),
+        },
+        planningDeps,
+        { workspaceRoot: getWorkspaceRoot() },
+      );
+      const planned = await planAndEvaluateTask(planningInput);
 
       const runnerState = planned.runnerState;
 
@@ -157,21 +188,21 @@ export function createSupabaseTaskRepository(
           status: "APPROVED_FOR_EXECUTION",
           locked_at: new Date().toISOString(),
           runner_state: zeroChangeRunnerState(
-            "Contract terkunci. Runner eksekusi belum dihubungkan, jadi belum ada kode yang dijalankan.",
+            "Contract locked. Orchestrator is ready to run.",
           ),
         })
         .eq("id", input.id)
-        .eq("status", "CONTRACT_READY")
+        .in("status", ["DRAFT", "CONTRACT_READY"])
         .is("locked_at", null)
         .select(SELECT_COLUMNS)
         .maybeSingle();
 
       if (error) {
         console.error("lockContract failed", error.code);
-        throw new Error("Contract gagal dikunci.");
+        throw new Error("Contract could not be locked.");
       }
       if (!row) {
-        throw new Error("Contract tidak dapat dikunci pada status saat ini.");
+        throw new Error("Contract cannot be locked in the current status.");
       }
 
       await supabase.from("task_approvals").insert({
@@ -271,6 +302,151 @@ export function createSupabaseTaskRepository(
         throw new Error("Approval belum tersimpan. Coba lagi.");
       }
 
+      return toTaskRecord(row as TaskRowShape);
+    },
+
+    async updateDraftTask(input: {
+      id: string;
+      userId: string;
+      goal: string;
+      acceptanceCriteria?: string[];
+    }): Promise<TaskRecord> {
+      const existing = await this.getTask(input.id);
+      if (!existing) throw new Error("Task not found.");
+      const stored = {
+        ...existing,
+        userId: input.userId,
+      };
+      const { task: updated } = await applyDraftUpdate(
+        stored as never,
+        {
+          goal: input.goal,
+          ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
+        },
+        planningDeps,
+      );
+      const { data: row, error } = await supabase
+        .from("tasks")
+        .update({
+          goal: updated.goal,
+          status: updated.status,
+          contract: updated.contract,
+          blocked_reasons: updated.blockedReasons,
+          runner_state: updated.runnerState,
+          locked_at: null,
+        })
+        .eq("id", input.id)
+        .select(SELECT_COLUMNS)
+        .maybeSingle();
+      if (error || !row) throw new Error("Task could not be updated.");
+      return toTaskRecord(row as TaskRowShape);
+    },
+
+    async reviseTask(input: {
+      id: string;
+      userId: string;
+      goal?: string;
+      acceptanceCriteria?: string[];
+    }): Promise<TaskRecord> {
+      const existing = await this.getTask(input.id);
+      if (!existing) throw new Error("Task not found.");
+      const { task: updated } = await applyTaskRevision(
+        existing as never,
+        {
+          ...(input.goal ? { goal: input.goal } : {}),
+          ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
+        },
+        planningDeps,
+      );
+      const { data: row, error } = await supabase
+        .from("tasks")
+        .update({
+          goal: updated.goal,
+          status: updated.status,
+          contract: updated.contract,
+          blocked_reasons: updated.blockedReasons,
+          runner_state: updated.runnerState,
+          locked_at: null,
+        })
+        .eq("id", input.id)
+        .select(SELECT_COLUMNS)
+        .maybeSingle();
+      if (error || !row) throw new Error("Task could not be revised.");
+      await supabase.from("task_approvals").insert({
+        task_id: input.id,
+        decision: "REVISE",
+        actor_user_id: input.userId,
+        note: "Contract revised before execution.",
+      });
+      return toTaskRecord(row as TaskRowShape);
+    },
+
+    async refreshContract(input: { id: string; userId: string }): Promise<TaskRecord> {
+      const existing = await this.getTask(input.id);
+      if (!existing) throw new Error("Task not found.");
+      if (!existing.projectId || !projectLookup) {
+        throw new Error("Project workspace could not be verified.");
+      }
+      const project = await projectLookup.getProject(existing.projectId, input.userId);
+      if (!project) throw new Error("Project not found.");
+      const { task: updated } = await applyContractRefresh(
+        existing as never,
+        project,
+        input.userId,
+        projectLookup,
+        planningDeps,
+      );
+      const { data: row, error } = await supabase
+        .from("tasks")
+        .update({
+          goal: updated.goal,
+          status: updated.status,
+          contract: updated.contract,
+          blocked_reasons: updated.blockedReasons,
+          runner_state: updated.runnerState,
+          locked_at: null,
+          source_commit_sha: updated.sourceCommitSha,
+        })
+        .eq("id", input.id)
+        .select(SELECT_COLUMNS)
+        .maybeSingle();
+      if (error || !row) throw new Error("Contract could not be refreshed.");
+      await supabase.from("task_approvals").insert({
+        task_id: input.id,
+        decision: "REVISE",
+        actor_user_id: input.userId,
+        note: "Contract refreshed after repository commit change.",
+      });
+      return toTaskRecord(row as TaskRowShape);
+    },
+
+    async answerTaskClarification(input: {
+      id: string;
+      userId: string;
+      answer: string;
+    }): Promise<TaskRecord> {
+      const existing = await this.getTask(input.id);
+      if (!existing) throw new Error("Task not found.");
+      const stored = { ...existing, userId: input.userId };
+      const { task: updated } = await applyClarificationAnswer(
+        stored as never,
+        { answer: input.answer },
+        planningDeps,
+      );
+      const { data: row, error } = await supabase
+        .from("tasks")
+        .update({
+          goal: updated.goal,
+          status: updated.status,
+          contract: updated.contract,
+          blocked_reasons: updated.blockedReasons,
+          runner_state: updated.runnerState,
+          locked_at: null,
+        })
+        .eq("id", input.id)
+        .select(SELECT_COLUMNS)
+        .maybeSingle();
+      if (error || !row) throw new Error("Clarification could not be saved.");
       return toTaskRecord(row as TaskRowShape);
     },
 

@@ -36,10 +36,14 @@ export function AuthShell({
               By continuing, you agree to BuildLoop&apos;s{" "}
               <Link to="/terms" className="underline hover:text-foreground">
                 Terms
-              </Link>{" "}
-              and{" "}
+              </Link>
+              ,{" "}
               <Link to="/privacy" className="underline hover:text-foreground">
                 Privacy Policy
+              </Link>
+              , and{" "}
+              <Link to="/cookies" className="underline hover:text-foreground">
+                Cookie & Local Storage Policy
               </Link>
               .
             </p>

@@ -14,6 +14,11 @@ describe("i18n", () => {
     expect(translate("id", "projects.connectButton")).toBe("Hubungkan repositori");
   });
 
+  test("product tour replay label is localized", () => {
+    expect(translate("en", "productTour.replay")).toBe("Replay product tour");
+    expect(translate("id", "productTour.replay")).toBe("Putar ulang product tour");
+  });
+
   test("missing key falls back safely to English", () => {
     expect(translate("id", "tasks.createTask" as never)).toBe("Buat task");
     expect(translate("id", "missing.key" as never)).toBe("missing.key");
@@ -33,10 +38,25 @@ describe("i18n", () => {
     expect(translate("id", "status.task.BLOCKED")).toBe("Diblokir");
   });
 
-  test("no translated string is used as DB/API value", () => {
-    const label = translate("id", "status.task.BLOCKED");
-    expect(label).not.toBe("BLOCKED");
-    expect("BLOCKED").toBe("BLOCKED");
+  test("English home strings contain no known Indonesian leaks", () => {
+    const leaks = ["Ringkasan operasional", "Task aktif", "Buat task baru", "Koreksi", "Belum ada"];
+    for (const key of [
+      "home.title",
+      "home.activeTasks",
+      "home.createNewTask",
+      "home.corrections",
+      "home.noneYet",
+    ] as const) {
+      const value = translate("en", key);
+      for (const leak of leaks) {
+        expect(value).not.toContain(leak);
+      }
+    }
+  });
+
+  test("raw status enums are not used as user-facing English labels", () => {
+    expect(translate("en", "status.task.APPROVED_FOR_EXECUTION")).not.toBe("APPROVED_FOR_EXECUTION");
+    expect(translate("en", "status.task.AWAITING_APPROVAL")).not.toBe("AWAITING_APPROVAL");
   });
 
   test("preference survives refresh reinitialization", () => {

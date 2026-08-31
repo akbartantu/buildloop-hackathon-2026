@@ -25,6 +25,7 @@ type DevProjectStore = {
     repositoryName: string;
     defaultBranch: string | null;
     connectedCommitSha: string | null;
+    disconnectedAt: string | null;
     createdAt: string;
     updatedAt: string;
   }>;
@@ -37,7 +38,13 @@ function emptyStore(): DevProjectStore {
 async function readStore(): Promise<DevProjectStore> {
   try {
     const raw = await readFile(storePath(), "utf8");
-    return JSON.parse(raw) as DevProjectStore;
+    const parsed = JSON.parse(raw) as DevProjectStore;
+    return {
+      projects: parsed.projects.map((project) => ({
+        ...project,
+        disconnectedAt: project.disconnectedAt ?? null,
+      })),
+    };
   } catch {
     return emptyStore();
   }
@@ -59,6 +66,7 @@ function toRecord(project: DevProjectStore["projects"][number]): ProjectRecord {
     repositoryName: project.repositoryName,
     defaultBranch: project.defaultBranch,
     connectedCommitSha: project.connectedCommitSha,
+    disconnectedAt: project.disconnectedAt,
     createdAt: project.createdAt,
     updatedAt: project.updatedAt,
   };
@@ -88,6 +96,7 @@ export function createDevProjectRepository() {
         existing.name = input.name;
         existing.defaultBranch = input.defaultBranch;
         existing.connectedCommitSha = input.connectedCommitSha;
+        existing.disconnectedAt = null;
         existing.updatedAt = now;
         await writeStore(store);
         return toRecord(existing);
@@ -103,11 +112,54 @@ export function createDevProjectRepository() {
         repositoryName: input.repositoryName,
         defaultBranch: input.defaultBranch,
         connectedCommitSha: input.connectedCommitSha,
+        disconnectedAt: null,
         createdAt: now,
         updatedAt: now,
       };
 
       store.projects.unshift(project);
+      await writeStore(store);
+      return toRecord(project);
+    },
+
+    async refreshPublicGitHubProject(input: {
+      userId: string;
+      projectId: string;
+      defaultBranch: string;
+      connectedCommitSha: string;
+    }): Promise<ProjectRecord> {
+      const store = await readStore();
+      const project = store.projects.find(
+        (item) => item.id === input.projectId && item.userId === input.userId,
+      );
+      if (!project) {
+        throw new Error("Project not found.");
+      }
+
+      const now = new Date().toISOString();
+      project.defaultBranch = input.defaultBranch;
+      project.connectedCommitSha = input.connectedCommitSha;
+      project.disconnectedAt = null;
+      project.updatedAt = now;
+      await writeStore(store);
+      return toRecord(project);
+    },
+
+    async disconnectPublicGitHubProject(input: {
+      userId: string;
+      projectId: string;
+    }): Promise<ProjectRecord> {
+      const store = await readStore();
+      const project = store.projects.find(
+        (item) => item.id === input.projectId && item.userId === input.userId,
+      );
+      if (!project) {
+        throw new Error("Project not found.");
+      }
+
+      const now = new Date().toISOString();
+      project.disconnectedAt = now;
+      project.updatedAt = now;
       await writeStore(store);
       return toRecord(project);
     },

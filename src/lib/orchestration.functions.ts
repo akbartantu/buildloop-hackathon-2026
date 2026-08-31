@@ -10,13 +10,7 @@ import { captureGitBaseline, resolveWorkspacePathAsync, createRunSandboxId } fro
 import { getSandboxRoot } from "@/orchestrator/workspace/sandbox-root";
 import { isPublicGitHubRepoUrl } from "@/lib/repository/public-github-url";
 import { assertTaskProjectExecutionSafe } from "@/lib/workspace/execution-guard";
-
-const ACTIVE_ORCHESTRATION_STATUSES: TaskStatus[] = [
-  "INSPECTING",
-  "RUNNING",
-  "CHECKING",
-  "NEEDS_CORRECTION",
-];
+import { assertTaskOrchestrationEligible } from "@/lib/task-lifecycle-ops";
 
 export const executeTaskRun = createServerFn({ method: "POST" })
   .middleware([requireAuth])
@@ -28,13 +22,7 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       throw new Error("Task tidak ditemukan.");
     }
 
-    if (task.status !== "APPROVED_FOR_EXECUTION") {
-      throw new Error("Task harus berstatus APPROVED_FOR_EXECUTION sebelum diorkestrasi.");
-    }
-
-    if (ACTIVE_ORCHESTRATION_STATUSES.includes(task.status)) {
-      throw new Error("Orchestrator sudah berjalan untuk task ini.");
-    }
+    assertTaskOrchestrationEligible(task);
 
     const linkedProject = task.projectId
       ? await context.projects.getProject(task.projectId, context.auth.userId)
@@ -46,6 +34,7 @@ export const executeTaskRun = createServerFn({ method: "POST" })
         ? {
             repositoryUrl: linkedProject.repositoryUrl,
             connectedCommitSha: linkedProject.connectedCommitSha,
+            disconnectedAt: linkedProject.disconnectedAt,
           }
         : null,
       ...(data.activeProjectId !== undefined ? { activeProjectId: data.activeProjectId } : {}),

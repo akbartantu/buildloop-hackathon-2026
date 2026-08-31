@@ -194,6 +194,7 @@ export type Database = {
       projects: {
         Row: {
           connected_commit_sha: string | null
+          disconnected_at: string | null
           created_at: string
           default_branch: string | null
           id: string
@@ -207,6 +208,7 @@ export type Database = {
         }
         Insert: {
           connected_commit_sha?: string | null
+          disconnected_at?: string | null
           created_at?: string
           default_branch?: string | null
           id?: string
@@ -220,6 +222,7 @@ export type Database = {
         }
         Update: {
           connected_commit_sha?: string | null
+          disconnected_at?: string | null
           created_at?: string
           default_branch?: string | null
           id?: string
@@ -232,6 +235,183 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      project_specifications: {
+        Row: {
+          constraint_count: number | null
+          content: string
+          created_at: string
+          document_type: string
+          filename: string
+          flow_count: number | null
+          id: string
+          original_path: string | null
+          parse_status: string
+          parsed_at: string | null
+          project_id: string
+          requirement_count: number | null
+          summary: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          constraint_count?: number | null
+          content: string
+          created_at?: string
+          document_type: string
+          filename: string
+          flow_count?: number | null
+          id?: string
+          original_path?: string | null
+          parse_status?: string
+          parsed_at?: string | null
+          project_id: string
+          requirement_count?: number | null
+          summary?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          constraint_count?: number | null
+          content?: string
+          created_at?: string
+          document_type?: string
+          filename?: string
+          flow_count?: number | null
+          id?: string
+          original_path?: string | null
+          parse_status?: string
+          parsed_at?: string | null
+          project_id?: string
+          requirement_count?: number | null
+          summary?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_specifications_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_specification_set_files: {
+        Row: {
+          constraint_count: number | null
+          content: string
+          created_at: string
+          file_role: string
+          filename: string
+          flow_count: number | null
+          id: string
+          parse_status: string
+          relative_path: string
+          requirement_count: number | null
+          set_id: string
+          sort_order: number
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          constraint_count?: number | null
+          content: string
+          created_at?: string
+          file_role?: string
+          filename: string
+          flow_count?: number | null
+          id?: string
+          parse_status?: string
+          relative_path: string
+          requirement_count?: number | null
+          set_id: string
+          sort_order?: number
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          constraint_count?: number | null
+          content?: string
+          created_at?: string
+          file_role?: string
+          filename?: string
+          flow_count?: number | null
+          id?: string
+          parse_status?: string
+          relative_path?: string
+          requirement_count?: number | null
+          set_id?: string
+          sort_order?: number
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_specification_set_files_set_id_fkey"
+            columns: ["set_id"]
+            isOneToOne: false
+            referencedRelation: "project_specification_sets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_specification_sets: {
+        Row: {
+          constraint_count: number | null
+          created_at: string
+          document_type: string
+          file_count: number
+          flow_count: number | null
+          id: string
+          name: string
+          parse_status: string
+          project_id: string
+          requirement_count: number | null
+          summary: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          constraint_count?: number | null
+          created_at?: string
+          document_type?: string
+          file_count?: number
+          flow_count?: number | null
+          id?: string
+          name: string
+          parse_status?: string
+          project_id: string
+          requirement_count?: number | null
+          summary?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          constraint_count?: number | null
+          created_at?: string
+          document_type?: string
+          file_count?: number
+          flow_count?: number | null
+          id?: string
+          name?: string
+          parse_status?: string
+          project_id?: string
+          requirement_count?: number | null
+          summary?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_specification_sets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {

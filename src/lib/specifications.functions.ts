@@ -4,7 +4,6 @@ import { z } from "zod";
 import { requireAuth } from "@/lib/auth/require-auth";
 import { isProjectRepositoryConnected } from "@/lib/projects/project-record";
 import { validateSpecificationBundleUpload } from "@/lib/specifications/specification-bundle-upload";
-import { SPECIFICATION_DOCUMENT_TYPES } from "@/lib/specifications/specification-record";
 import { validateSpecificationUpload } from "@/lib/specifications/specification-upload";
 import { buildSpecificationDownloadArtifact } from "@/lib/specifications/specification-download";
 
@@ -16,7 +15,7 @@ const uploadSpecificationSchema = z.object({
   projectId: z.string().uuid(),
   filename: z.string().trim().min(1),
   originalPath: z.string().trim().optional(),
-  documentType: z.enum(SPECIFICATION_DOCUMENT_TYPES).optional(),
+  documentType: z.string().trim().optional(),
   content: z.string(),
 });
 

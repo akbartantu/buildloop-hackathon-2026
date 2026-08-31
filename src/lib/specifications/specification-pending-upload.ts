@@ -1,4 +1,5 @@
 import type { SpecificationDocumentType } from "./specification-record";
+import { isSpecKitDocumentType } from "./specification-record";
 
 export type PendingSpecificationFile = {
   filename: string;
@@ -39,7 +40,7 @@ export function resolvePendingUploadAction(
     return { mode: "invalid", reason: "empty" };
   }
 
-  if (documentType === "Spec Kit") {
+  if (isSpecKitDocumentType(documentType)) {
     if (pending.length >= 2) {
       return { mode: "set" };
     }

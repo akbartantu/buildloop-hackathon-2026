@@ -44,8 +44,8 @@ describe("specification pending upload flow", () => {
 
   test("explicit upload resolution targets single-document persistence once", () => {
     const pending = [pendingFile("PRD.md", "Password reset uses email link.")];
-    expect(resolvePendingUploadAction(pending, "PRD")).toEqual({ mode: "single" });
-    expect(canSubmitPendingUpload({ pending, documentType: "PRD", uploading: false, disabled: false })).toBe(
+    expect(resolvePendingUploadAction(pending, "prd")).toEqual({ mode: "single" });
+    expect(canSubmitPendingUpload({ pending, documentType: "prd", uploading: false, disabled: false })).toBe(
       true,
     );
   });
@@ -53,7 +53,7 @@ describe("specification pending upload flow", () => {
   test("pending file can be cleared before upload", () => {
     const pending = [pendingFile("PRD.md", "content")];
     expect(replacePendingSelection([], false)).toEqual([]);
-    expect(canSubmitPendingUpload({ pending: [], documentType: "PRD", uploading: false, disabled: false })).toBe(
+    expect(canSubmitPendingUpload({ pending: [], documentType: "prd", uploading: false, disabled: false })).toBe(
       false,
     );
   });
@@ -88,7 +88,7 @@ describe("specification pending upload flow", () => {
       projectId: project.id,
       filename: pending[0]!.filename,
       originalPath: null,
-      documentType: "PRD",
+      documentType: "prd",
       content: pending[0]!.content,
     });
 
@@ -118,7 +118,7 @@ describe("specification pending upload flow", () => {
 
     const invalidResolution = resolvePendingUploadAction(
       [pendingFile("a.md", "a"), pendingFile("b.md", "b")],
-      "PRD",
+      "prd",
     );
     expect(invalidResolution).toEqual({ mode: "invalid", reason: "multiple-single-document" });
     expect(await specifications.listSpecifications(project.id, USER)).toHaveLength(0);
@@ -127,7 +127,7 @@ describe("specification pending upload flow", () => {
   test("upload cannot submit while already uploading", () => {
     const pending = [pendingFile("PRD.md", "content")];
     expect(
-      canSubmitPendingUpload({ pending, documentType: "PRD", uploading: true, disabled: false }),
+      canSubmitPendingUpload({ pending, documentType: "prd", uploading: true, disabled: false }),
     ).toBe(false);
   });
 });
@@ -159,7 +159,7 @@ describe("specification download", () => {
       projectId: project.id,
       filename: "PRD.md",
       originalPath: null,
-      documentType: "PRD",
+      documentType: "prd",
       content: "# Product requirements\nPassword reset uses email link.",
     });
 
@@ -191,7 +191,7 @@ describe("specification download", () => {
       projectId: project.id,
       filename: "PRD.md",
       originalPath: null,
-      documentType: "PRD",
+      documentType: "prd",
       content: "Original content",
     });
 
@@ -231,7 +231,7 @@ describe("specification download", () => {
       projectId: projectA.id,
       filename: "PRD-A.md",
       originalPath: null,
-      documentType: "PRD",
+      documentType: "prd",
       content: "Project A only",
     });
 
@@ -266,7 +266,7 @@ describe("specification download", () => {
       projectId: project.id,
       filename: "PRD.md",
       originalPath: null,
-      documentType: "PRD",
+      documentType: "prd",
       content: "Authentication uses Supabase. Password reset via email link.",
     });
 

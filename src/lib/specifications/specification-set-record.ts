@@ -3,6 +3,7 @@ import type {
   SpecificationParseStatus,
   SpecificationRecord,
 } from "./specification-record";
+import { normalizeDocumentType } from "./specification-record";
 
 export const SPECIFICATION_SET_FILE_ROLES = [
   "constitution",
@@ -118,7 +119,7 @@ export function toSpecificationSetRecord(row: SpecificationSetRowShape): Specifi
     id: row.id,
     projectId: row.project_id,
     name: row.name,
-    documentType: row.document_type as SpecificationDocumentType,
+    documentType: normalizeDocumentType(row.document_type),
     parseStatus: row.parse_status as SpecificationParseStatus,
     summary: row.summary,
     requirementCount: row.requirement_count,

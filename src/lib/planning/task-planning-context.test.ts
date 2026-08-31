@@ -144,7 +144,7 @@ describe("task planning with specifications", () => {
       userId: USER,
       projectId: project.id,
       name: "spec-kit",
-      documentType: "Spec Kit",
+      documentType: "spec_kit",
       summary: "Spec Kit set",
       requirementCount: 2,
       constraintCount: 1,

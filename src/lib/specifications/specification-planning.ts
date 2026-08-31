@@ -1,4 +1,5 @@
 import type { SpecificationRecord } from "./specification-record";
+import { normalizeDocumentType } from "./specification-record";
 import type {
   PlanningSpecificationEntry,
   ProjectSpecificationsCatalog,
@@ -13,7 +14,7 @@ export function documentToPlanningEntry(
     projectId: document.projectId,
     filename: document.filename,
     path: document.originalPath ?? document.filename,
-    documentType: document.documentType,
+    documentType: normalizeDocumentType(document.documentType),
     content: document.content,
     parseStatus: document.parseStatus,
     summary: document.summary,
@@ -33,7 +34,7 @@ export function setFileToPlanningEntry(
     projectId: set.projectId,
     filename: file.filename,
     path: file.relativePath,
-    documentType: set.documentType,
+    documentType: normalizeDocumentType(set.documentType),
     content: file.content,
     parseStatus: file.parseStatus,
     summary: file.summary,

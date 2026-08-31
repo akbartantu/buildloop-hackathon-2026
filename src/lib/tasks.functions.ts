@@ -12,6 +12,7 @@ import {
   listTasksSchema,
   recordApprovalSchema,
   recordHumanApprovalSchema,
+  protectedPathApprovalActionSchema,
   reviseTaskSchema,
   taskIdSchema,
   updateDraftTaskSchema,
@@ -29,6 +30,8 @@ export const createTask = createServerFn({ method: "POST" })
       ...(data.projectId ? { projectId: data.projectId } : {}),
       ...(data.acceptanceCriteria ? { acceptanceCriteria: data.acceptanceCriteria } : {}),
       ...(data.clarificationAnswer ? { clarificationAnswer: data.clarificationAnswer } : {}),
+      ...(data.clarificationAnswers?.length ? { clarificationAnswers: data.clarificationAnswers } : {}),
+      ...(data.proceedWithAssumption ? { proceedWithAssumption: data.proceedWithAssumption } : {}),
     });
   });
 
@@ -142,6 +145,8 @@ export const analyzeTaskGoalPreview = createServerFn({ method: "POST" })
       sourceCommitSha: repositoryResolution.provenanceVerified ? sourceCommitSha : null,
       ...(data.acceptanceCriteria ? { acceptanceCriteria: data.acceptanceCriteria } : {}),
       ...(data.clarificationAnswer ? { clarificationAnswer: data.clarificationAnswer } : {}),
+      ...(data.clarificationAnswers?.length ? { clarificationAnswers: data.clarificationAnswers } : {}),
+      ...(data.proceedWithAssumption ? { proceedWithAssumption: data.proceedWithAssumption } : {}),
     });
   });
 
@@ -166,6 +171,8 @@ export const updateDraftTask = createServerFn({ method: "POST" })
       goal: data.goal,
       ...(data.acceptanceCriteria ? { acceptanceCriteria: data.acceptanceCriteria } : {}),
       ...(data.clarificationAnswer ? { clarificationAnswer: data.clarificationAnswer } : {}),
+      ...(data.clarificationAnswers?.length ? { clarificationAnswers: data.clarificationAnswers } : {}),
+      ...(data.proceedWithAssumption ? { proceedWithAssumption: data.proceedWithAssumption } : {}),
     });
   });
 
@@ -188,5 +195,17 @@ export const refreshContract = createServerFn({ method: "POST" })
     return context.tasks.refreshContract({
       id: data.id,
       userId: context.auth.userId,
+    });
+  });
+
+export const respondToProtectedPathApproval = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) => protectedPathApprovalActionSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    return context.tasks.respondToProtectedPathApproval({
+      id: data.id,
+      userId: context.auth.userId,
+      decision: data.decision,
+      ...(data.note ? { note: data.note } : {}),
     });
   });

@@ -28,6 +28,7 @@ import {
   type SensitiveApprovalAction,
 } from "@/lib/human-approval";
 import { captureContractInputs } from "@/lib/task-rerun";
+import { applyProtectedPathApprovalAction } from "@/lib/protected-path-approval-flow";
 
 const SELECT_COLUMNS =
   "id, workspace, goal, status, contract, blocked_reasons, runner_state, created_at, updated_at, locked_at, project_id, source_commit_sha";
@@ -76,6 +77,8 @@ export function createSupabaseTaskRepository(
       projectId?: string;
       acceptanceCriteria?: string[];
       clarificationAnswer?: string;
+      clarificationAnswers?: import("@/lib/planning/clarification-interview").ClarificationAnswerInput[];
+      proceedWithAssumption?: boolean;
     }): Promise<TaskRecord> {
       let workspace = input.workspace ?? WORKSPACE_NAME;
       let projectId: string | null = null;
@@ -115,6 +118,8 @@ export function createSupabaseTaskRepository(
           goal: input.goal,
           ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
           ...(input.clarificationAnswer ? { clarificationAnswer: input.clarificationAnswer } : {}),
+          ...(input.clarificationAnswers?.length ? { clarificationAnswers: input.clarificationAnswers } : {}),
+          ...(input.proceedWithAssumption ? { proceedWithAssumption: input.proceedWithAssumption } : {}),
         },
         planningDeps,
         { workspaceRoot: getWorkspaceRoot() },
@@ -352,6 +357,8 @@ export function createSupabaseTaskRepository(
       goal: string;
       acceptanceCriteria?: string[];
       clarificationAnswer?: string;
+      clarificationAnswers?: import("@/lib/planning/clarification-interview").ClarificationAnswerInput[];
+      proceedWithAssumption?: boolean;
     }): Promise<TaskRecord> {
       const existing = await this.getTask(input.id);
       if (!existing) throw new Error("Task not found.");
@@ -365,6 +372,8 @@ export function createSupabaseTaskRepository(
           goal: input.goal,
           ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
           ...(input.clarificationAnswer ? { clarificationAnswer: input.clarificationAnswer } : {}),
+          ...(input.clarificationAnswers?.length ? { clarificationAnswers: input.clarificationAnswers } : {}),
+          ...(input.proceedWithAssumption ? { proceedWithAssumption: input.proceedWithAssumption } : {}),
         },
         planningDeps,
         { incrementVersion: true },
@@ -544,6 +553,74 @@ export function createSupabaseTaskRepository(
       }
 
       return toTaskRecord(row as TaskRowShape);
+    },
+
+    async respondToProtectedPathApproval(input: {
+      id: string;
+      userId: string;
+      decision: "APPROVE" | "REJECT";
+      note?: string;
+    }): Promise<{ task: TaskRecord; resumeOrchestration: boolean; idempotent: boolean }> {
+      const row = await readTaskRow(supabase, input.id, true);
+      if (!row) {
+        throw new Error("Task not found.");
+      }
+      if (row.user_id !== input.userId) {
+        throw new Error("Unauthorized protected-path approval request.");
+      }
+
+      const existing = toTaskRecord(row as TaskRowShape);
+      if (!existing.runnerState?.pendingProtectedPathApproval) {
+        if (input.decision === "APPROVE") {
+          return { task: existing, resumeOrchestration: false, idempotent: true };
+        }
+        if (existing.runnerState?.rejected || existing.status === "BLOCKED") {
+          return { task: existing, resumeOrchestration: false, idempotent: true };
+        }
+      }
+
+      const result = applyProtectedPathApprovalAction({
+        task: existing,
+        decision: input.decision,
+        actorUserId: input.userId,
+        ...(input.note ? { note: input.note } : {}),
+      });
+
+      const update: {
+        status: TaskStatus;
+        runner_state: RunnerState;
+        blocked_reasons?: BlockedReason[];
+      } = {
+        status: result.task.status!,
+        runner_state: result.task.runnerState!,
+      };
+      if (result.task.blockedReasons) {
+        update.blocked_reasons = result.task.blockedReasons;
+      }
+
+      const { data: updatedRow, error } = await supabase
+        .from("tasks")
+        .update(update)
+        .eq("id", input.id)
+        .eq("user_id", input.userId)
+        .select(SELECT_COLUMNS)
+        .maybeSingle();
+      if (error || !updatedRow) {
+        throw new Error("Protected-path approval could not be saved.");
+      }
+
+      await supabase.from("task_approvals").insert({
+        task_id: input.id,
+        decision: input.decision === "APPROVE" ? "PROTECTED_PATH_APPROVE" : "PROTECTED_PATH_REJECT",
+        actor_user_id: input.userId,
+        note: input.note ?? null,
+      });
+
+      return {
+        task: toTaskRecord(updatedRow as TaskRowShape),
+        resumeOrchestration: result.resumeOrchestration,
+        idempotent: result.idempotent,
+      };
     },
 
     async updateAfterRun(input: {

@@ -148,6 +148,8 @@ export type RunnerState = {
     reviewType: string;
     note: string;
   };
+  /** Set when human approved a pending protected-path write and orchestration should resume. */
+  protectedPathResumeRequested?: boolean;
   operationalError?: string;
   gitBaseline?: {
     repoPath: string;
@@ -169,6 +171,8 @@ export type RunnerState = {
     paths: string[];
     reason: string;
     requestedAt: string;
+    runId?: string | null;
+    operation?: "create" | "modify";
   };
   evidence?: Array<{
     category: string;

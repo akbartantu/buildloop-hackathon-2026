@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { createTask, listTasks, lockContract, recordHumanApproval, refreshContract, reviseTask, updateDraftTask } from "@/lib/tasks.functions";
+import { createTask, listTasks, lockContract, recordHumanApproval, refreshContract, respondToProtectedPathApproval, reviseTask, updateDraftTask } from "@/lib/tasks.functions";
 import { executeTaskRun } from "@/lib/orchestration.functions";
 import type { HumanGateDecision, SensitiveApprovalAction } from "@/lib/human-approval";
 import { useProjects } from "@/hooks/use-projects";
@@ -18,6 +18,7 @@ export function useWorkspaceTasks() {
   const refreshContractFn = useServerFn(refreshContract);
   const reviseTaskFn = useServerFn(reviseTask);
   const updateDraftTaskFn = useServerFn(updateDraftTask);
+  const protectedPathApprovalFn = useServerFn(respondToProtectedPathApproval);
 
   const tasksQuery = useQuery({
     queryKey: ["tasks", projectScope],
@@ -131,6 +132,25 @@ export function useWorkspaceTasks() {
     },
   });
 
+  const protectedPathApprovalMutation = useMutation({
+    mutationFn: async (input: { id: string; decision: "APPROVE" | "REJECT"; note?: string }) => {
+      const result = await protectedPathApprovalFn({ data: input });
+      if (result.resumeOrchestration && !result.idempotent) {
+        await runOrchestrator({
+          data: {
+            id: input.id,
+            activeProjectId: projectScope,
+          },
+        });
+      }
+      return result.task;
+    },
+    onSuccess: async (_task, input) => {
+      await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["authorized-delivery", input.id] });
+    },
+  });
+
   return {
     tasks: tasksQuery.data ?? [],
     projectScope,
@@ -143,5 +163,6 @@ export function useWorkspaceTasks() {
     refreshContractMutation,
     reviseTaskMutation,
     updateDraftTaskMutation,
+    protectedPathApprovalMutation,
   };
 }

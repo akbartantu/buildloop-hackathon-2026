@@ -15,12 +15,34 @@ export const createTaskSchema = z.object({
   projectId: z.string().uuid().optional(),
   acceptanceCriteria: z.array(z.string().trim().min(3)).min(1).max(20).optional(),
   clarificationAnswer: z.string().trim().min(1).max(500).optional(),
+  clarificationAnswers: z
+    .array(
+      z.object({
+        questionId: z.string().trim().min(1).max(80),
+        selectedOptionId: z.string().trim().min(1).max(80),
+        customAnswer: z.string().trim().min(1).max(500).optional(),
+      }),
+    )
+    .max(5)
+    .optional(),
+  proceedWithAssumption: z.boolean().optional(),
 });
 
 export const updateDraftTaskSchema = taskIdSchema.extend({
   goal: z.string().trim().min(10, "Goal is too short").max(GOAL_MAX),
   acceptanceCriteria: z.array(z.string().trim().min(3)).min(1).max(20).optional(),
   clarificationAnswer: z.string().trim().min(1).max(500).optional(),
+  clarificationAnswers: z
+    .array(
+      z.object({
+        questionId: z.string().trim().min(1).max(80),
+        selectedOptionId: z.string().trim().min(1).max(80),
+        customAnswer: z.string().trim().min(1).max(500).optional(),
+      }),
+    )
+    .max(5)
+    .optional(),
+  proceedWithAssumption: z.boolean().optional(),
 });
 
 export const analyzeTaskGoalSchema = z.object({
@@ -28,10 +50,26 @@ export const analyzeTaskGoalSchema = z.object({
   projectId: z.string().uuid().optional(),
   acceptanceCriteria: z.array(z.string().trim().min(3)).min(1).max(20).optional(),
   clarificationAnswer: z.string().trim().min(1).max(500).optional(),
+  clarificationAnswers: z
+    .array(
+      z.object({
+        questionId: z.string().trim().min(1).max(80),
+        selectedOptionId: z.string().trim().min(1).max(80),
+        customAnswer: z.string().trim().min(1).max(500).optional(),
+      }),
+    )
+    .max(5)
+    .optional(),
+  proceedWithAssumption: z.boolean().optional(),
 });
 
 export const answerTaskClarificationSchema = taskIdSchema.extend({
   answer: z.string().trim().min(1).max(500),
+});
+
+export const protectedPathApprovalActionSchema = taskIdSchema.extend({
+  decision: z.enum(["APPROVE", "REJECT"]),
+  note: z.string().trim().max(500).optional(),
 });
 
 export const reviseTaskSchema = taskIdSchema.extend({

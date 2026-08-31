@@ -31,7 +31,7 @@ const CLEVIA_PRD = documentToPlanningEntry({
   projectId: "00000000-0000-4000-8000-000000000010",
   filename: "PRD.md",
   originalPath: null,
-  documentType: "PRD",
+  documentType: "prd",
   content: "Clevia uses Next.js and TypeScript for the frontend. Dashboard uses mock data only.",
   parseStatus: "ready",
   summary: null,

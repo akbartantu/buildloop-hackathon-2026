@@ -34,7 +34,7 @@ export type SpecificationBundleUploadValidation =
   | {
       ok: true;
       name: string;
-      documentType: "Spec Kit";
+      documentType: "spec_kit";
       files: ValidatedSpecificationBundleFile[];
       requirementCount: number;
       constraintCount: number;
@@ -134,7 +134,7 @@ export function validateSpecificationBundleUpload(input: {
     const single = validateSpecificationUpload({
       filename: file.filename,
       originalPath: relativePathInput,
-      documentType: "Spec Kit",
+      documentType: "spec_kit",
       content: file.content,
     });
 
@@ -192,7 +192,7 @@ export function validateSpecificationBundleUpload(input: {
   return {
     ok: true,
     name,
-    documentType: "Spec Kit",
+    documentType: "spec_kit",
     files: sorted.map((file, index) => ({ ...file, sortOrder: index })),
     requirementCount: totalRequirements,
     constraintCount: totalConstraints,

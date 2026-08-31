@@ -78,7 +78,7 @@ describe("specification set planning", () => {
           id: "00000000-0000-4000-8000-000000000050",
           projectId: "00000000-0000-4000-8000-000000000010",
           name: "spec-kit",
-          documentType: "Spec Kit",
+          documentType: "spec_kit",
           parseStatus: "ready",
           summary: null,
           requirementCount: 2,

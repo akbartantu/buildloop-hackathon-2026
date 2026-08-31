@@ -24,6 +24,7 @@ import {
   type SensitiveApprovalAction,
 } from "@/lib/human-approval";
 import { captureContractInputs } from "@/lib/task-rerun";
+import { applyProtectedPathApprovalAction } from "@/lib/protected-path-approval-flow";
 
 function projectRoot(): string {
   return path.resolve(fileURLToPath(new URL("../../..", import.meta.url)));
@@ -125,6 +126,8 @@ export function createDevTaskRepository(
       projectId?: string;
       acceptanceCriteria?: string[];
       clarificationAnswer?: string;
+      clarificationAnswers?: import("@/lib/planning/clarification-interview").ClarificationAnswerInput[];
+      proceedWithAssumption?: boolean;
     }): Promise<TaskRecord> {
       const store = await readStore();
       let workspace = input.workspace ?? WORKSPACE_NAME;
@@ -165,6 +168,8 @@ export function createDevTaskRepository(
           goal: input.goal,
           ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
           ...(input.clarificationAnswer ? { clarificationAnswer: input.clarificationAnswer } : {}),
+          ...(input.clarificationAnswers?.length ? { clarificationAnswers: input.clarificationAnswers } : {}),
+          ...(input.proceedWithAssumption ? { proceedWithAssumption: input.proceedWithAssumption } : {}),
         },
         planningDeps,
         { workspaceRoot: projectRoot() },
@@ -376,6 +381,8 @@ export function createDevTaskRepository(
       goal: string;
       acceptanceCriteria?: string[];
       clarificationAnswer?: string;
+      clarificationAnswers?: import("@/lib/planning/clarification-interview").ClarificationAnswerInput[];
+      proceedWithAssumption?: boolean;
     }): Promise<TaskRecord> {
       const store = await readStore();
       const index = store.tasks.findIndex((task) => task.id === input.id);
@@ -387,6 +394,8 @@ export function createDevTaskRepository(
           goal: input.goal,
           ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
           ...(input.clarificationAnswer ? { clarificationAnswer: input.clarificationAnswer } : {}),
+          ...(input.clarificationAnswers?.length ? { clarificationAnswers: input.clarificationAnswers } : {}),
+          ...(input.proceedWithAssumption ? { proceedWithAssumption: input.proceedWithAssumption } : {}),
         },
         planningDeps,
         { incrementVersion: true },
@@ -529,6 +538,64 @@ export function createDevTaskRepository(
       task.updatedAt = new Date().toISOString();
       await writeStore(store);
       return toRecord(task);
+    },
+
+    async respondToProtectedPathApproval(input: {
+      id: string;
+      userId: string;
+      decision: "APPROVE" | "REJECT";
+      note?: string;
+    }): Promise<{ task: TaskRecord; resumeOrchestration: boolean; idempotent: boolean }> {
+      const store = await readStore();
+      const index = store.tasks.findIndex((task) => task.id === input.id);
+      if (index === -1) {
+        throw new Error("Task not found.");
+      }
+      const task = store.tasks[index]!;
+      if (task.userId !== input.userId) {
+        throw new Error("Unauthorized protected-path approval request.");
+      }
+
+      if (!task.runnerState?.pendingProtectedPathApproval) {
+        if (input.decision === "APPROVE") {
+          return { task: toRecord(task), resumeOrchestration: false, idempotent: true };
+        }
+        if (task.runnerState?.rejected || task.status === "BLOCKED") {
+          return { task: toRecord(task), resumeOrchestration: false, idempotent: true };
+        }
+      }
+
+      const result = applyProtectedPathApprovalAction({
+        task: toRecord(task),
+        decision: input.decision,
+        actorUserId: input.userId,
+        ...(input.note ? { note: input.note } : {}),
+      });
+
+      task.status = result.task.status!;
+      task.runnerState = result.task.runnerState!;
+      if (result.task.blockedReasons) {
+        task.blockedReasons = result.task.blockedReasons;
+      }
+      task.updatedAt = new Date().toISOString();
+
+      store.approvals.push({
+        taskId: input.id,
+        decision: input.decision === "APPROVE" ? "PROTECTED_PATH_APPROVE" : "PROTECTED_PATH_REJECT",
+        action: null,
+        runId: task.runnerState?.runId ?? null,
+        actorUserId: input.userId,
+        note: input.note ?? null,
+        createdAt: task.updatedAt,
+      });
+
+      store.tasks[index] = task;
+      await writeStore(store);
+      return {
+        task: toRecord(task),
+        resumeOrchestration: result.resumeOrchestration,
+        idempotent: result.idempotent,
+      };
     },
 
     async updateAfterRun(input: {

@@ -21,7 +21,9 @@ import { formatPlanningSourceLabel } from "@/lib/planning/planning-source";
 import { MAX_ATTEMPTS, PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
 import { canUpdateDraft } from "@/lib/task-lifecycle-ops";
 import { ClarificationGate, clarificationValidationMessageKey, resolveClarificationSubmission } from "@/components/site/clarification-gate";
+import { ClarificationInterview } from "@/components/site/clarification-interview";
 import { CLARIFICATION_OTHER_OPTION_ID } from "@/lib/planning/clarification-options";
+import type { ClarificationAnswerInput } from "@/lib/planning/clarification-interview";
 import type { TaskGoalAnalysis } from "@/lib/task-planning";
 
 export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
@@ -44,6 +46,8 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   const [userEditedCriteria, setUserEditedCriteria] = useState(false);
   const [selectedClarificationOptionId, setSelectedClarificationOptionId] = useState<string | null>(null);
   const [clarificationCustomAnswer, setClarificationCustomAnswer] = useState("");
+  const [clarificationAnswers, setClarificationAnswers] = useState<ClarificationAnswerInput[]>([]);
+  const [interviewOpen, setInterviewOpen] = useState(false);
   const [suggestedAddedNotice, setSuggestedAddedNotice] = useState(false);
   const workspaceLabel = source?.repoName ?? WORKSPACE_NAME;
   const criteriaCount = countAcceptanceCriteria(acceptanceCriteriaText);
@@ -51,6 +55,61 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   function resetClarificationState() {
     setSelectedClarificationOptionId(null);
     setClarificationCustomAnswer("");
+    setClarificationAnswers([]);
+    setInterviewOpen(false);
+  }
+
+  async function runAnalyze(input?: {
+    clarificationAnswers?: ClarificationAnswerInput[];
+    proceedWithAssumption?: boolean;
+  }) {
+    setFormError(null);
+    setAnalyzing(true);
+    try {
+      const userCriteria = parseAcceptanceCriteria(acceptanceCriteriaText);
+      const clarification = resolvedClarification();
+      const result = await analyzeGoal({
+        data: {
+          goal: taskGoal,
+          ...(activeProject?.id ? { projectId: activeProject.id } : {}),
+          ...(userCriteria ? { acceptanceCriteria: userCriteria } : {}),
+          ...(clarification.answer ? { clarificationAnswer: clarification.answer } : {}),
+          ...(input?.clarificationAnswers?.length
+            ? { clarificationAnswers: input.clarificationAnswers }
+            : clarificationAnswers.length
+              ? { clarificationAnswers }
+              : {}),
+          ...(input?.proceedWithAssumption ? { proceedWithAssumption: true } : {}),
+        },
+      });
+      setAnalysis(result);
+      if (!userEditedCriteria && result.suggestedFromGoal) {
+        setAcceptanceCriteriaText(result.acceptanceCriteria.join("\n"));
+      }
+      if (!result.needsClarification || !result.clarificationQuestions?.length) {
+        setInterviewOpen(false);
+      }
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : t("tasks.createError"));
+    } finally {
+      setAnalyzing(false);
+    }
+  }
+
+  async function handleAnalyze() {
+    await runAnalyze();
+  }
+
+  async function handleInterviewComplete(
+    answers: ClarificationAnswerInput[],
+    options?: { proceedWithAssumption?: boolean },
+  ) {
+    setClarificationAnswers(answers);
+    setInterviewOpen(false);
+    await runAnalyze({
+      clarificationAnswers: answers,
+      ...(options?.proceedWithAssumption ? { proceedWithAssumption: true } : {}),
+    });
   }
 
   function resolvedClarification() {
@@ -97,31 +156,6 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
     });
   }, []);
 
-  async function handleAnalyze() {
-    setFormError(null);
-    setAnalyzing(true);
-    try {
-      const userCriteria = parseAcceptanceCriteria(acceptanceCriteriaText);
-      const clarification = resolvedClarification();
-      const result = await analyzeGoal({
-        data: {
-          goal: taskGoal,
-          ...(activeProject?.id ? { projectId: activeProject.id } : {}),
-          ...(userCriteria ? { acceptanceCriteria: userCriteria } : {}),
-          ...(clarification.answer ? { clarificationAnswer: clarification.answer } : {}),
-        },
-      });
-      setAnalysis(result);
-      if (!userEditedCriteria && result.suggestedFromGoal) {
-        setAcceptanceCriteriaText(result.acceptanceCriteria.join("\n"));
-      }
-    } catch (error) {
-      setFormError(error instanceof Error ? error.message : t("tasks.createError"));
-    } finally {
-      setAnalyzing(false);
-    }
-  }
-
   function handleAcceptSuggested() {
     if (!analysis?.acceptanceCriteria.length) {
       return;
@@ -154,7 +188,15 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
       setFormError(t("tasks.updatePlanError"));
       return;
     }
-    if (analysis?.needsClarification && analysis.clarificationQuestion) {
+    if (
+      analysis?.needsClarification &&
+      analysis.clarificationQuestions?.length &&
+      clarificationAnswers.length < (analysis.clarificationPendingCount ?? analysis.clarificationQuestions.length)
+    ) {
+      setFormError(t("tasks.clarificationAnswerRequired"));
+      return;
+    }
+    if (analysis?.needsClarification && analysis.clarificationQuestion && !analysis.clarificationQuestions?.length) {
       const validationKey = clarificationValidationMessageKey({
         ...(analysis.clarificationPresentationMode
           ? { presentationMode: analysis.clarificationPresentationMode }
@@ -180,6 +222,7 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
           goal: taskGoal,
           ...(acceptanceCriteria ? { acceptanceCriteria } : {}),
           ...(clarification.answer ? { clarificationAnswer: clarification.answer } : {}),
+          ...(clarificationAnswers.length ? { clarificationAnswers } : {}),
         });
         navigate({
           to: "/app/tasks/$taskId",
@@ -194,6 +237,7 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
         goal: taskGoal,
         ...(acceptanceCriteria ? { acceptanceCriteria } : {}),
         ...(clarification.answer ? { clarificationAnswer: clarification.answer } : {}),
+        ...(clarificationAnswers.length ? { clarificationAnswers } : {}),
         ...(activeProject?.id
           ? { projectId: activeProject.id }
           : source
@@ -253,7 +297,38 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
           </div>
         </div>
 
-        {analysis?.needsClarification ? (
+        {analysis?.clarificationQuestions?.length && analysis.needsClarification ? (
+          <div className="mt-4 rounded-md border border-status-review/40 bg-status-review/5 p-4">
+            <p className="text-sm text-muted-foreground">
+              {t("tasks.clarificationDecisionsNeeded", {
+                count: analysis.clarificationPendingCount ?? analysis.clarificationQuestions.length,
+              })}
+            </p>
+            {!interviewOpen ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={() => setInterviewOpen(true)}
+              >
+                {t("tasks.clarificationAnswerQuestions")}
+              </Button>
+            ) : null}
+            {interviewOpen && analysis.clarificationMode && analysis.clarificationMode !== "none" ? (
+              <ClarificationInterview
+                mode={analysis.clarificationMode}
+                questions={analysis.clarificationQuestions}
+                initialAnswers={clarificationAnswers}
+                {...(analysis.clarificationAssumptionSummary
+                  ? { assumptionSummary: analysis.clarificationAssumptionSummary }
+                  : {})}
+                onComplete={handleInterviewComplete}
+                onCancel={() => setInterviewOpen(false)}
+              />
+            ) : null}
+          </div>
+        ) : analysis?.needsClarification && !analysis.clarificationQuestions?.length ? (
           <ClarificationGate
             {...(analysis.clarificationMessage ? { reason: analysis.clarificationMessage } : {})}
             question={analysis.clarificationQuestion ?? t("tasks.criteriaOptional")}
@@ -276,6 +351,19 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
             }}
             onCustomAnswerChange={setClarificationCustomAnswer}
           />
+        ) : null}
+
+        {analysis?.clarificationDecisions?.length ? (
+          <div className="mt-4 rounded-md border border-border bg-muted/20 p-4">
+            <p className="text-sm font-medium text-foreground">{t("tasks.clarificationDecisionsSummary")}</p>
+            <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+              {analysis.clarificationDecisions.map((decision) => (
+                <li key={decision.label}>
+                  · {decision.label}: {decision.answer}
+                </li>
+              ))}
+            </ul>
+          </div>
         ) : null}
 
         {analysis?.sourcesUsed?.length ? (

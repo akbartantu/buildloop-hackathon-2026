@@ -18,11 +18,13 @@ import {
   captureContractInputs,
 } from "@/lib/task-rerun";
 import { extractApprovedProtectedPaths } from "@/lib/protected-path-approval";
+import { mergeProtectedPathApprovalRunState } from "@/lib/protected-path-approval-flow";
 import type { RunStatus } from "@/orchestrator/types";
 import {
   buildActiveRunRunnerState,
   buildRunStartupFailureRunnerState,
   isPersistableActiveRunStatus,
+  isTaskActivelyRunning,
   RUN_START_ELIGIBLE_STATUSES,
 } from "@/lib/task-run-progress";
 
@@ -34,6 +36,10 @@ export const executeTaskRun = createServerFn({ method: "POST" })
 
     if (!task) {
       throw new Error("Task tidak ditemukan.");
+    }
+
+    if (isTaskActivelyRunning(task)) {
+      throw new Error("Orchestrator sudah berjalan untuk task ini.");
     }
 
     assertTaskOrchestrationEligible(task);
@@ -183,8 +189,12 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       humanRevisionCount: workingTask.runnerState?.humanRevisionCount ?? 0,
       revisionRequested: false,
       rerunRequested: false,
+      protectedPathResumeRequested: false,
       ...(workingTask.runnerState?.humanApprovals
         ? { humanApprovals: workingTask.runnerState.humanApprovals }
+        : {}),
+      ...(workingTask.runnerState?.protectedPathApprovals
+        ? { protectedPathApprovals: workingTask.runnerState.protectedPathApprovals }
         : {}),
       ...(workingTask.runnerState?.escalated ? { escalated: workingTask.runnerState.escalated } : {}),
       ...(workingTask.runnerState?.pendingAdditionalReview
@@ -239,7 +249,13 @@ export const executeTaskRun = createServerFn({ method: "POST" })
     const runnerState =
       result.run.verdict === "BLOCKED"
         ? zeroChangeRunnerState("Runner tidak dipanggil karena task dihentikan oleh pre-flight check.")
-        : baseRunner;
+        : mergeProtectedPathApprovalRunState({
+            runnerState: baseRunner,
+            evidence: summarizeEvidence(result.evidence),
+            runId: result.run.id,
+            contractGoal: workingTask.goal,
+            preserveExistingPending: false,
+          });
 
     const updated = await context.tasks.updateAfterRun({
       id: data.id,

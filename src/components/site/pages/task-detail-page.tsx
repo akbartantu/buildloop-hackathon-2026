@@ -24,6 +24,7 @@ export function TaskDetailPage({ taskId, initialTab }: TaskDetailPageProps) {
     humanApprovalMutation,
     refreshContractMutation,
     reviseTaskMutation,
+    protectedPathApprovalMutation,
   } = useWorkspaceTasks();
   const task = tasks.find((entry) => entry.id === taskId) ?? null;
   useTaskRunPolling(task);
@@ -51,14 +52,16 @@ export function TaskDetailPage({ taskId, initialTab }: TaskDetailPageProps) {
       runMutation.error ??
       humanApprovalMutation.error ??
       refreshContractMutation.error ??
-      reviseTaskMutation.error
+      reviseTaskMutation.error ??
+      protectedPathApprovalMutation.error
     ) instanceof Error
       ? (
           lockMutation.error ??
           runMutation.error ??
           humanApprovalMutation.error ??
           refreshContractMutation.error ??
-          reviseTaskMutation.error
+          reviseTaskMutation.error ??
+          protectedPathApprovalMutation.error
         )?.message ?? null
       : null;
 
@@ -71,12 +74,19 @@ export function TaskDetailPage({ taskId, initialTab }: TaskDetailPageProps) {
       submittingHumanApproval={humanApprovalMutation.isPending}
       refreshing={refreshContractMutation.isPending}
       revising={reviseTaskMutation.isPending}
+      submittingProtectedPathApproval={protectedPathApprovalMutation.isPending}
       error={mutationError}
       onApprove={() => lockMutation.mutate(task.id)}
       onRun={() => runMutation.mutate(task.id)}
       onSubmitHumanApproval={(input) => humanApprovalMutation.mutate({ id: task.id, ...input })}
       onRefreshContract={() => refreshContractMutation.mutate(task.id)}
       onReviseTask={() => reviseTaskMutation.mutate({ id: task.id })}
+      onProtectedPathApprove={() =>
+        protectedPathApprovalMutation.mutate({ id: task.id, decision: "APPROVE" })
+      }
+      onProtectedPathReject={() =>
+        protectedPathApprovalMutation.mutate({ id: task.id, decision: "REJECT" })
+      }
       onEdit={() => {
         navigate({
           to: "/app/tasks/new",

@@ -213,6 +213,7 @@ describe("task form clarification wiring", () => {
     const source = await Bun.file(
       new URL("../../components/site/pages/task-form-page.tsx", import.meta.url),
     ).text();
+    expect(source).toContain("ClarificationInterview");
     expect(source).toContain("ClarificationGate");
     expect(source).toContain("resolveClarificationSubmission");
     expect(source).toContain("selectedClarificationOptionId");
@@ -221,8 +222,8 @@ describe("task form clarification wiring", () => {
 
   test("i18n clarification keys exist in EN and ID without mixed-language regression", () => {
     const { translate } = require("@/i18n") as typeof import("@/i18n");
-    expect(translate("en", "tasks.clarificationIntro")).toContain("BuildLoop found one decision");
-    expect(translate("id", "tasks.clarificationIntro")).toContain("BuildLoop menemukan satu keputusan");
+    expect(translate("en", "tasks.clarificationIntro")).toContain("BuildLoop found decisions");
+    expect(translate("id", "tasks.clarificationIntro")).toContain("BuildLoop menemukan keputusan");
     expect(translate("en", "tasks.clarificationOtherOption")).toBe("Other");
     expect(translate("id", "tasks.clarificationOtherOption")).toBe("Lainnya");
   });

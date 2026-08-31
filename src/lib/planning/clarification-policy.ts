@@ -1,7 +1,11 @@
 import { isAmbiguousGoal } from "@/orchestrator/contract/derive-task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { PlanningSpecificationEntry } from "@/lib/specifications/specification-set-record";
-import type { PlanningSource, TaskClarification } from "./planning-source";
+import {
+  normalizeDocumentType,
+  specificationDocumentTypeLabel,
+} from "@/lib/specifications/specification-record";
+import type { PlanningSource, TaskClarification } from "@/lib/planning/planning-source";
 import { isPasswordResetGoal, isReadmeGoal } from "./planning-context";
 import {
   buildPasswordResetChoiceSet,
@@ -124,8 +128,8 @@ function detectSpecConflict(
     return { conflict: false };
   }
 
-  const prd = entries.find((entry) => entry.spec.documentType === "PRD");
-  const frd = entries.find((entry) => entry.spec.documentType === "FRD");
+  const prd = entries.find((entry) => normalizeDocumentType(entry.spec.documentType) === "prd");
+  const frd = entries.find((entry) => normalizeDocumentType(entry.spec.documentType) === "frd");
   const left = prd ?? entries[0]!;
   const right = frd ?? entries.find((entry) => entry.spec.id !== left.spec.id)!;
 
@@ -135,10 +139,13 @@ function detectSpecConflict(
     return { conflict: false };
   }
 
+  const leftLabel = specificationDocumentTypeLabel(left.spec.documentType);
+  const rightLabel = specificationDocumentTypeLabel(right.spec.documentType);
+
   return {
     conflict: true,
-    question: `${left.spec.documentType} specifies ${resetMethodLabel(leftSignal)} while ${right.spec.documentType} specifies ${resetMethodLabel(rightSignal)}. Which source should be authoritative for this task?`,
-    options: [left.spec.documentType, right.spec.documentType],
+    question: `${leftLabel} specifies ${resetMethodLabel(leftSignal)} while ${rightLabel} specifies ${resetMethodLabel(rightSignal)}. Which source should be authoritative for this task?`,
+    options: [leftLabel, rightLabel],
     sources: [
       {
         sourceType: "specification",
@@ -214,9 +221,17 @@ export function evaluateClarificationPolicy(input: {
         input.clarificationAnswer?.toLowerCase().includes("prd") ||
         input.clarificationAnswer?.toLowerCase().includes("frd")
           ? inferResetMethodFromSpecs(
-              relevantSpecs.filter((spec) =>
-                answer.toLowerCase().includes(spec.documentType.toLowerCase()),
-              ),
+              relevantSpecs.filter((spec) => {
+                const normalized = normalizeDocumentType(spec.documentType);
+                const label = specificationDocumentTypeLabel(spec.documentType).toLowerCase();
+                const answerLower = answer.toLowerCase();
+                return (
+                  answerLower.includes(normalized) ||
+                  answerLower.includes(label) ||
+                  (normalized === "prd" && answerLower.includes("prd")) ||
+                  (normalized === "frd" && answerLower.includes("frd"))
+                );
+              }),
             )
           : parseClarificationAnswer(answer);
       if (resolved) {
@@ -284,7 +299,33 @@ export function buildClarificationRecord(input: {
   answer?: string;
   selectedOptionId?: string;
   customAnswer?: string;
+  interview?: TaskClarification["interview"];
 }): TaskClarification | undefined {
+  if (input.interview) {
+    const firstQuestion = input.interview.questions[0];
+    const now = input.interview.askedAt;
+    return {
+      reason: firstQuestion?.reason ?? "Material ambiguity detected.",
+      askedAt: now,
+      ...(firstQuestion?.question ? { question: firstQuestion.question } : {}),
+      ...(firstQuestion?.presentationMode === "choices"
+        ? {
+            choiceOptions: firstQuestion.options,
+            allowOther: firstQuestion.allowOther,
+          }
+        : {}),
+      interview: input.interview,
+      ...(input.answer
+        ? {
+            answer: input.answer,
+            answeredAt: now,
+            ...(input.selectedOptionId ? { selectedOptionId: input.selectedOptionId } : {}),
+            ...(input.customAnswer ? { customAnswer: input.customAnswer } : {}),
+          }
+        : {}),
+    };
+  }
+
   if (!input.evaluation.question) {
     return undefined;
   }

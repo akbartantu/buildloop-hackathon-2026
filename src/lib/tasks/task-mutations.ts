@@ -43,7 +43,13 @@ type ProjectLookup = {
 
 async function replanTask(
   task: StoredTask,
-  input: { goal: string; acceptanceCriteria?: string[]; clarificationAnswer?: string },
+  input: {
+    goal: string;
+    acceptanceCriteria?: string[];
+    clarificationAnswer?: string;
+    clarificationAnswers?: import("@/lib/planning/clarification-interview").ClarificationAnswerInput[];
+    proceedWithAssumption?: boolean;
+  },
   deps: PlanningDeps,
   options?: { incrementVersion?: boolean },
 ): Promise<ReturnType<typeof planAndEvaluateTask>> {
@@ -65,7 +71,13 @@ async function replanTask(
 
 export async function applyDraftUpdate(
   task: StoredTask,
-  input: { goal: string; acceptanceCriteria?: string[]; clarificationAnswer?: string },
+  input: {
+    goal: string;
+    acceptanceCriteria?: string[];
+    clarificationAnswer?: string;
+    clarificationAnswers?: import("@/lib/planning/clarification-interview").ClarificationAnswerInput[];
+    proceedWithAssumption?: boolean;
+  },
   deps: PlanningDeps = {},
   options?: { incrementVersion?: boolean },
 ): Promise<{ task: StoredTask; planned: Awaited<ReturnType<typeof planAndEvaluateTask>> }> {
@@ -131,7 +143,7 @@ export async function applyClarificationAnswer(
   if (task.status !== "DRAFT") {
     throw new Error("Clarification answers are only accepted for draft tasks.");
   }
-  if (!task.contract.clarification?.question) {
+  if (!task.contract.clarification?.question && !task.contract.clarification?.interview) {
     throw new Error("This task does not require clarification.");
   }
   if (task.contract.clarification.answer) {

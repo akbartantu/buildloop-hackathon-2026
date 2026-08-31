@@ -68,6 +68,9 @@ export function isOrchestrationEligible(task: TaskRecord): boolean {
   if (task.runnerState?.revisionRequested || task.runnerState?.rerunRequested) {
     return true;
   }
+  if (task.runnerState?.protectedPathResumeRequested) {
+    return true;
+  }
   return !task.runnerState?.runnerInvoked;
 }
 
@@ -84,7 +87,8 @@ export function assertTaskOrchestrationEligible(task: TaskRecord): void {
   if (
     task.runnerState?.runnerInvoked &&
     !task.runnerState?.revisionRequested &&
-    !task.runnerState?.rerunRequested
+    !task.runnerState?.rerunRequested &&
+    !task.runnerState?.protectedPathResumeRequested
   ) {
     throw new Error("Task sudah selesai dieksekusi. Orchestrasi ulang tidak diizinkan.");
   }

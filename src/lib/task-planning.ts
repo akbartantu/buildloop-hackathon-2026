@@ -17,8 +17,22 @@ import {
   mergeUserAndGeneratedCriteria,
   type ClarificationEvaluation,
 } from "@/lib/planning/clarification-policy";
-import { buildPlanningContext } from "@/lib/planning/planning-context";
+import { buildPlanningContext, isPasswordResetGoal } from "@/lib/planning/planning-context";
 import type { PlanningSource, TaskClarification } from "@/lib/planning/planning-source";
+import {
+  applyAdaptiveQuestionFilter,
+  applyAssumptionAnswers,
+  buildInterviewClarificationRecord,
+  criteriaFromClarificationAnswers,
+  generateClarificationInterview,
+  interviewNeedsClarification,
+  questionFromLegacyEvaluation,
+  resolveInterviewAnswers,
+  summarizeClarificationDecisions,
+  validateClarificationContractConsistency,
+  type ClarificationAnswerInput,
+  type ClarificationInterviewEvaluation,
+} from "@/lib/planning/clarification-interview";
 import {
   deriveContractGovernance,
   validateContractConsistency,
@@ -55,6 +69,11 @@ export type TaskGoalAnalysis = {
   clarificationChoiceOptions?: ClarificationOption[];
   clarificationAllowOther?: boolean;
   clarificationPresentationMode?: ClarificationChoiceSet["presentationMode"];
+  clarificationMode?: ClarificationInterviewEvaluation["mode"];
+  clarificationQuestions?: ClarificationInterviewEvaluation["questions"];
+  clarificationAssumptionSummary?: string;
+  clarificationDecisions?: Array<{ label: string; answer: string }>;
+  clarificationPendingCount?: number;
   suggestedFromGoal: boolean;
   sourcesUsed?: PlanningSource[];
 };
@@ -73,6 +92,8 @@ export type TaskPlanningInput = {
   specifications?: PlanningSpecificationEntry[];
   sourceCommitSha?: string | null;
   clarificationAnswer?: string;
+  clarificationAnswers?: ClarificationAnswerInput[];
+  proceedWithAssumption?: boolean;
   existingClarification?: TaskClarification;
 };
 
@@ -134,7 +155,20 @@ function workPlanNeedsClarification(workPlan: Awaited<ReturnType<typeof planWork
   return workPlan.contracts.some((c) => c.status === "blocked");
 }
 
-function policyNeedsClarification(evaluation: ClarificationEvaluation, answerProvided: boolean): boolean {
+function policyNeedsClarification(
+  evaluation: ClarificationEvaluation,
+  interviewEvaluation: ClarificationInterviewEvaluation,
+  resolvedAnswers: ReturnType<typeof resolveInterviewAnswers>,
+  answerProvided: boolean,
+  proceedWithAssumption?: boolean,
+): boolean {
+  if (interviewEvaluation.mode !== "none") {
+    return interviewNeedsClarification({
+      evaluation: interviewEvaluation,
+      answers: resolvedAnswers,
+      ...(proceedWithAssumption !== undefined ? { proceedWithAssumption } : {}),
+    });
+  }
   if (answerProvided) {
     return false;
   }
@@ -186,13 +220,77 @@ async function resolvePlanning(input: TaskPlanningInput) {
     ...(input.existingClarification ? { existingClarification: input.existingClarification } : {}),
   });
 
-  const answerProvided = Boolean(input.clarificationAnswer || input.existingClarification?.answer);
-  const needsPolicyClarification = policyNeedsClarification(evaluation, answerProvided);
+  const repositoryPaths = planningContext.sourcesUsed
+    .filter((source) => source.sourceType === "repository_file" && source.path)
+    .map((source) => source.path!);
 
-  const effectiveCriteria = mergeUserAndGeneratedCriteria(
-    input.acceptanceCriteria,
-    evaluation.inferredCriteria ?? [],
+  const legacyQuestion = questionFromLegacyEvaluation({
+    ...(evaluation.question ? { question: evaluation.question } : {}),
+    ...(evaluation.choiceSet ? { choiceSet: evaluation.choiceSet } : {}),
+    ...(evaluation.reason ? { reason: evaluation.reason } : {}),
+    ...(evaluation.conflictSources ? { conflictSources: evaluation.conflictSources } : {}),
+    id:
+      evaluation.decision === "SPEC_CONFLICT"
+        ? "spec-conflict-authority"
+        : evaluation.decision === "MATERIAL_AMBIGUITY" && isPasswordResetGoal(input.goal)
+          ? "password-reset-method"
+          : "scope-ambiguity",
+    topic:
+      evaluation.decision === "SPEC_CONFLICT"
+        ? "ARCHITECTURE"
+        : evaluation.decision === "MATERIAL_AMBIGUITY" && isPasswordResetGoal(input.goal)
+          ? "SECURITY"
+          : "SCOPE",
+  });
+
+  const skipDomainQuestions =
+    evaluation.decision === "CLEAR" &&
+    Boolean(input.clarificationAnswer || input.existingClarification?.answer);
+
+  const interviewEvaluation = generateClarificationInterview({
+    goal: input.goal,
+    specifications,
+    ...(input.acceptanceCriteria ? { userCriteria: input.acceptanceCriteria } : {}),
+    repositoryPaths,
+    legacyQuestion,
+    skipDomainQuestions,
+  });
+
+  let resolvedAnswers = resolveInterviewAnswers(
+    interviewEvaluation.questions,
+    input.clarificationAnswers ?? [],
   );
+
+  if (input.proceedWithAssumption && interviewEvaluation.mode === "recommended") {
+    const assumptionAnswers = applyAssumptionAnswers(interviewEvaluation);
+    resolvedAnswers = [...assumptionAnswers, ...resolvedAnswers].filter(
+      (entry, index, array) => array.findIndex((item) => item.questionId === entry.questionId) === index,
+    );
+  }
+
+  const interviewCriteria = criteriaFromClarificationAnswers(
+    interviewEvaluation.questions,
+    resolvedAnswers,
+  );
+
+  const answerProvided = Boolean(
+    input.clarificationAnswer ||
+      input.existingClarification?.answer ||
+      resolvedAnswers.length > 0 ||
+      input.proceedWithAssumption,
+  );
+  const needsPolicyClarification = policyNeedsClarification(
+    evaluation,
+    interviewEvaluation,
+    resolvedAnswers,
+    answerProvided,
+    input.proceedWithAssumption,
+  );
+
+  const effectiveCriteria = mergeUserAndGeneratedCriteria(input.acceptanceCriteria, [
+    ...(evaluation.inferredCriteria ?? []),
+    ...interviewCriteria,
+  ]);
 
   const workPlan = await planWork({
     goal: input.goal,
@@ -203,7 +301,7 @@ async function resolvePlanning(input: TaskPlanningInput) {
 
   if (
     !needsPolicyClarification &&
-    evaluation.inferredCriteria?.length &&
+    (evaluation.inferredCriteria?.length || interviewCriteria.length) &&
     workPlanNeedsClarification(workPlan)
   ) {
     const repositoryScope = planningContext.sourcesUsed
@@ -217,16 +315,26 @@ async function resolvePlanning(input: TaskPlanningInput) {
           contract.status = "pending";
           contract.acceptanceCriteria = mergeUserAndGeneratedCriteria(
             contract.acceptanceCriteria,
-            evaluation.inferredCriteria,
+            [...(evaluation.inferredCriteria ?? []), ...interviewCriteria],
           );
         }
       }
     }
   }
 
+  const interviewRecord =
+    interviewEvaluation.mode !== "none"
+      ? buildInterviewClarificationRecord({
+          evaluation: interviewEvaluation,
+          answers: resolvedAnswers,
+          ...(input.proceedWithAssumption ? { proceedWithAssumption: true } : {}),
+        })?.interview
+      : undefined;
+
   const clarification = buildClarificationRecord({
     evaluation,
     ...(input.clarificationAnswer ? { answer: input.clarificationAnswer } : {}),
+    ...(interviewRecord ? { interview: interviewRecord } : {}),
   });
 
   const derivedFields = workPlanToContractFields(workPlan);
@@ -244,16 +352,40 @@ async function resolvePlanning(input: TaskPlanningInput) {
     ...(effectiveCriteria.length ? { userCriteria: effectiveCriteria } : {}),
   });
   const consistency = validateContractConsistency(governance);
+  const clarificationConsistency =
+    resolvedAnswers.length > 0
+      ? validateClarificationContractConsistency({
+          acceptanceCriteria: governance.acceptanceCriteria,
+          questions: interviewEvaluation.questions,
+          answers: resolvedAnswers,
+        })
+      : { ok: true as const };
   const governanceNeedsClarification =
-    governance.needsClarification || !consistency.ok;
+    governance.needsClarification || !consistency.ok || !clarificationConsistency.ok;
   const governanceClarificationReason =
     governance.clarificationReason ??
-    (consistency.ok ? undefined : consistency.reason);
+    (!consistency.ok
+      ? consistency.reason
+      : !clarificationConsistency.ok
+        ? clarificationConsistency.reason
+        : undefined);
+
+  const pendingQuestions = applyAdaptiveQuestionFilter(
+    interviewEvaluation.questions,
+    resolvedAnswers.map((entry) => ({
+      questionId: entry.questionId,
+      selectedOptionId: entry.selectedOptionId,
+      ...(entry.customAnswer ? { customAnswer: entry.customAnswer } : {}),
+    })),
+  );
 
   return {
     sensitiveBlocked,
     planningContext,
     evaluation,
+    interviewEvaluation,
+    resolvedAnswers,
+    pendingQuestions,
     needsPolicyClarification,
     effectiveCriteria,
     workPlan,
@@ -275,6 +407,8 @@ export async function analyzeTaskGoal(input: TaskPlanningInput): Promise<TaskGoa
     resolved.governanceNeedsClarification ||
     workPlanNeedsClarification(resolved.workPlan);
   const userProvided = Boolean(input.acceptanceCriteria?.length);
+  const firstPending = resolved.pendingQuestions[0];
+  const choiceSet = resolved.evaluation.choiceSet;
 
   if (resolved.sensitiveBlocked.length > 0) {
     return {
@@ -286,39 +420,70 @@ export async function analyzeTaskGoal(input: TaskPlanningInput): Promise<TaskGoa
     };
   }
 
-  if (needsClarification && !userProvided && !input.clarificationAnswer) {
-    const choiceSet = resolved.evaluation.choiceSet;
+  if (
+    resolved.pendingQuestions.length > 0 &&
+    resolved.interviewEvaluation.mode !== "none" &&
+    !input.proceedWithAssumption
+  ) {
+    const pendingCount = resolved.pendingQuestions.filter((question) => question.required).length ||
+      resolved.pendingQuestions.length;
     return {
       acceptanceCriteria: resolved.effectiveCriteria.length
         ? resolved.effectiveCriteria
         : contractFields.acceptanceCriteria,
       expectedScope: contractFields.inScope,
       needsClarification: true,
+      clarificationMode: resolved.interviewEvaluation.mode,
+      clarificationQuestions: resolved.pendingQuestions,
+      clarificationPendingCount: pendingCount,
+      ...(resolved.interviewEvaluation.assumptionSummary
+        ? { clarificationAssumptionSummary: resolved.interviewEvaluation.assumptionSummary }
+        : {}),
       ...(resolved.governanceClarificationReason
         ? { clarificationMessage: resolved.governanceClarificationReason }
         : resolved.evaluation.reason
           ? { clarificationMessage: resolved.evaluation.reason }
           : {}),
-      ...(resolved.evaluation.question ? { clarificationQuestion: resolved.evaluation.question } : {}),
-      ...(resolved.evaluation.options ? { clarificationOptions: resolved.evaluation.options } : {}),
-      ...(choiceSet?.presentationMode === "choices"
-        ? {
-            clarificationChoiceOptions: choiceSet.options,
-            clarificationAllowOther: choiceSet.allowOther,
-            clarificationPresentationMode: choiceSet.presentationMode,
-          }
-        : choiceSet
-          ? { clarificationPresentationMode: choiceSet.presentationMode }
+      ...(firstPending?.question
+        ? { clarificationQuestion: firstPending.question }
+        : resolved.evaluation.question
+          ? { clarificationQuestion: resolved.evaluation.question }
           : {}),
+      ...(firstPending?.presentationMode === "choices"
+        ? {
+            clarificationChoiceOptions: firstPending.options,
+            clarificationAllowOther: firstPending.allowOther,
+            clarificationPresentationMode: firstPending.presentationMode,
+          }
+        : choiceSet?.presentationMode === "choices"
+          ? {
+              clarificationChoiceOptions: choiceSet.options,
+              clarificationAllowOther: choiceSet.allowOther,
+              clarificationPresentationMode: choiceSet.presentationMode,
+            }
+          : firstPending?.presentationMode
+            ? { clarificationPresentationMode: firstPending.presentationMode }
+            : choiceSet
+              ? { clarificationPresentationMode: choiceSet.presentationMode }
+              : {}),
+      ...(resolved.evaluation.options ? { clarificationOptions: resolved.evaluation.options } : {}),
       suggestedFromGoal: !userProvided,
       sourcesUsed: resolved.planningContext.sourcesUsed,
     };
   }
 
+  const decisions =
+    resolved.resolvedAnswers.length > 0
+      ? summarizeClarificationDecisions(resolved.interviewEvaluation.questions, resolved.resolvedAnswers)
+      : undefined;
+
   return {
-    acceptanceCriteria: contractFields.acceptanceCriteria,
+    acceptanceCriteria: resolved.effectiveCriteria.length
+      ? mergeUserAndGeneratedCriteria(undefined, resolved.effectiveCriteria)
+      : contractFields.acceptanceCriteria,
     expectedScope: contractFields.inScope,
     needsClarification,
+    ...(decisions?.length ? { clarificationDecisions: decisions } : {}),
     suggestedFromGoal: !userProvided,
     sourcesUsed: resolved.planningContext.sourcesUsed,
   };

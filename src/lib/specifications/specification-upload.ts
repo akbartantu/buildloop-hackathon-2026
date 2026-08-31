@@ -1,7 +1,8 @@
 import path from "node:path";
 
 import {
-  SPECIFICATION_DOCUMENT_TYPES,
+  normalizeDocumentType,
+  SPECIFICATION_DOCUMENT_TYPE_IDS,
   type SpecificationDocumentType,
 } from "./specification-record";
 
@@ -40,16 +41,23 @@ function extensionOf(filename: string): string {
 
 export function inferDocumentType(filename: string, content: string): SpecificationDocumentType {
   const upperName = filename.toUpperCase();
-  if (upperName.includes("PRD")) return "PRD";
-  if (upperName.includes("FRD")) return "FRD";
-  if (upperName.includes("BRD")) return "BRD";
-  if (/architecture/i.test(filename)) return "Architecture";
-  if (/api[-_. ]?spec/i.test(filename)) return "API Spec";
-  if (/adr/i.test(filename)) return "ADR";
+  if (upperName.includes("PRD")) return "prd";
+  if (upperName.includes("FRD")) return "frd";
+  if (upperName.includes("BRD")) return "brd";
+  if (/business[-_. ]?rules/i.test(filename)) return "business_rules";
+  if (/user[-_. ]?flows?/i.test(filename)) return "user_flows";
+  if (/database[-_. ]?schema/i.test(filename)) return "database_schema";
+  if (/architecture/i.test(filename)) return "system_architecture";
+  if (/api[-_. ]?spec/i.test(filename)) return "api_specification";
+  if (/ui[-_. /]?ux/i.test(filename)) return "ui_ux_design";
+  if (/security[-_. ]?spec/i.test(filename)) return "security_specification";
+  if (/testing[-_. ]?strategy/i.test(filename)) return "testing_strategy";
+  if (/product[-_. ]?roadmap/i.test(filename)) return "product_roadmap";
+  if (/adr/i.test(filename)) return "adr";
   if (/spec[-_. ]?kit/i.test(filename) || /specification kit/i.test(content.slice(0, 500))) {
-    return "Spec Kit";
+    return "spec_kit";
   }
-  return "Other";
+  return "other";
 }
 
 export function validateSpecificationUpload(input: {
@@ -89,10 +97,13 @@ export function validateSpecificationUpload(input: {
   }
 
   const requestedType = input.documentType?.trim();
-  const documentType =
-    requestedType && SPECIFICATION_DOCUMENT_TYPES.includes(requestedType as SpecificationDocumentType)
-      ? (requestedType as SpecificationDocumentType)
-      : inferDocumentType(filename, input.content);
+  const documentType = requestedType
+    ? normalizeDocumentType(requestedType)
+    : inferDocumentType(filename, input.content);
+
+  if (!SPECIFICATION_DOCUMENT_TYPE_IDS.includes(documentType)) {
+    return { ok: false, message: "Unsupported document type." };
+  }
 
   return {
     ok: true,

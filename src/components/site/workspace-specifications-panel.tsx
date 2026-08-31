@@ -32,8 +32,10 @@ import {
   type PendingSpecificationFile,
 } from "@/lib/specifications/specification-pending-upload";
 import {
-  SPECIFICATION_DOCUMENT_TYPES,
+  SPECIFICATION_DOCUMENT_TYPE_OPTIONS,
   specificationAuthorityLabel,
+  specificationDocumentTypeLabel,
+  isSpecKitDocumentType,
   type SpecificationDocumentType,
   type SpecificationRecord,
 } from "@/lib/specifications/specification-record";
@@ -48,7 +50,7 @@ type WorkspaceSpecificationsPanelProps = {
 };
 
 function isSpecKitType(documentType: SpecificationDocumentType): boolean {
-  return documentType === "Spec Kit";
+  return isSpecKitDocumentType(documentType);
 }
 
 export function WorkspaceSpecificationsPanel({
@@ -66,7 +68,7 @@ export function WorkspaceSpecificationsPanel({
   const removeSpecificationSet = useServerFn(deleteProjectSpecificationSet);
   const downloadSpecification = useServerFn(downloadProjectSpecification);
   const downloadSpecificationSetFile = useServerFn(downloadProjectSpecificationSetFile);
-  const [documentType, setDocumentType] = useState<SpecificationDocumentType>("PRD");
+  const [documentType, setDocumentType] = useState<SpecificationDocumentType>("prd");
   const [pendingFiles, setPendingFiles] = useState<PendingSpecificationFile[]>([]);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
@@ -313,9 +315,9 @@ export function WorkspaceSpecificationsPanel({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {SPECIFICATION_DOCUMENT_TYPES.map((type) => (
-                <SelectItem key={type} value={type}>
-                  {type}
+              {SPECIFICATION_DOCUMENT_TYPE_OPTIONS.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -428,7 +430,7 @@ export function WorkspaceSpecificationsPanel({
                       {t("specifications.setTitle", { name: set.name })}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {set.documentType} · {specificationAuthorityLabel(set.documentType)} ·{" "}
+                      {specificationDocumentTypeLabel(set.documentType)} · {specificationAuthorityLabel(set.documentType)} ·{" "}
                       {t("specifications.fileCount", { count: set.fileCount })} ·{" "}
                       {t(`specifications.status.${set.parseStatus}` as "specifications.status.ready")}
                     </p>
@@ -491,7 +493,7 @@ export function WorkspaceSpecificationsPanel({
                     {spec.filename}
                   </p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {spec.documentType} · {specificationAuthorityLabel(spec.documentType)} ·{" "}
+                    {specificationDocumentTypeLabel(spec.documentType)} · {specificationAuthorityLabel(spec.documentType)} ·{" "}
                     {t(`specifications.status.${spec.parseStatus}` as "specifications.status.ready")}
                   </p>
                   {spec.summary ? (

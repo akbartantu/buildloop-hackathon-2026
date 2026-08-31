@@ -1,6 +1,7 @@
 import type { ContractHistoryEntry } from "@/lib/task-lifecycle-ops";
 import type { TaskClarification } from "@/lib/planning/planning-source";
 import type { PlanningSpecificationEntry } from "@/lib/specifications/specification-set-record";
+import type { ClarificationAnswerInput } from "@/lib/planning/clarification-interview";
 import type { TaskPlanningInput } from "@/lib/task-planning";
 import {
   resolvePlanningRepositoryRoot,
@@ -33,6 +34,8 @@ export async function buildPlanningInputForTask(
     goal: string;
     acceptanceCriteria?: string[];
     clarificationAnswer?: string;
+    clarificationAnswers?: ClarificationAnswerInput[];
+    proceedWithAssumption?: boolean;
   },
   deps: PlanningDeps,
   options: {
@@ -72,6 +75,8 @@ export async function buildPlanningInputForTask(
     ...(options.contractHistory?.length ? { contractHistory: options.contractHistory } : {}),
     ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
     ...(input.clarificationAnswer ? { clarificationAnswer: input.clarificationAnswer } : {}),
+    ...(input.clarificationAnswers?.length ? { clarificationAnswers: input.clarificationAnswers } : {}),
+    ...(input.proceedWithAssumption ? { proceedWithAssumption: input.proceedWithAssumption } : {}),
     ...(task.contract.clarification ? { existingClarification: task.contract.clarification } : {}),
   };
 }

@@ -76,6 +76,11 @@ import {
   validateHumanApprovalForm,
 } from "@/lib/human-approval-input";
 import { isApprovalGateOpen, isOrchestrationInProgress } from "@/lib/evidence-analysis";
+import {
+  ProtectedPathApprovalOutcome,
+  ProtectedPathApprovalPanel,
+} from "@/components/site/protected-path-approval-panel";
+import { isPendingProtectedPathApproval } from "@/lib/protected-path-approval-flow";
 import { canRerunFailedTask, formatRunHistoryLabel, listTaskRunHistory } from "@/lib/task-rerun";
 import { buildRunHistoryTimingViewModel } from "@/lib/run-timing-presentation";
 import { isOrchestrationEligible } from "@/lib/task-lifecycle-ops";
@@ -127,6 +132,9 @@ type TaskDetailTabsProps = {
   onBack: () => void;
   onRefreshContract?: () => void;
   onReviseTask?: () => void;
+  onProtectedPathApprove?: () => void;
+  onProtectedPathReject?: () => void;
+  submittingProtectedPathApproval?: boolean;
   refreshing?: boolean;
   revising?: boolean;
 };
@@ -155,6 +163,9 @@ export function TaskDetailTabs({
   onBack,
   onRefreshContract,
   onReviseTask,
+  onProtectedPathApprove,
+  onProtectedPathReject,
+  submittingProtectedPathApproval = false,
   refreshing = false,
   revising = false,
 }: TaskDetailTabsProps) {
@@ -309,11 +320,14 @@ export function TaskDetailTabs({
             taskRef={taskRef}
             lifecycle={lifecycle}
             submitting={submittingHumanApproval}
+            submittingProtectedPathApproval={submittingProtectedPathApproval}
             error={error}
             locale={locale}
             sourceCommitDrift={sourceCommitDrift}
             onEdit={onEdit}
             onSubmit={onSubmitHumanApproval}
+            {...(onProtectedPathApprove ? { onProtectedPathApprove } : {})}
+            {...(onProtectedPathReject ? { onProtectedPathReject } : {})}
             onGoToTab={goToTab}
           />
         </TabsContent>
@@ -1079,17 +1093,21 @@ function ApprovalView({
   taskRef,
   lifecycle,
   submitting,
+  submittingProtectedPathApproval,
   error,
   locale,
   sourceCommitDrift,
   onEdit,
   onSubmit,
+  onProtectedPathApprove,
+  onProtectedPathReject,
   onGoToTab,
 }: {
   task: TaskRecord;
   taskRef: string;
   lifecycle: TaskLifecycleViewModel;
   submitting: boolean;
+  submittingProtectedPathApproval: boolean;
   error: string | null;
   locale: Locale;
   sourceCommitDrift: boolean;
@@ -1100,6 +1118,8 @@ function ApprovalView({
     reviewType?: AdditionalReviewType;
     confirmedReview?: boolean;
   }) => void;
+  onProtectedPathApprove?: () => void;
+  onProtectedPathReject?: () => void;
   onGoToTab: (tab: DemoTab) => void;
 }) {
   const { activeProject } = useProjects();
@@ -1176,6 +1196,27 @@ function ApprovalView({
     return "NEEDS HUMAN REVIEW";
   }
 
+  if (isPendingProtectedPathApproval(task)) {
+    return (
+      <>
+        <DemoPageHeader
+          title={t("taskDetail.approval.title")}
+          meta={`${taskRef} · ${friendlyStatusLabel(task.status, locale)}`}
+        />
+        <ProtectedPathApprovalPanel
+          task={task}
+          locale={locale}
+          submitting={submittingProtectedPathApproval}
+          error={error}
+          onApprove={() => onProtectedPathApprove?.()}
+          onReject={() => onProtectedPathReject?.()}
+        />
+      </>
+    );
+  }
+
+  const protectedPathOutcome = <ProtectedPathApprovalOutcome task={task} locale={locale} />;
+
   if (isOrchestrationInProgress(task.status)) {
     return (
       <>
@@ -1200,6 +1241,7 @@ function ApprovalView({
           title={t("taskDetail.approval.title")}
           meta={`${taskRef} · ${friendlyStatusLabel(task.status, locale)}`}
         />
+        {protectedPathOutcome}
         <DemoStatusBanner
           status="BLOCKED"
           title={recommendation.label}

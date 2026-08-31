@@ -28,6 +28,7 @@ export function SiteHeader() {
   const navLinks = [
     { label: pt("header.howItWorks"), to: "/" as const, hash: "how-it-works" },
     { label: pt("header.features"), to: "/" as const, hash: "features" },
+    { label: pt("header.pricing"), to: "/" as const, hash: "pricing" },
     { label: pt("header.faq"), to: "/" as const, hash: "faq" },
   ];
 

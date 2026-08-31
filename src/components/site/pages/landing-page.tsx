@@ -9,6 +9,7 @@ import { CheckPreview } from "@/components/site/check-preview";
 import { SectionHeading } from "@/components/site/section-heading";
 import { ScopeBoundary } from "@/components/site/scope-boundary";
 import { LifecycleRailCompact, LifecycleRailDetailed } from "@/components/site/lifecycle-rail";
+import { PricingSection } from "@/components/site/pricing-section";
 import { WaitlistForm } from "@/components/site/waitlist-form";
 import { usePublicI18n, usePublicPageMeta } from "@/i18n/use-public-i18n";
 
@@ -157,6 +158,8 @@ export function LandingPage() {
           </div>
         </div>
       </section>
+
+      <PricingSection />
 
       <section id="pilot" className="border-b border-border">
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">

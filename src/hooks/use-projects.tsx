@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
 import {
@@ -21,11 +20,12 @@ import {
   type ProjectRecord,
 } from "@/lib/projects/project-record";
 import type { ConnectedRepositorySource } from "@/lib/repository/repository-source";
+import { resolveActiveProjectId } from "@/lib/workspace/active-project";
 import {
-  persistActiveProjectId,
-  readStoredActiveProjectId,
-  resolveActiveProjectId,
-} from "@/lib/workspace/active-project";
+  reconcileSelectedProjectWithProjects,
+  setCanonicalSelectedProjectId,
+  useCanonicalSelectedProjectId,
+} from "@/lib/workspace/active-workspace-store";
 
 export const WORKSPACE_SWITCH_INVALIDATION_KEYS = ["tasks", "specifications"] as const;
 
@@ -54,9 +54,7 @@ function useProjectsState() {
   const connectRepository = useServerFn(connectPublicRepository);
   const refreshRepository = useServerFn(refreshPublicGitHubProject);
   const disconnectRepository = useServerFn(disconnectPublicGitHubProject);
-  const [selectedProjectId, setSelectedProjectIdState] = useState<string | null>(() =>
-    readStoredActiveProjectId(),
-  );
+  const selectedProjectId = useCanonicalSelectedProjectId();
 
   const projectsQuery = useQuery({
     queryKey: ["projects"],
@@ -66,12 +64,8 @@ function useProjectsState() {
   const projects = projectsQuery.data ?? [];
 
   useEffect(() => {
-    const resolved = resolveActiveProjectId(projects, selectedProjectId);
-    if (resolved !== selectedProjectId) {
-      setSelectedProjectIdState(resolved);
-      persistActiveProjectId(resolved);
-    }
-  }, [projects, selectedProjectId]);
+    reconcileSelectedProjectWithProjects(projects);
+  }, [projects]);
 
   const activeProject = useMemo(() => {
     const resolvedId = resolveActiveProjectId(projects, selectedProjectId);
@@ -95,9 +89,11 @@ function useProjectsState() {
 
   const setSelectedProjectId = useCallback(
     (projectId: string | null) => {
-      const resolved = resolveActiveProjectId(projects, projectId);
-      persistActiveProjectId(resolved);
-      setSelectedProjectIdState(resolved);
+      const resolved =
+        projects.length > 0
+          ? resolveActiveProjectId(projects, projectId)
+          : projectId;
+      setCanonicalSelectedProjectId(resolved, { userInitiated: true });
       void invalidateWorkspaceScopedQueries(resolved);
     },
     [invalidateWorkspaceScopedQueries, projects],

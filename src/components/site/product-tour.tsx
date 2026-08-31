@@ -1,15 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/i18n/context";
 import {
   DEFAULT_STICKY_HEADER_HEIGHT,
   DEFAULT_TOUR_CARD_HEIGHT,
   DEFAULT_TOUR_CARD_WIDTH,
+  DEFAULT_VIEWPORT_MARGIN,
+  MIN_TOUR_CARD_WIDTH,
   computeTourTargetScrollDelta,
   estimateReserveForPlacement,
   resolveTourCardPosition,
+  resolveTourCardWidth,
   type CardSize,
   type ResolvedTourCardPosition,
   type TargetRect,
@@ -32,6 +35,9 @@ type ProductTourProps = {
   onStepChange: (index: number) => void;
 };
 
+const TARGET_WAIT_MS = 2500;
+const TARGET_POLL_MS = 80;
+
 function getTargetRect(targetKey: string | null): TargetRect | null {
   if (!targetKey || typeof document === "undefined") return null;
   const element = document.querySelector(`[data-tour="${targetKey}"]`);
@@ -44,6 +50,31 @@ function getTargetRect(targetKey: string | null): TargetRect | null {
     width: rect.width,
     height: rect.height,
   };
+}
+
+function waitForTourTarget(targetKey: string | null): Promise<TargetRect | null> {
+  if (!targetKey || typeof document === "undefined") {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    const started = Date.now();
+
+    const attempt = () => {
+      const rect = getTargetRect(targetKey);
+      if (rect) {
+        resolve(rect);
+        return;
+      }
+      if (Date.now() - started >= TARGET_WAIT_MS) {
+        resolve(null);
+        return;
+      }
+      window.setTimeout(attempt, TARGET_POLL_MS);
+    };
+
+    attempt();
+  });
 }
 
 function scrollTourTargetIntoView(
@@ -99,12 +130,28 @@ function contextualBody(
 }
 
 function toCardStyle(position: ResolvedTourCardPosition): CSSProperties {
+  if (position.layoutMode === "sheet") {
+    return {
+      left: DEFAULT_VIEWPORT_MARGIN,
+      right: DEFAULT_VIEWPORT_MARGIN,
+      bottom: DEFAULT_VIEWPORT_MARGIN,
+      top: "auto",
+      transform: "none",
+      width: "auto",
+      minWidth: MIN_TOUR_CARD_WIDTH,
+      maxWidth: position.maxWidth,
+      maxHeight: position.maxHeight,
+    };
+  }
+
   return {
     top: position.top,
     left: position.left,
     transform: position.transform,
     width: position.width,
+    minWidth: MIN_TOUR_CARD_WIDTH,
     maxWidth: position.maxWidth,
+    maxHeight: position.maxHeight,
   };
 }
 
@@ -119,42 +166,75 @@ export function ProductTour({
   const { t } = useI18n();
   const navigate = useNavigate();
   const cardRef = useRef<HTMLDivElement>(null);
+  const bodyScrollRef = useRef<HTMLDivElement>(null);
   const [targetRect, setTargetRect] = useState<TargetRect | null>(null);
-  const [cardSize, setCardSize] = useState<CardSize>({
-    width: DEFAULT_TOUR_CARD_WIDTH,
-    height: DEFAULT_TOUR_CARD_HEIGHT,
-  });
+  const [cardHeight, setCardHeight] = useState(DEFAULT_TOUR_CARD_HEIGHT);
   const [cardPosition, setCardPosition] = useState<ResolvedTourCardPosition | null>(null);
+  const [targetReady, setTargetReady] = useState(false);
+  const layoutVersionRef = useRef(0);
+
   const steps = useMemo(() => buildProductTourSteps(t), [t]);
   const step = steps[stepIndex];
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === steps.length - 1;
 
-  const recomputeLayout = useCallback(() => {
+  const cardSize = useMemo<CardSize>(() => {
+    const width =
+      typeof window !== "undefined"
+        ? resolveTourCardWidth({ width: window.innerWidth, height: window.innerHeight })
+        : DEFAULT_TOUR_CARD_WIDTH;
+    return { width, height: cardHeight };
+  }, [cardHeight]);
+
+  const updatePosition = useCallback(
+    (rect: TargetRect | null) => {
+      if (!step || typeof window === "undefined") {
+        setCardPosition(null);
+        return;
+      }
+
+      const position = resolveTourCardPosition({
+        preferredPlacement: rect ? (step.placement ?? "bottom") : "center",
+        targetRect: rect,
+        card: cardSize,
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight,
+        },
+        headerOffset: DEFAULT_STICKY_HEADER_HEIGHT,
+      });
+      setCardPosition(position);
+    },
+    [cardSize, step],
+  );
+
+  const recomputeTargetLayout = useCallback(async () => {
     if (!active || !step || typeof window === "undefined") {
       setTargetRect(null);
       setCardPosition(null);
+      setTargetReady(false);
       return;
     }
 
+    const version = layoutVersionRef.current + 1;
+    layoutVersionRef.current = version;
+    setTargetReady(false);
+
     const resolvedTarget = step.placement === "center" ? null : resolveTourTarget(step);
-    scrollTourTargetIntoView(resolvedTarget, cardSize, step.placement);
+    if (resolvedTarget) {
+      scrollTourTargetIntoView(resolvedTarget, cardSize, step.placement);
+    }
 
-    const rect = resolvedTarget ? getTargetRect(resolvedTarget) : null;
+    const rect =
+      step.placement === "center" ? null : await waitForTourTarget(resolvedTarget);
+    if (layoutVersionRef.current !== version) {
+      return;
+    }
+
     setTargetRect(rect);
-
-    const position = resolveTourCardPosition({
-      preferredPlacement: rect ? (step.placement ?? "bottom") : "center",
-      targetRect: rect,
-      card: cardSize,
-      viewport: {
-        width: window.innerWidth,
-        height: window.innerHeight,
-      },
-      headerOffset: DEFAULT_STICKY_HEADER_HEIGHT,
-    });
-    setCardPosition(position);
-  }, [active, cardSize, step]);
+    updatePosition(rect);
+    setTargetReady(true);
+  }, [active, cardSize, step, updatePosition]);
 
   useEffect(() => {
     if (!active || !cardRef.current || typeof ResizeObserver === "undefined") return;
@@ -163,9 +243,9 @@ export function ProductTour({
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
-      const { width, height } = entry.contentRect;
-      if (width > 0 && height > 0) {
-        setCardSize({ width: Math.ceil(width), height: Math.ceil(height) });
+      const height = Math.ceil(entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height);
+      if (height > 0) {
+        setCardHeight(height);
       }
     });
 
@@ -174,20 +254,26 @@ export function ProductTour({
   }, [active, stepIndex]);
 
   useEffect(() => {
-    recomputeLayout();
-    if (!active) return;
+    void recomputeTargetLayout();
+  }, [recomputeTargetLayout, stepIndex]);
 
-    const handleLayout = () => recomputeLayout();
+  useEffect(() => {
+    if (!active || !targetReady) return;
+
+    const handleLayout = () => {
+      const resolvedTarget = step?.placement === "center" ? null : resolveTourTarget(step!);
+      const rect = resolvedTarget ? getTargetRect(resolvedTarget) : null;
+      setTargetRect(rect);
+      updatePosition(rect);
+    };
+
     window.addEventListener("resize", handleLayout);
     window.addEventListener("scroll", handleLayout, true);
-    const interval = window.setInterval(recomputeLayout, 300);
-
     return () => {
       window.removeEventListener("resize", handleLayout);
       window.removeEventListener("scroll", handleLayout, true);
-      window.clearInterval(interval);
     };
-  }, [active, recomputeLayout, stepIndex, cardSize.height, cardSize.width]);
+  }, [active, step, targetReady, updatePosition]);
 
   useEffect(() => {
     if (!active || !step) return;
@@ -218,14 +304,18 @@ export function ProductTour({
       } else if (step.id === "contract" || step.id === "evidence") {
         await navigate({ to: "/app/tasks" });
       }
-      window.setTimeout(recomputeLayout, 150);
+
+      window.setTimeout(() => {
+        void recomputeTargetLayout();
+      }, 120);
     };
 
     void runNavigation();
-  }, [active, stepIndex, latestTaskId, hasRunEvidence, navigate, recomputeLayout, step]);
+  }, [active, stepIndex, latestTaskId, hasRunEvidence, navigate, recomputeTargetLayout, step]);
 
   useEffect(() => {
     if (!active) return;
+
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
@@ -233,31 +323,39 @@ export function ProductTour({
         onClose();
       }
     };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
   }, [active, onClose]);
 
   useEffect(() => {
     if (active && cardRef.current) {
       cardRef.current.focus();
     }
+    if (active && bodyScrollRef.current) {
+      bodyScrollRef.current.scrollTop = 0;
+    }
   }, [active, stepIndex]);
 
   if (!active || !step) return null;
 
   const body = contextualBody(step, t, hasRunEvidence);
-  const cardStyle = cardPosition ? toCardStyle(cardPosition) : toCardStyle(
-    resolveTourCardPosition({
-      preferredPlacement: "center",
-      targetRect: null,
-      card: cardSize,
-      viewport: {
-        width: typeof window !== "undefined" ? window.innerWidth : 1280,
-        height: typeof window !== "undefined" ? window.innerHeight : 720,
-      },
-      headerOffset: DEFAULT_STICKY_HEADER_HEIGHT,
-    }),
-  );
+  const fallbackPosition =
+    typeof window !== "undefined"
+      ? resolveTourCardPosition({
+          preferredPlacement: "center",
+          targetRect: null,
+          card: cardSize,
+          viewport: {
+            width: window.innerWidth,
+            height: window.innerHeight,
+          },
+          headerOffset: DEFAULT_STICKY_HEADER_HEIGHT,
+        })
+      : null;
+  const cardStyle = cardPosition ? toCardStyle(cardPosition) : fallbackPosition ? toCardStyle(fallbackPosition) : undefined;
 
   function handleSkip() {
     markProductTourCompleted();
@@ -308,58 +406,37 @@ export function ProductTour({
         ref={cardRef}
         tabIndex={-1}
         className={cn(
-          "absolute z-[201] rounded-lg border border-border bg-card p-5 shadow-lg outline-none",
+          "absolute z-[201] flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-lg outline-none",
           "animate-in fade-in-0 zoom-in-95 duration-200",
         )}
         style={cardStyle}
       >
-        <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-          {t("productTour.stepLabel", { current: stepIndex + 1, total: steps.length })}
-        </p>
-        <h2 id="product-tour-title" className="mt-2 text-base font-semibold text-foreground">
-          {step.title}
-        </h2>
-        <p id="product-tour-body" className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          {body}
-        </p>
+        <div ref={bodyScrollRef} className="min-h-0 flex-1 overflow-y-auto p-5">
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
+            {t("productTour.stepLabel", { current: stepIndex + 1, total: steps.length })}
+          </p>
+          <h2 id="product-tour-title" className="mt-2 text-base font-semibold leading-snug text-foreground">
+            {step.title}
+          </h2>
+          <p id="product-tour-body" className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {body}
+          </p>
+        </div>
 
-        <div className="mt-5 flex flex-wrap items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2 border-t border-border p-4">
           {!isFirst ? (
             <Button type="button" variant="outline" size="sm" onClick={handleBack}>
               {t("productTour.back")}
             </Button>
-          ) : null}
-          <Button type="button" variant="ghost" size="sm" onClick={handleSkip} className="mr-auto">
+          ) : (
+            <span className="w-[72px]" aria-hidden="true" />
+          )}
+          <Button type="button" variant="ghost" size="sm" onClick={handleSkip} className="mx-auto">
             {t("productTour.skip")}
           </Button>
-          {isLast ? (
-            <>
-              <Button type="button" variant="outline" size="sm" onClick={handleFinish}>
-                {t("productTour.finish")}
-              </Button>
-              {latestTaskId ? (
-                <Button type="button" size="sm" asChild>
-                  <Link
-                    to="/app/tasks/$taskId"
-                    params={{ taskId: latestTaskId }}
-                    onClick={handleFinish}
-                  >
-                    {t("productTour.openTask")}
-                  </Link>
-                </Button>
-              ) : (
-                <Button type="button" size="sm" asChild>
-                  <Link to="/app/tasks/new" onClick={handleFinish}>
-                    {t("productTour.createFirstTask")}
-                  </Link>
-                </Button>
-              )}
-            </>
-          ) : (
-            <Button type="button" size="sm" onClick={handleNext}>
-              {t("productTour.next")}
-            </Button>
-          )}
+          <Button type="button" size="sm" onClick={isLast ? handleFinish : handleNext}>
+            {isLast ? t("productTour.finish") : t("productTour.next")}
+          </Button>
         </div>
       </div>
     </div>,

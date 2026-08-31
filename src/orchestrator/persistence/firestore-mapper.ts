@@ -1,5 +1,6 @@
 import { summarizeEvidence } from "./local-store";
 import type { StoredRun } from "./local-store";
+import { containsSecretMaterial, redactSecrets } from "@/lib/redaction";
 
 export const FIRESTORE_RUNS_COLLECTION = "buildloopRuns";
 export const FIRESTORE_SCHEMA_VERSION = 1;
@@ -83,6 +84,28 @@ function sanitizeStoredRunPayload(run: StoredRun): StoredRun {
     if (report.patchSummary && CREDENTIAL_LIKE.test(report.patchSummary)) {
       report.patchSummary = "[redacted]";
     }
+  }
+  if (clone.changeArtifact) {
+    for (const file of clone.changeArtifact.files) {
+      if (file.diff) {
+        const sanitized = redactSecrets(file.diff);
+        if (sanitized !== file.diff) {
+          file.diff = sanitized;
+          file.redacted = true;
+        }
+        if (CREDENTIAL_LIKE.test(file.diff)) {
+          file.diff = "[REDACTED]";
+          file.redacted = true;
+        }
+      }
+    }
+  }
+  if (clone.deliveryHandoff?.patch && containsSecretMaterial(clone.deliveryHandoff.patch)) {
+    clone.deliveryHandoff.patch = null;
+    clone.deliveryHandoff.patchSha256 = null;
+    clone.deliveryHandoff.blocked = true;
+    clone.deliveryHandoff.blockedReason =
+      "Verified patch content appears to contain secret-like material. Downloadable patch is not available.";
   }
   return clone;
 }

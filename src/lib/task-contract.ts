@@ -5,6 +5,8 @@
 
 import type { PlanningSource, TaskClarification } from "@/lib/planning/planning-source";
 import type { ContractInputsSnapshot, TaskRunSnapshot } from "@/lib/task-rerun";
+import type { ChangeArtifact } from "@/lib/change-artifact";
+import type { DeliveryHandoff } from "@/lib/delivery-artifact";
 
 export const WORKSPACE_NAME = "buildloop-demo";
 export const MAX_ATTEMPTS = 2;
@@ -164,6 +166,10 @@ export type RunnerState = {
   runHistory?: TaskRunSnapshot[];
   /** Set while preparing a failed-task re-run (similar to revisionRequested). */
   rerunRequested?: boolean;
+  /** Sanitized unified diff captured before sandbox cleanup. */
+  changeArtifact?: ChangeArtifact;
+  /** Exact verified patch and commit suggestions for manual delivery after approval. */
+  deliveryHandoff?: DeliveryHandoff;
 };
 
 /** Evidence nol-perubahan: dipakai untuk BLOCKED dan untuk status siap-runner. */

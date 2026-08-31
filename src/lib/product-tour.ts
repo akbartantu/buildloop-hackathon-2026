@@ -64,7 +64,7 @@ export const PRODUCT_TOUR_STEP_DEFS: ProductTourStepDef[] = [
     bodyKey: "productTour.steps.create-task.body",
     target: "task-goal",
     fallbackTarget: "nav-tasks",
-    placement: "bottom",
+    placement: "right",
   },
   {
     id: "contract",
@@ -178,7 +178,7 @@ export function resolveTourTarget(step: ProductTourStep): string | null {
   if (step.fallbackTarget && document.querySelector(`[data-tour="${step.fallbackTarget}"]`)) {
     return step.fallbackTarget;
   }
-  return step.target;
+  return null;
 }
 
 export const PRODUCT_TOUR_TARGETS = [

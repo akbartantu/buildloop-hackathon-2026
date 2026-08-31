@@ -214,6 +214,8 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       ...(resolvedBaseline ? { gitBaseline: resolvedBaseline } : {}),
       ...(isHumanRevision ? { lastAction: "human_revision" as const } : {}),
       ...(isRerun ? { lastAction: "worker" as const } : {}),
+      ...(result.changeArtifact ? { changeArtifact: result.changeArtifact } : {}),
+      ...(result.deliveryHandoff ? { deliveryHandoff: result.deliveryHandoff } : {}),
     };
     const runnerState =
       result.run.verdict === "BLOCKED"

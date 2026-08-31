@@ -4,23 +4,28 @@ import {
   DEFAULT_STICKY_HEADER_HEIGHT,
   DEFAULT_TOUR_CARD_HEIGHT,
   DEFAULT_TOUR_CARD_WIDTH,
-  DEFAULT_TOUR_GAP,
   DEFAULT_VIEWPORT_MARGIN,
+  MAX_TOUR_CARD_WIDTH,
+  MIN_TOUR_CARD_WIDTH,
   availableSpaceForPlacement,
   chooseTourPlacement,
   clampTourCardPosition,
   computeTourTargetScrollDelta,
   flipTourPlacement,
   getCardBounds,
+  isMobileTourViewport,
   isTourCardFullyVisible,
   placementAnchor,
   resolveTourCardPosition,
+  resolveTourCardWidth,
   type TargetRect,
 } from "./product-tour-placement";
 
 const CARD = { width: DEFAULT_TOUR_CARD_WIDTH, height: DEFAULT_TOUR_CARD_HEIGHT };
+const VIEWPORT_1280x720 = { width: 1280, height: 720 };
 const VIEWPORT_1366x768 = { width: 1366, height: 768 };
 const VIEWPORT_1440x900 = { width: 1440, height: 900 };
+const VIEWPORT_1440x1024 = { width: 1440, height: 1024 };
 const VIEWPORT_1920x1080 = { width: 1920, height: 1080 };
 const VIEWPORT_MOBILE = { width: 390, height: 844 };
 
@@ -34,6 +39,12 @@ function createTaskGoalTarget(viewportHeight: number): TargetRect {
 }
 
 describe("product-tour placement", () => {
+  test("resolveTourCardWidth stays within 320-380px on desktop", () => {
+    expect(resolveTourCardWidth(VIEWPORT_1920x1080)).toBeGreaterThanOrEqual(MIN_TOUR_CARD_WIDTH);
+    expect(resolveTourCardWidth(VIEWPORT_1920x1080)).toBeLessThanOrEqual(MAX_TOUR_CARD_WIDTH);
+    expect(resolveTourCardWidth(VIEWPORT_1280x720)).toBeGreaterThanOrEqual(MIN_TOUR_CARD_WIDTH);
+  });
+
   test("flipTourPlacement inverts axis pairs", () => {
     expect(flipTourPlacement("bottom")).toBe("top");
     expect(flipTourPlacement("top")).toBe("bottom");
@@ -50,19 +61,24 @@ describe("product-tour placement", () => {
     expect(chosen).toBe("top");
   });
 
-  test("top flips to bottom when insufficient space above", () => {
+  test("right placement keeps readable width beside sidebar targets", () => {
     const target: TargetRect = {
-      top: DEFAULT_STICKY_HEADER_HEIGHT + DEFAULT_VIEWPORT_MARGIN + 8,
-      left: 200,
-      width: 400,
-      height: 120,
+      top: 120,
+      left: 24,
+      width: 220,
+      height: 48,
     };
 
-    const aboveSpace = availableSpaceForPlacement("top", target, CARD, VIEWPORT_1366x768);
-    expect(aboveSpace).toBeLessThan(0);
+    const resolved = resolveTourCardPosition({
+      preferredPlacement: "right",
+      targetRect: target,
+      card: CARD,
+      viewport: VIEWPORT_1920x1080,
+    });
 
-    const chosen = chooseTourPlacement("top", target, CARD, VIEWPORT_1366x768);
-    expect(chosen).toBe("bottom");
+    expect(resolved.width).toBeGreaterThanOrEqual(MIN_TOUR_CARD_WIDTH);
+    expect(resolved.maxWidth).toBeGreaterThanOrEqual(MIN_TOUR_CARD_WIDTH);
+    expect(isTourCardFullyVisible(resolved, { ...CARD, width: resolved.width }, VIEWPORT_1920x1080)).toBe(true);
   });
 
   test("final coordinates are clamped inside viewport with margin", () => {
@@ -74,9 +90,9 @@ describe("product-tour placement", () => {
       viewport: VIEWPORT_1366x768,
     });
 
-    expect(isTourCardFullyVisible(resolved, CARD, VIEWPORT_1366x768)).toBe(true);
+    expect(isTourCardFullyVisible(resolved, { ...CARD, width: resolved.width }, VIEWPORT_1366x768)).toBe(true);
 
-    const bounds = getCardBounds(resolved.top, resolved.left, CARD, placementAnchor(resolved.placement));
+    const bounds = getCardBounds(resolved.top, resolved.left, { ...CARD, width: resolved.width }, placementAnchor(resolved.placement));
     expect(bounds.top).toBeGreaterThanOrEqual(DEFAULT_STICKY_HEADER_HEIGHT + DEFAULT_VIEWPORT_MARGIN);
     expect(bounds.left).toBeGreaterThanOrEqual(DEFAULT_VIEWPORT_MARGIN);
     expect(bounds.top + bounds.height).toBeLessThanOrEqual(
@@ -87,64 +103,55 @@ describe("product-tour placement", () => {
     );
   });
 
-  test("create-task tour step stays fully visible at 1366x768", () => {
-    const target = createTaskGoalTarget(VIEWPORT_1366x768.height);
-    const resolved = resolveTourCardPosition({
-      preferredPlacement: "bottom",
-      targetRect: target,
-      card: CARD,
-      viewport: VIEWPORT_1366x768,
-    });
-
-    expect(["top", "bottom"]).toContain(resolved.placement);
-    expect(isTourCardFullyVisible(resolved, CARD, VIEWPORT_1366x768)).toBe(true);
-  });
-
   test("create-task tour step stays fully visible at common desktop sizes", () => {
-    const target = createTaskGoalTarget(VIEWPORT_1440x900.height);
-
-    for (const viewport of [VIEWPORT_1366x768, VIEWPORT_1440x900, VIEWPORT_1920x1080]) {
+    for (const viewport of [VIEWPORT_1280x720, VIEWPORT_1440x1024, VIEWPORT_1920x1080]) {
+      const target: TargetRect = {
+        top: viewport.height - 260,
+        left: 280,
+        width: 720,
+        height: 220,
+      };
       const resolved = resolveTourCardPosition({
-        preferredPlacement: "bottom",
-        targetRect: { ...target, top: viewport.height - 140 },
+        preferredPlacement: "right",
+        targetRect: target,
         card: CARD,
         viewport,
       });
-      expect(isTourCardFullyVisible(resolved, CARD, viewport)).toBe(true);
+      expect(resolved.width).toBeGreaterThanOrEqual(MIN_TOUR_CARD_WIDTH);
+      expect(isTourCardFullyVisible(resolved, { ...CARD, width: resolved.width }, viewport)).toBe(true);
     }
   });
 
-  test("narrow mobile viewport keeps card inside bounds", () => {
-    const target: TargetRect = {
-      top: 420,
-      left: 24,
-      width: 342,
-      height: 160,
-    };
+  test("mobile viewport uses bottom sheet layout", () => {
+    expect(isMobileTourViewport(VIEWPORT_MOBILE)).toBe(true);
 
     const resolved = resolveTourCardPosition({
       preferredPlacement: "bottom",
-      targetRect: target,
-      card: { width: 320, height: DEFAULT_TOUR_CARD_HEIGHT },
+      targetRect: {
+        top: 420,
+        left: 24,
+        width: 342,
+        height: 160,
+      },
+      card: CARD,
       viewport: VIEWPORT_MOBILE,
     });
 
-    expect(isTourCardFullyVisible(resolved, CARD, VIEWPORT_MOBILE)).toBe(true);
+    expect(resolved.layoutMode).toBe("sheet");
+    expect(resolved.width).toBeGreaterThanOrEqual(MIN_TOUR_CARD_WIDTH - 1);
   });
 
-  test("clampTourCardPosition respects minimum viewport margin", () => {
-    const clamped = clampTourCardPosition({
-      placement: "bottom",
-      top: VIEWPORT_1366x768.height - 40,
-      left: VIEWPORT_1366x768.width / 2,
+  test("missing target falls back to centered card with readable width", () => {
+    const resolved = resolveTourCardPosition({
+      preferredPlacement: "bottom",
+      targetRect: null,
       card: CARD,
-      viewport: VIEWPORT_1366x768,
+      viewport: VIEWPORT_1440x900,
     });
 
-    const bounds = getCardBounds(clamped.top, clamped.left, CARD, "bottom-center-x");
-    expect(bounds.top + bounds.height).toBeLessThanOrEqual(
-      VIEWPORT_1366x768.height - DEFAULT_VIEWPORT_MARGIN,
-    );
+    expect(resolved.placement).toBe("center");
+    expect(resolved.width).toBeGreaterThanOrEqual(MIN_TOUR_CARD_WIDTH);
+    expect(isTourCardFullyVisible(resolved, { ...CARD, width: resolved.width }, VIEWPORT_1440x900)).toBe(true);
   });
 
   test("computeTourTargetScrollDelta requests scroll when card reserve exceeds viewport", () => {
@@ -152,7 +159,7 @@ describe("product-tour placement", () => {
     const delta = computeTourTargetScrollDelta({
       targetRect: target,
       viewportHeight: VIEWPORT_1366x768.height,
-      reserveBelow: CARD.height + DEFAULT_TOUR_GAP,
+      reserveBelow: CARD.height + DEFAULT_VIEWPORT_MARGIN,
     });
 
     expect(delta).toBeGreaterThan(0);
@@ -174,6 +181,6 @@ describe("product-tour placement", () => {
     });
 
     expect(resolved.placement).toBe("bottom");
-    expect(isTourCardFullyVisible(resolved, CARD, VIEWPORT_1920x1080)).toBe(true);
+    expect(isTourCardFullyVisible(resolved, { ...CARD, width: resolved.width }, VIEWPORT_1920x1080)).toBe(true);
   });
 });

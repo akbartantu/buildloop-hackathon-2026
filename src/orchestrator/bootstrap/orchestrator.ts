@@ -20,6 +20,10 @@ import {
   cleanupSandboxDirectory,
   publicGitHubRunClonePath,
 } from "../workspace/git-workspace";
+import { buildChangeArtifact } from "@/lib/change-artifact";
+import type { ChangeArtifact } from "@/lib/change-artifact";
+import { buildDeliveryHandoff } from "@/lib/delivery-artifact";
+import type { DeliveryHandoff } from "@/lib/delivery-artifact";
 import { getSandboxRoot } from "../workspace/sandbox-root";
 import { isPublicGitHubRepoUrl, validatePublicGitHubUrl } from "@/lib/repository/public-github-url";
 import {
@@ -54,6 +58,8 @@ export type BootstrapRunResult = {
     policyDecision: string | null;
     plannerOutput: string | null;
   };
+  changeArtifact?: ChangeArtifact | null;
+  deliveryHandoff?: DeliveryHandoff | null;
 };
 
 export type RunStatusChangeHandler = (input: {
@@ -489,7 +495,10 @@ export class BootstrapOrchestrator {
       if (!decision.shouldInvokeWorker) break;
     }
 
-    if (gitRepoPath && workspacePreflight.baseline) {
+    let changeArtifact: ChangeArtifact | null = null;
+    let deliveryHandoff: DeliveryHandoff | null = null;
+
+    if (gitRepoPath && workspacePreflight.baseline && sandboxRoot && workerCalls > 0) {
       try {
         const diff = await summarizeGitDiff(
           gitRepoPath,
@@ -509,6 +518,33 @@ export class BootstrapOrchestrator {
           severity: "info",
           createdAt: new Date().toISOString(),
         });
+
+        if (diff.changedFiles.length > 0) {
+          changeArtifact = await buildChangeArtifact({
+            worktreePath: sandboxRoot,
+            baselineSha: workspacePreflight.baseline.headSha,
+            attemptNumber,
+            allowedPaths: input.contract.allowedPaths,
+            protectedPaths: input.contract.protectedAreas,
+            diffSummary: diff,
+            checkerVerified: verdict === "PASS",
+          });
+
+          if (verdict === "PASS") {
+            deliveryHandoff = await buildDeliveryHandoff({
+              taskId: input.contract.taskId,
+              runId,
+              contractGoal: input.contract.goal,
+              worktreePath: sandboxRoot,
+              baselineSha: workspacePreflight.baseline.headSha,
+              attemptNumber,
+              checkerVerdict: verdict,
+              allowedPaths: input.contract.allowedPaths,
+              protectedPaths: input.contract.protectedAreas,
+              diffSummary: diff,
+            });
+          }
+        }
       } catch {
         // Non-fatal — manifest revision remains authoritative for non-git workspaces.
       }
@@ -538,6 +574,8 @@ export class BootstrapOrchestrator {
       startedAt,
       securityReviewInvoked,
       securityFindings,
+      changeArtifact,
+      deliveryHandoff,
     });
   }
 
@@ -629,6 +667,8 @@ export class BootstrapOrchestrator {
     startedAt: string;
     securityReviewInvoked: boolean;
     securityFindings: Array<{ severity: string; finding: string; evidence: string }>;
+    changeArtifact?: ChangeArtifact | null;
+    deliveryHandoff?: DeliveryHandoff | null;
   }): BootstrapRunResult {
     const filesChanged = countUniqueChangedFiles(input.workerReports);
     const commandsExecuted = input.workerReports.flatMap((report) => report.commandsExecuted).length;
@@ -680,6 +720,8 @@ export class BootstrapOrchestrator {
         policyDecision: null,
         plannerOutput: null,
       },
+      changeArtifact: input.changeArtifact ?? null,
+      deliveryHandoff: input.deliveryHandoff ?? null,
     };
   }
 }

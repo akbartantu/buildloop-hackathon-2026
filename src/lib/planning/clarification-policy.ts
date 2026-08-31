@@ -3,6 +3,12 @@ import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { PlanningSpecificationEntry } from "@/lib/specifications/specification-set-record";
 import type { PlanningSource, TaskClarification } from "./planning-source";
 import { isPasswordResetGoal, isReadmeGoal } from "./planning-context";
+import {
+  buildPasswordResetChoiceSet,
+  buildScopeAmbiguityFreeText,
+  buildSpecConflictChoiceSet,
+  type ClarificationChoiceSet,
+} from "./clarification-options";
 
 export type ClarificationDecision = "CLEAR" | "MATERIAL_AMBIGUITY" | "SENSITIVE_OR_PROTECTED" | "SPEC_CONFLICT";
 
@@ -11,7 +17,9 @@ export type ResetMethodSignal = "email_link" | "otp" | "admin_reset";
 export type ClarificationEvaluation = {
   decision: ClarificationDecision;
   question?: string;
+  /** @deprecated Use choiceSet instead. */
   options?: string[];
+  choiceSet?: ClarificationChoiceSet;
   reason?: string;
   conflictSources?: PlanningSource[];
   inferredCriteria?: string[];
@@ -148,6 +156,26 @@ function detectSpecConflict(
   };
 }
 
+function evaluationFromChoiceSet(
+  decision: ClarificationDecision,
+  choiceSet: ClarificationChoiceSet,
+  extras?: {
+    reason?: string;
+    conflictSources?: PlanningSource[];
+  },
+): ClarificationEvaluation {
+  return {
+    decision,
+    question: choiceSet.question,
+    choiceSet,
+    ...(choiceSet.presentationMode === "choices"
+      ? { options: choiceSet.options.map((option) => option.label) }
+      : {}),
+    ...(extras?.reason ? { reason: extras.reason } : {}),
+    ...(extras?.conflictSources ? { conflictSources: extras.conflictSources } : {}),
+  };
+}
+
 function inferResetMethodFromSpecs(
   specifications: PlanningSpecificationEntry[],
 ): ResetMethodSignal | null {
@@ -212,13 +240,17 @@ export function evaluateClarificationPolicy(input: {
   if (isPasswordResetGoal(goal)) {
     const conflict = detectSpecConflict(relevantSpecs);
     if (conflict.conflict) {
-      return {
-        decision: "SPEC_CONFLICT",
+      const choiceSet = buildSpecConflictChoiceSet({
         question: conflict.question,
-        options: conflict.options,
+        leftLabel: conflict.options[0] ?? "First source",
+        rightLabel: conflict.options[1] ?? "Second source",
+        leftDescription: `Use ${conflict.options[0] ?? "the first source"} as the authoritative requirement for this task.`,
+        rightDescription: `Use ${conflict.options[1] ?? "the second source"} as the authoritative requirement for this task.`,
+      });
+      return evaluationFromChoiceSet("SPEC_CONFLICT", choiceSet, {
         reason: "Conflicting specification sources for password reset method.",
         conflictSources: conflict.sources,
-      };
+      });
     }
 
     const inferred = inferResetMethodFromSpecs(relevantSpecs);
@@ -229,23 +261,19 @@ export function evaluateClarificationPolicy(input: {
       };
     }
 
-    if (relevantSpecs.length === 0 || !inferResetMethodFromSpecs(relevantSpecs)) {
-      return {
-        decision: "MATERIAL_AMBIGUITY",
-        question: "How should users reset their password: email link or OTP?",
-        options: ["Email link", "OTP"],
-        reason: "Password reset method materially affects contract scope and acceptance criteria.",
-      };
-    }
+    const resetChoices = buildPasswordResetChoiceSet(relevantSpecs);
+    return evaluationFromChoiceSet("MATERIAL_AMBIGUITY", resetChoices, {
+      reason: "Password reset method materially affects contract scope and acceptance criteria.",
+    });
   }
 
   if (isAmbiguousGoal(goal) && userCriteria.length === 0) {
-    return {
-      decision: "MATERIAL_AMBIGUITY",
-      question:
-        "Which exact files or directories may BuildLoop modify to complete this task?",
+    const scopeChoice = buildScopeAmbiguityFreeText(
+      "Which exact files or directories may BuildLoop modify to complete this task?",
+    );
+    return evaluationFromChoiceSet("MATERIAL_AMBIGUITY", scopeChoice, {
       reason: "Goal scope is too broad to derive a safe bounded contract.",
-    };
+    });
   }
 
   return { decision: "CLEAR" };
@@ -254,21 +282,32 @@ export function evaluateClarificationPolicy(input: {
 export function buildClarificationRecord(input: {
   evaluation: ClarificationEvaluation;
   answer?: string;
+  selectedOptionId?: string;
+  customAnswer?: string;
 }): TaskClarification | undefined {
   if (!input.evaluation.question) {
     return undefined;
   }
 
   const now = new Date().toISOString();
+  const choiceSet = input.evaluation.choiceSet;
   return {
     question: input.evaluation.question,
     ...(input.evaluation.options ? { options: input.evaluation.options } : {}),
+    ...(choiceSet?.presentationMode === "choices"
+      ? {
+          choiceOptions: choiceSet.options,
+          allowOther: choiceSet.allowOther,
+        }
+      : {}),
     reason: input.evaluation.reason ?? "Material ambiguity detected.",
     askedAt: now,
     ...(input.answer
       ? {
           answer: input.answer,
           answeredAt: now,
+          ...(input.selectedOptionId ? { selectedOptionId: input.selectedOptionId } : {}),
+          ...(input.customAnswer ? { customAnswer: input.customAnswer } : {}),
         }
       : {}),
   };

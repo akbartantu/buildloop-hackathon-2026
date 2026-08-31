@@ -69,7 +69,14 @@ import { isOrchestrationEligible } from "@/lib/task-lifecycle-ops";
 import { cn } from "@/lib/utils";
 import { TaskOverviewView } from "@/components/site/task-overview-view";
 import { LifecycleProgressPanel } from "@/components/site/lifecycle-progress-panel";
+import { ChangeEvidencePanel } from "@/components/site/change-evidence-panel";
+import { DeliveryHandoffPanel } from "@/components/site/delivery-handoff-panel";
 import { EvidenceSummaryPanel } from "@/components/site/evidence-summary-panel";
+import { buildChangeEvidenceViewModel } from "@/lib/change-evidence-presentation";
+import {
+  buildDeliveryHandoffViewModel,
+  canShowDeliveryHandoff,
+} from "@/lib/delivery-handoff-presentation";
 import { SemanticStatusBadge } from "@/components/site/semantic-status-badge";
 import { checkEvidencePresentation, verdictPresentation } from "@/lib/status-presentation";
 import { formatPlanningSourceLabel } from "@/lib/planning/planning-source";
@@ -287,6 +294,7 @@ export function TaskDetailTabs({
             submitting={submittingHumanApproval}
             error={error}
             locale={locale}
+            sourceCommitDrift={sourceCommitDrift}
             onEdit={onEdit}
             onSubmit={onSubmitHumanApproval}
             onGoToTab={goToTab}
@@ -727,6 +735,7 @@ function EvidenceView({
     translate(locale, key, params);
   const runner = task.runnerState;
   const blocked = lifecycle.isBlocked;
+  const changeEvidence = buildChangeEvidenceViewModel(runner?.changeArtifact, locale);
 
   if (blocked) {
     return (
@@ -829,6 +838,8 @@ function EvidenceView({
           ) : null}
         </DemoPanel>
       )}
+
+      {changeEvidence ? <ChangeEvidencePanel viewModel={changeEvidence} locale={locale} /> : null}
 
       {lifecycle.implementationVerdict === "PASS" && lifecycle.checks.allRequiredSatisfied ? (
         <DemoPanel title={t("taskDetail.evidence.finalResult")}>
@@ -962,6 +973,7 @@ function ApprovalView({
   submitting,
   error,
   locale,
+  sourceCommitDrift,
   onEdit,
   onSubmit,
   onGoToTab,
@@ -972,10 +984,12 @@ function ApprovalView({
   submitting: boolean;
   error: string | null;
   locale: Locale;
+  sourceCommitDrift: boolean;
   onEdit: () => void;
   onSubmit: (input: { decision: HumanGateDecision; note?: string }) => void;
   onGoToTab: (tab: DemoTab) => void;
 }) {
+  const { activeProject } = useProjects();
   const t = (key: TranslationKey, params?: Record<string, string | number>) =>
     translate(locale, key, params);
   const runner = task.runnerState;
@@ -983,6 +997,21 @@ function ApprovalView({
   const pending = isPendingHumanApproval(task);
   const gateOpen = isApprovalGateOpen(task);
   const recommendation = lifecycle.approval;
+  const deliveryHandoff = runner?.deliveryHandoff;
+  const showDelivery =
+    canShowDeliveryHandoff({
+      commitApproved: Boolean(runner?.commitApproved),
+      handoff: deliveryHandoff ?? null,
+    }) && deliveryHandoff;
+  const deliveryViewModel = showDelivery
+    ? buildDeliveryHandoffViewModel({
+        handoff: deliveryHandoff,
+        targetBranch: taskSourceBranch(task, activeProject),
+        sourceCommitSha: taskSourceCommitSha(task, activeProject),
+        sourceCommitDrift,
+        locale,
+      })
+    : null;
   const [decision, setDecision] = useState<HumanGateDecision>("APPROVE_COMMIT");
   const [confirmedReview, setConfirmedReview] = useState(false);
 
@@ -1084,6 +1113,14 @@ function ApprovalView({
                 ]}
               />
             </DemoPanel>
+
+            {showDelivery && deliveryViewModel ? (
+              <DeliveryHandoffPanel
+                handoff={deliveryHandoff}
+                viewModel={deliveryViewModel}
+                locale={locale}
+              />
+            ) : null}
           </>
         ) : null}
 

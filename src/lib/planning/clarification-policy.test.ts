@@ -60,8 +60,9 @@ describe("clarification policy", () => {
       sensitiveBlocked: [],
     });
     expect(evaluation.decision).toBe("MATERIAL_AMBIGUITY");
-    expect(evaluation.question).toContain("email link or OTP");
-    expect(evaluation.options).toEqual(["Email link", "OTP"]);
+    expect(evaluation.question).toContain("reset their password");
+    expect(evaluation.options).toEqual(["Email link", "OTP verification"]);
+    expect(evaluation.choiceSet?.presentationMode).toBe("choices");
   });
 
   test("answer supplied clears material ambiguity", () => {

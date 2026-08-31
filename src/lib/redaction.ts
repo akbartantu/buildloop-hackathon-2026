@@ -39,3 +39,22 @@ export function safeLogSummary(input: string, maxLength = 500): string {
   if (redacted.length <= maxLength) return redacted;
   return `${redacted.slice(0, maxLength)}…`;
 }
+
+export function containsSecretMaterial(input: string): boolean {
+  if (!input) return false;
+  for (const pattern of SECRET_PATTERNS) {
+    pattern.lastIndex = 0;
+    if (pattern.test(input)) {
+      return true;
+    }
+  }
+  for (const line of input.split("\n")) {
+    const envMatch = ENV_LINE.exec(line.trim());
+    if (!envMatch) continue;
+    const [, key, value] = envMatch;
+    if (key && value && /key|secret|token|password|credential/i.test(key) && value.trim().length > 0) {
+      return true;
+    }
+  }
+  return false;
+}

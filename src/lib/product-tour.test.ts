@@ -131,6 +131,15 @@ describe("resolveTourTarget", () => {
     document.body.innerHTML = "";
   });
 
+  test("returns null when neither primary nor fallback target exists", () => {
+    if (typeof document === "undefined") return;
+    document.body.innerHTML = "";
+    const step = buildProductTourSteps((key) => translate("en", key)).find(
+      (entry) => entry.id === "repository",
+    );
+    expect(resolveTourTarget(step!)).toBeNull();
+  });
+
   test("resolves specifications panel target when connected workspace has specs", () => {
     if (typeof document === "undefined") return;
     document.body.innerHTML = `<div data-tour="projects-specifications"></div>`;

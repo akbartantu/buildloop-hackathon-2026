@@ -1,3 +1,5 @@
+import type { ClarificationOption } from "./clarification-options";
+
 export type PlanningSourceType =
   | "specification"
   | "repository_file"
@@ -18,7 +20,12 @@ export type PlanningSource = {
 
 export type TaskClarification = {
   question: string;
+  /** @deprecated Legacy flat labels; use choiceOptions when present. */
   options?: string[];
+  choiceOptions?: ClarificationOption[];
+  allowOther?: boolean;
+  selectedOptionId?: string;
+  customAnswer?: string;
   answer?: string;
   askedAt: string;
   answeredAt?: string;

@@ -19,6 +19,8 @@ import { analyzeTaskGoalPreview } from "@/lib/tasks.functions";
 import { abbreviateCommitSha } from "@/lib/repository/task-source-display";
 import { formatPlanningSourceLabel } from "@/lib/planning/planning-source";
 import { MAX_ATTEMPTS, PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
+import { ClarificationGate, clarificationValidationMessageKey, resolveClarificationSubmission } from "@/components/site/clarification-gate";
+import { CLARIFICATION_OTHER_OPTION_ID } from "@/lib/planning/clarification-options";
 import type { TaskGoalAnalysis } from "@/lib/task-planning";
 
 export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
@@ -36,10 +38,32 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   const [analysis, setAnalysis] = useState<TaskGoalAnalysis | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [userEditedCriteria, setUserEditedCriteria] = useState(false);
-  const [clarificationAnswer, setClarificationAnswer] = useState("");
+  const [selectedClarificationOptionId, setSelectedClarificationOptionId] = useState<string | null>(null);
+  const [clarificationCustomAnswer, setClarificationCustomAnswer] = useState("");
   const [suggestedAddedNotice, setSuggestedAddedNotice] = useState(false);
   const workspaceLabel = source?.repoName ?? WORKSPACE_NAME;
   const criteriaCount = countAcceptanceCriteria(acceptanceCriteriaText);
+
+  function resetClarificationState() {
+    setSelectedClarificationOptionId(null);
+    setClarificationCustomAnswer("");
+  }
+
+  function resolvedClarification() {
+    if (!analysis?.needsClarification) {
+      return { answer: "" };
+    }
+    return resolveClarificationSubmission({
+      ...(analysis.clarificationPresentationMode
+        ? { presentationMode: analysis.clarificationPresentationMode }
+        : {}),
+      ...(analysis.clarificationChoiceOptions
+        ? { choiceOptions: analysis.clarificationChoiceOptions }
+        : {}),
+      selectedOptionId: selectedClarificationOptionId,
+      customAnswer: clarificationCustomAnswer,
+    });
+  }
 
   useEffect(() => {
     if (sourceTask) {
@@ -74,12 +98,13 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
     setAnalyzing(true);
     try {
       const userCriteria = parseAcceptanceCriteria(acceptanceCriteriaText);
+      const clarification = resolvedClarification();
       const result = await analyzeGoal({
         data: {
           goal: taskGoal,
           ...(activeProject?.id ? { projectId: activeProject.id } : {}),
           ...(userCriteria ? { acceptanceCriteria: userCriteria } : {}),
-          ...(clarificationAnswer.trim() ? { clarificationAnswer: clarificationAnswer.trim() } : {}),
+          ...(clarification.answer ? { clarificationAnswer: clarification.answer } : {}),
         },
       });
       setAnalysis(result);
@@ -121,17 +146,30 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
 
   async function handleSubmit() {
     setFormError(null);
-    if (analysis?.needsClarification && analysis.clarificationQuestion && !clarificationAnswer.trim()) {
-      setFormError(t("tasks.clarificationAnswerRequired"));
-      return;
+    if (analysis?.needsClarification && analysis.clarificationQuestion) {
+      const validationKey = clarificationValidationMessageKey({
+        ...(analysis.clarificationPresentationMode
+          ? { presentationMode: analysis.clarificationPresentationMode }
+          : {}),
+        ...(analysis.clarificationChoiceOptions
+          ? { choiceOptions: analysis.clarificationChoiceOptions }
+          : {}),
+        selectedOptionId: selectedClarificationOptionId,
+        customAnswer: clarificationCustomAnswer,
+      });
+      if (validationKey) {
+        setFormError(t(validationKey));
+        return;
+      }
     }
 
     try {
       const acceptanceCriteria = parseAcceptanceCriteria(acceptanceCriteriaText);
+      const clarification = resolvedClarification();
       const task = await createMutation.mutateAsync({
         goal: taskGoal,
         ...(acceptanceCriteria ? { acceptanceCriteria } : {}),
-        ...(clarificationAnswer.trim() ? { clarificationAnswer: clarificationAnswer.trim() } : {}),
+        ...(clarification.answer ? { clarificationAnswer: clarification.answer } : {}),
         ...(activeProject?.id
           ? { projectId: activeProject.id }
           : source
@@ -163,6 +201,7 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
             onChange={(event) => {
               setTaskGoal(event.target.value);
               setAnalysis(null);
+              resetClarificationState();
             }}
             placeholder={t("tasks.goalPlaceholder")}
             rows={4}
@@ -182,36 +221,28 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
         </div>
 
         {analysis?.needsClarification ? (
-          <div className="mt-4 rounded-md border border-status-review/40 bg-status-review/5 p-4">
-            <p className="text-sm font-medium text-foreground">{t("tasks.clarificationPrompt")}</p>
-            <p className="mt-2 text-sm text-foreground">
-              {analysis.clarificationQuestion ?? analysis.clarificationMessage ?? t("tasks.criteriaOptional")}
-            </p>
-            {analysis.clarificationOptions?.length ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {analysis.clarificationOptions.map((option) => (
-                  <Button
-                    key={option}
-                    type="button"
-                    size="sm"
-                    variant={clarificationAnswer === option ? "default" : "outline"}
-                    onClick={() => setClarificationAnswer(option)}
-                  >
-                    {option}
-                  </Button>
-                ))}
-              </div>
-            ) : null}
-            <div className="mt-4 space-y-2">
-              <Label htmlFor="clarification-answer">{t("tasks.clarificationAnswerLabel")}</Label>
-              <Textarea
-                id="clarification-answer"
-                value={clarificationAnswer}
-                onChange={(event) => setClarificationAnswer(event.target.value)}
-                rows={2}
-              />
-            </div>
-          </div>
+          <ClarificationGate
+            {...(analysis.clarificationMessage ? { reason: analysis.clarificationMessage } : {})}
+            question={analysis.clarificationQuestion ?? t("tasks.criteriaOptional")}
+            {...(analysis.clarificationChoiceOptions
+              ? { choiceOptions: analysis.clarificationChoiceOptions }
+              : {})}
+            {...(analysis.clarificationAllowOther !== undefined
+              ? { allowOther: analysis.clarificationAllowOther }
+              : {})}
+            {...(analysis.clarificationPresentationMode
+              ? { presentationMode: analysis.clarificationPresentationMode }
+              : {})}
+            selectedOptionId={selectedClarificationOptionId}
+            customAnswer={clarificationCustomAnswer}
+            onSelectOption={(optionId) => {
+              setSelectedClarificationOptionId(optionId);
+              if (optionId !== CLARIFICATION_OTHER_OPTION_ID) {
+                setClarificationCustomAnswer("");
+              }
+            }}
+            onCustomAnswerChange={setClarificationCustomAnswer}
+          />
         ) : null}
 
         {analysis?.sourcesUsed?.length ? (

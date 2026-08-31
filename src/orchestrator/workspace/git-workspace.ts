@@ -215,6 +215,20 @@ export async function cleanupSandboxDirectory(targetPath: string): Promise<void>
   await rm(targetPath, { recursive: true, force: true });
 }
 
+export async function captureFileUnifiedDiff(
+  worktreePath: string,
+  baselineSha: string,
+  filePath: string,
+): Promise<{ diff: string; isBinary: boolean }> {
+  const normalized = filePath.replace(/\\/g, "/");
+  const raw = await runGit(worktreePath, ["diff", baselineSha, "--", normalized]);
+  const isBinary =
+    raw.includes("Binary files ") ||
+    raw.includes("GIT binary patch") ||
+    raw.includes("Binary files differ");
+  return { diff: raw, isBinary };
+}
+
 export async function summarizeGitDiff(
   repoPath: string,
   baselineSha: string,

@@ -19,6 +19,7 @@ import {
 } from "@/lib/planning/clarification-policy";
 import { buildPlanningContext } from "@/lib/planning/planning-context";
 import type { PlanningSource, TaskClarification } from "@/lib/planning/planning-source";
+import type { ClarificationChoiceSet, ClarificationOption } from "@/lib/planning/clarification-options";
 import type { PlanningSpecificationEntry } from "@/lib/specifications/specification-set-record";
 import { planWork, workPlanToContractFields } from "@/orchestrator/agents/planner/planner";
 import type { WorkContract } from "@/orchestrator/agents/planner/types";
@@ -43,7 +44,11 @@ export type TaskGoalAnalysis = {
   needsClarification: boolean;
   clarificationMessage?: string;
   clarificationQuestion?: string;
+  /** @deprecated Use clarificationChoiceOptions when present. */
   clarificationOptions?: string[];
+  clarificationChoiceOptions?: ClarificationOption[];
+  clarificationAllowOther?: boolean;
+  clarificationPresentationMode?: ClarificationChoiceSet["presentationMode"];
   suggestedFromGoal: boolean;
   sourcesUsed?: PlanningSource[];
 };
@@ -221,6 +226,7 @@ export async function analyzeTaskGoal(input: TaskPlanningInput): Promise<TaskGoa
   }
 
   if (needsClarification && !userProvided && !input.clarificationAnswer) {
+    const choiceSet = resolved.evaluation.choiceSet;
     return {
       acceptanceCriteria: resolved.effectiveCriteria.length
         ? resolved.effectiveCriteria
@@ -230,6 +236,15 @@ export async function analyzeTaskGoal(input: TaskPlanningInput): Promise<TaskGoa
       ...(resolved.evaluation.reason ? { clarificationMessage: resolved.evaluation.reason } : {}),
       ...(resolved.evaluation.question ? { clarificationQuestion: resolved.evaluation.question } : {}),
       ...(resolved.evaluation.options ? { clarificationOptions: resolved.evaluation.options } : {}),
+      ...(choiceSet?.presentationMode === "choices"
+        ? {
+            clarificationChoiceOptions: choiceSet.options,
+            clarificationAllowOther: choiceSet.allowOther,
+            clarificationPresentationMode: choiceSet.presentationMode,
+          }
+        : choiceSet
+          ? { clarificationPresentationMode: choiceSet.presentationMode }
+          : {}),
       suggestedFromGoal: !userProvided,
       sourcesUsed: resolved.planningContext.sourcesUsed,
     };

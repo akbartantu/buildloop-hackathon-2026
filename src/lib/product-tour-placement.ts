@@ -19,20 +19,27 @@ export type CardSize = {
 
 export type CardAnchor = "bottom-center-x" | "top-center-x" | "left-center-y" | "right-center-y" | "center";
 
+export type TourLayoutMode = "anchored" | "sheet";
+
 export type ResolvedTourCardPosition = {
+  layoutMode: TourLayoutMode;
   placement: TourPlacement;
   top: number;
   left: number;
   transform: string;
   width: number;
-  maxWidth: string;
+  maxWidth: number;
+  maxHeight: number;
 };
 
-export const DEFAULT_TOUR_CARD_WIDTH = 320;
-export const DEFAULT_TOUR_CARD_HEIGHT = 260;
-export const DEFAULT_VIEWPORT_MARGIN = 20;
+export const MIN_TOUR_CARD_WIDTH = 320;
+export const MAX_TOUR_CARD_WIDTH = 380;
+export const DEFAULT_TOUR_CARD_WIDTH = 340;
+export const DEFAULT_TOUR_CARD_HEIGHT = 240;
+export const DEFAULT_VIEWPORT_MARGIN = 16;
 export const DEFAULT_TOUR_GAP = 12;
 export const DEFAULT_STICKY_HEADER_HEIGHT = 56;
+export const MOBILE_TOUR_MAX_WIDTH = 640;
 
 const OPPOSITE_PLACEMENT: Record<Exclude<TourPlacement, "center">, Exclude<TourPlacement, "center">> =
   {
@@ -41,6 +48,18 @@ const OPPOSITE_PLACEMENT: Record<Exclude<TourPlacement, "center">, Exclude<TourP
     left: "right",
     right: "left",
   };
+
+export function isMobileTourViewport(viewport: ViewportSize): boolean {
+  return viewport.width < MOBILE_TOUR_MAX_WIDTH;
+}
+
+export function resolveTourCardWidth(viewport: ViewportSize): number {
+  const available = viewport.width - DEFAULT_VIEWPORT_MARGIN * 2;
+  if (available <= MIN_TOUR_CARD_WIDTH) {
+    return Math.max(280, available);
+  }
+  return Math.min(MAX_TOUR_CARD_WIDTH, Math.max(MIN_TOUR_CARD_WIDTH, Math.min(DEFAULT_TOUR_CARD_WIDTH, available)));
+}
 
 export function flipTourPlacement(
   placement: Exclude<TourPlacement, "center">,
@@ -272,6 +291,66 @@ export function clampTourCardPosition(input: {
   return { top, left };
 }
 
+function resolveMaxHeight(viewport: ViewportSize, margin?: number, headerOffset?: number): number {
+  const resolvedMargin = margin ?? DEFAULT_VIEWPORT_MARGIN;
+  const resolvedHeader = headerOffset ?? DEFAULT_STICKY_HEADER_HEIGHT;
+  return viewport.height - resolvedHeader - resolvedMargin * 2;
+}
+
+function resolveSheetPosition(input: {
+  card: CardSize;
+  viewport: ViewportSize;
+  margin?: number;
+}): ResolvedTourCardPosition {
+  const margin = input.margin ?? DEFAULT_VIEWPORT_MARGIN;
+  const cardWidth = resolveTourCardWidth(input.viewport);
+  const width = Math.min(cardWidth, input.viewport.width - margin * 2);
+  const left = (input.viewport.width - width) / 2;
+  const top = input.viewport.height - margin - input.card.height;
+
+  return {
+    layoutMode: "sheet",
+    placement: "bottom",
+    top: Math.max(margin + DEFAULT_STICKY_HEADER_HEIGHT, top),
+    left,
+    transform: "none",
+    width,
+    maxWidth: width,
+    maxHeight: resolveMaxHeight(input.viewport, margin),
+  };
+}
+
+function resolveCenteredPosition(input: {
+  card: CardSize;
+  viewport: ViewportSize;
+  margin?: number;
+  headerOffset?: number;
+}): ResolvedTourCardPosition {
+  const margin = input.margin ?? DEFAULT_VIEWPORT_MARGIN;
+  const headerOffset = input.headerOffset ?? DEFAULT_STICKY_HEADER_HEIGHT;
+  const cardWidth = resolveTourCardWidth(input.viewport);
+  const clamped = clampTourCardPosition({
+    placement: "center",
+    top: input.viewport.height / 2,
+    left: input.viewport.width / 2,
+    card: { ...input.card, width: cardWidth },
+    viewport: input.viewport,
+    margin,
+    headerOffset,
+  });
+
+  return {
+    layoutMode: "anchored",
+    placement: "center",
+    top: clamped.top,
+    left: clamped.left,
+    transform: placementTransform("center"),
+    width: cardWidth,
+    maxWidth: cardWidth,
+    maxHeight: resolveMaxHeight(input.viewport, margin, headerOffset),
+  };
+}
+
 export function resolveTourCardPosition(input: {
   preferredPlacement?: TourPlacement;
   targetRect: TargetRect | null;
@@ -280,37 +359,25 @@ export function resolveTourCardPosition(input: {
   margin?: number;
   gap?: number;
   headerOffset?: number;
+  forceSheet?: boolean;
 }): ResolvedTourCardPosition {
   const margin = input.margin ?? DEFAULT_VIEWPORT_MARGIN;
   const gap = input.gap ?? DEFAULT_TOUR_GAP;
   const headerOffset = input.headerOffset ?? DEFAULT_STICKY_HEADER_HEIGHT;
-  const cardWidth = input.card.width;
+  const cardWidth = resolveTourCardWidth(input.viewport);
+  const card = { ...input.card, width: cardWidth };
+  const maxHeight = resolveMaxHeight(input.viewport, margin, headerOffset);
+
+  if (input.forceSheet || isMobileTourViewport(input.viewport)) {
+    return resolveSheetPosition({ card, viewport: input.viewport, margin });
+  }
 
   if (!input.targetRect || input.preferredPlacement === "center" || !input.preferredPlacement) {
-    const centeredTop = input.viewport.height / 2;
-    const centeredLeft = input.viewport.width / 2;
-    const clamped = clampTourCardPosition({
-      placement: "center",
-      top: centeredTop,
-      left: centeredLeft,
-      card: input.card,
-      viewport: input.viewport,
-      margin,
-      headerOffset,
-    });
-
-    return {
-      placement: "center",
-      top: clamped.top,
-      left: clamped.left,
-      transform: placementTransform("center"),
-      width: cardWidth,
-      maxWidth: `calc(100vw - ${margin * 2}px)`,
-    };
+    return resolveCenteredPosition({ card, viewport: input.viewport, margin, headerOffset });
   }
 
   const preferred = input.preferredPlacement as Exclude<TourPlacement, "center">;
-  const placement = chooseTourPlacement(preferred, input.targetRect, input.card, input.viewport, {
+  const placement = chooseTourPlacement(preferred, input.targetRect, card, input.viewport, {
     margin,
     gap,
     headerOffset,
@@ -321,24 +388,30 @@ export function resolveTourCardPosition(input: {
     placement,
     top: anchor.top,
     left: anchor.left,
-    card: input.card,
+    card,
     viewport: input.viewport,
     margin,
     headerOffset,
   });
 
-  const maxWidth =
+  const availableWidth =
     placement === "right"
-      ? `calc(100vw - ${input.targetRect.left + input.targetRect.width + gap + margin}px)`
-      : `calc(100vw - ${margin * 2}px)`;
+      ? input.viewport.width - margin - (input.targetRect.left + input.targetRect.width + gap)
+      : placement === "left"
+        ? input.targetRect.left - gap - margin
+        : input.viewport.width - margin * 2;
+
+  const resolvedMaxWidth = Math.max(MIN_TOUR_CARD_WIDTH, Math.min(MAX_TOUR_CARD_WIDTH, availableWidth));
 
   return {
+    layoutMode: "anchored",
     placement,
     top: clamped.top,
     left: clamped.left,
     transform: placementTransform(placement),
-    width: cardWidth,
-    maxWidth,
+    width: Math.min(cardWidth, resolvedMaxWidth),
+    maxWidth: resolvedMaxWidth,
+    maxHeight,
   };
 }
 
@@ -399,12 +472,22 @@ export function isTourCardFullyVisible(
 ): boolean {
   const margin = options?.margin ?? DEFAULT_VIEWPORT_MARGIN;
   const headerOffset = options?.headerOffset ?? DEFAULT_STICKY_HEADER_HEIGHT;
+
+  if (position.layoutMode === "sheet") {
+    return (
+      position.top >= headerOffset + margin &&
+      position.top + card.height <= viewport.height - margin &&
+      position.width >= MIN_TOUR_CARD_WIDTH - 1
+    );
+  }
+
   const bounds = getCardBounds(position.top, position.left, card, placementAnchor(position.placement));
 
   return (
     bounds.top >= headerOffset + margin &&
     bounds.left >= margin &&
     bounds.top + bounds.height <= viewport.height - margin &&
-    bounds.left + bounds.width <= viewport.width - margin
+    bounds.left + bounds.width <= viewport.width - margin &&
+    bounds.width >= MIN_TOUR_CARD_WIDTH - 1
   );
 }

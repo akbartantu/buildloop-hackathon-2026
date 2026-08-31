@@ -233,6 +233,8 @@ export const en = {
     acceptSuggested: "Accept suggested",
     addCriterion: "Add criterion",
     clarificationNeeded: "Clarification needed",
+    clarificationIntro:
+      "BuildLoop found one decision that may change the implementation. Choose how BuildLoop should proceed before creating the contract.",
     duplicateAsNew: "Duplicate as new task",
     reviseTask: "Revise task",
     refreshContract: "Refresh contract",
@@ -240,6 +242,16 @@ export const en = {
     sourceCommitDriftHelp: "Refresh the contract against the current repository commit before execution.",
     lockedImmutable: "Goal, acceptance criteria, and scope are locked after contract approval.",
     clarificationPrompt: "BuildLoop needs one decision before creating the contract.",
+    clarificationSuggestedChoices: "Suggested choices",
+    clarificationRecommended: "Recommended",
+    clarificationOtherOption: "Other",
+    clarificationOtherDescription: "Specify another approach.",
+    clarificationDecisionLabel: "Your decision",
+    clarificationCustomDecisionLabel: "Specify your approach",
+    clarificationCustomPlaceholder: "Describe the approach BuildLoop should take.",
+    clarificationChoiceRequired: "Choose one option before creating this task.",
+    clarificationOtherRequired: "Enter your custom approach before creating this task.",
+    clarificationDecisionRequired: "Enter your decision before creating this task.",
     clarificationAnswerLabel: "Your answer",
     clarificationContinue: "Continue",
     clarificationAnswerRequired: "Answer the clarification question before creating this task.",
@@ -712,6 +724,64 @@ export const en = {
       recommendedNextStep: "Recommended next step",
       automaticActions: "What BuildLoop did automatically",
       remoteActions: "Remote actions",
+    },
+    change: {
+      title: "What changed",
+      summary: "BuildLoop captured {count} in-scope file change(s) from the final worker attempt.",
+      baseline: "Baseline commit",
+      workerAttempt: "Worker attempt",
+      changedFiles: "Changed files",
+      viewDiff: "View change diff",
+      checkerVerified: "The independent checker verified the final result.",
+      checkerNotVerified: "The checker did not pass the final result.",
+      truncatedNotice: "Diff preview was truncated to stay within the safe size limit.",
+      binaryOnly: "binary — content not stored",
+      type: {
+        added: "added",
+        modified: "modified",
+        deleted: "deleted",
+        binary: "binary",
+      },
+    },
+  },
+  delivery: {
+    handoff: {
+      title: "Verified delivery package",
+      intro:
+        "Download the verified patch and apply it locally. BuildLoop did not execute commit, push, merge, or deploy.",
+      downloadPatch: "Download verified patch",
+      changedFiles: "Changed files",
+      suggestedMessage: "Suggested commit message",
+      suggestedDescription: "Suggested commit description",
+      applyLocally: "Apply locally",
+      applyCommands: "Git commands",
+      copy: "Copy",
+      copied: "Copied",
+      verifiedAgainst: "Verified against source commit {sha}.",
+      sourceDriftWarning:
+        "Repository has changed since this patch was verified. Re-run or refresh the task if the patch no longer applies cleanly.",
+      blockedDefault: "Downloadable patch is not available for this verified result.",
+      binaryNotice:
+        "{count} binary file(s) changed. They are listed for reference but are not included in the text patch.",
+      remoteActions: "Remote actions",
+      pushGuidance: "Manual push guidance",
+      pushCommand: "Push command",
+      pushNote: "Push is not approved or executed by BuildLoop.",
+      directDeliveryNote:
+        "Direct connected delivery is not available in this version. Use the manual handoff below.",
+      steps: {
+        apply: "Apply patch",
+        review: "Review diff",
+        stage: "Stage verified files",
+        commit: "Commit locally",
+        push: "Push only if you choose to do so",
+      },
+      remote: {
+        commit: "Not executed by BuildLoop",
+        push: "Not approved",
+        merge: "Not approved",
+        deploy: "Not approved",
+      },
     },
   },
   language: {
@@ -1229,4 +1299,5 @@ export type TranslationKey =
   | `lifecycle.${string}`
   | `verdict.${string}`
   | `evidence.${string}`
+  | `delivery.${string}`
   | `blockedReason.${string}`;

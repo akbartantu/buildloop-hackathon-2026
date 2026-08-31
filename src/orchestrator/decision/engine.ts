@@ -270,7 +270,6 @@ const IRRELEVANT_COMMAND_CATEGORIES = new Set<CheckerEvidence["category"]>([
   "command",
   "typecheck",
   "test",
-  "lint",
   "build",
 ]);
 

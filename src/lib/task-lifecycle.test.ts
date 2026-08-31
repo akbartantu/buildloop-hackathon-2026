@@ -108,7 +108,7 @@ describe("task lifecycle projection", () => {
     expect(checks.allRequiredSatisfied).toBe(true);
     expect(checks.skipped).toBe(1);
     expect(vm.implementationVerdict).toBe("PASS");
-    expect(checks.friendlySummary).toContain("tidak perlu dijalankan");
+    expect(checks.friendlySummary).toContain("not required");
   });
 
   test("I1 failed required check prevents PASS verdict", () => {
@@ -143,7 +143,7 @@ describe("task lifecycle projection", () => {
     });
     const vm = buildTaskLifecycleViewModel(task);
     expect(vm.delivery.commit).toBe("APPROVED");
-    expect(vm.deliveryLabels.commit).toContain("belum dijalankan");
+    expect(vm.deliveryLabels.commit).toContain("not executed");
   });
 
   test("I5 commit approval does not grant push", () => {
@@ -187,11 +187,11 @@ describe("task lifecycle projection", () => {
     const vm = buildTaskLifecycleViewModel(task);
 
     expect(vm.implementationVerdict).toBe("PASS");
-    expect(vm.executionCompleteLabel).toBe("Eksekusi task selesai");
+    expect(vm.executionCompleteLabel).toBe("Task execution complete");
     expect(vm.orchestrationSteps.find((s) => s.key === "decision")?.state).toBe("complete");
     expect(vm.orchestrationSteps.find((s) => s.key === "correction")?.state).toBe("complete");
     expect(vm.showOrchestratorNotStarted).toBe(false);
-    expect(vm.plainLanguageSummary).toContain("Git commit belum dijalankan");
+    expect(vm.plainLanguageSummary).toContain("Git commit is not executed");
   });
 
   test("I10 execution approval does not grant commit", () => {
@@ -229,7 +229,7 @@ describe("task lifecycle projection", () => {
   });
 
   test("deliveryActionLabel covers approved-not-executed copy", () => {
-    expect(deliveryActionLabel("APPROVED", "Commit")).toBe("Commit disetujui, belum dijalankan");
+    expect(deliveryActionLabel("APPROVED", "Commit")).toBe("Commit approved, not executed yet");
   });
 });
 

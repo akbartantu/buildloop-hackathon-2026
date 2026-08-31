@@ -3,6 +3,7 @@ import path from "node:path";
 
 import { safeLogSummary } from "@/lib/redaction";
 import { isOperationalWorkerError } from "../gemini/retry-policy";
+import { isDocumentationOnlyScope } from "../contract/derive-task-contract";
 import type { LockedContract } from "../contract/schema";
 import type { CheckerEvidence, WorkerReport } from "../types";
 import { PASS_DEMO_TARGET_RELATIVE } from "../scenarios/pass";
@@ -253,6 +254,14 @@ export class DeterministicChecker {
       }
     }
 
+    if (
+      isDocumentationOnlyScope(input.contract.allowedPaths) &&
+      changedFiles.length > 0 &&
+      !input.workerReport?.error
+    ) {
+      await this.checkDocumentationAcceptance(input, changedFiles, push);
+    }
+
     await this.runRequiredCommands(input, push);
 
     const hasFailure = evidence.some((item) => item.status === "fail" || item.status === "blocked");
@@ -265,6 +274,67 @@ export class DeterministicChecker {
       passed,
       operationalFailure,
     };
+  }
+
+  private async checkDocumentationAcceptance(
+    input: CheckerInput,
+    changedFiles: string[],
+    push: (item: Omit<CheckerEvidence, "id" | "runId" | "attemptNumber" | "createdAt">) => void,
+  ) {
+    const onlyDocPaths = changedFiles.every((file) =>
+      input.contract.allowedPaths.some((pattern) => globMatch(file, pattern)),
+    );
+    push({
+      category: "acceptance",
+      name: "documentation_scope_only",
+      status: onlyDocPaths ? "pass" : "fail",
+      summary: onlyDocPaths
+        ? "Only approved documentation paths were modified."
+        : "Changes include files outside approved documentation scope.",
+      details: input.contract.goal,
+      affectedFiles: changedFiles,
+      severity: onlyDocPaths ? "info" : "error",
+    });
+
+    if (changedFiles.includes("README.md")) {
+      const absolute = path.join(input.sandboxRoot, "README.md");
+      let content = "";
+      try {
+        content = await readFile(absolute, "utf8");
+      } catch {
+        push({
+          category: "acceptance",
+          name: "readme_present",
+          status: "fail",
+          summary: "README.md is missing after worker execution.",
+          details: input.contract.goal,
+          affectedFiles: ["README.md"],
+          severity: "error",
+        });
+        return;
+      }
+
+      const goal = input.contract.goal.toLowerCase();
+      const normalized = content.toLowerCase();
+      const mentionsDelivery =
+        normalized.includes("governed") ||
+        normalized.includes("autonomous") ||
+        normalized.includes("software delivery") ||
+        normalized.includes("buildloop");
+      const goalKeyword =
+        goal.includes("readme") || goal.includes("subtitle") || goal.includes("delivery");
+      push({
+        category: "acceptance",
+        name: "readme_goal_reflected",
+        status: mentionsDelivery || !goalKeyword ? "pass" : "fail",
+        summary: mentionsDelivery
+          ? "README reflects the requested documentation change."
+          : "README does not appear to include the requested subtitle change.",
+        details: input.contract.goal,
+        affectedFiles: ["README.md"],
+        severity: mentionsDelivery ? "info" : "error",
+      });
+    }
   }
 
   private async runRequiredCommands(

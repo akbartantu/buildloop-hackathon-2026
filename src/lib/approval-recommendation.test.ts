@@ -44,8 +44,8 @@ function baseTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
   };
 }
 
-function recommendationFor(task: TaskRecord) {
-  const lifecycle = buildTaskLifecycleViewModel(task);
+function recommendationFor(task: TaskRecord, locale: "en" | "id" = "en") {
+  const lifecycle = buildTaskLifecycleViewModel(task, locale);
   return { lifecycle, recommendation: lifecycle.approval };
 }
 
@@ -54,7 +54,7 @@ describe("approval recommendation regression", () => {
     const { recommendation } = recommendationFor(baseTask());
     expect(recommendation.kind).toBe("RECOMMENDED_APPROVE");
     expect(recommendation.canRecommendApprove).toBe(true);
-    expect(recommendation.label).toContain("merekomendasikan approval");
+    expect(recommendation.label).toContain("recommends approval");
   });
 
   test("R2 historical failure resolved by correction → APPROVE without unresolved failure summary", () => {
@@ -89,10 +89,10 @@ describe("approval recommendation regression", () => {
     });
     const { recommendation } = recommendationFor(task);
     expect(recommendation.kind).toBe("RECOMMENDED_APPROVE");
-    expect(recommendation.finalChecksSummary).toBe("Semua pemeriksaan akhir lolos.");
+    expect(recommendation.finalChecksSummary).toBe("All final checks passed.");
     expect(recommendation.unresolvedIssues).toHaveLength(0);
     expect(recommendation.historicalCorrection?.issueCount).toBe(1);
-    expect(recommendation.historicalCorrection?.summary).toContain("diperbaiki otomatis");
+    expect(recommendation.historicalCorrection?.summary).toContain("fixed automatically");
   });
 
   test("R3 final required check failed → FIX_FIRST", () => {
@@ -193,9 +193,9 @@ describe("approval recommendation regression", () => {
       },
     });
     const { recommendation, lifecycle } = recommendationFor(task);
-    expect(lifecycle.deliveryLabels.commit).toContain("belum dijalankan");
-    expect(recommendation.commitAutomationNote).toContain("belum tersedia");
-    expect(recommendation.overviewSummary).toContain("belum dijalankan");
+    expect(lifecycle.deliveryLabels.commit).toContain("not executed");
+    expect(recommendation.commitAutomationNote).toContain("not available");
+    expect(recommendation.overviewSummary).toContain("not executed");
   });
 
   test("R9 completed tab renders one status indicator — hide duplicate tab icon", () => {
@@ -206,8 +206,8 @@ describe("approval recommendation regression", () => {
 
   test("R10 Overview, Evidence, Approval derive recommendation from same lifecycle projection", () => {
     const task = baseTask();
-    const lifecycle = buildTaskLifecycleViewModel(task);
-    const direct = deriveApprovalRecommendation(task, lifecycle);
+    const lifecycle = buildTaskLifecycleViewModel(task, "en");
+    const direct = deriveApprovalRecommendation(task, lifecycle, "en");
     expect(lifecycle.approval).toEqual(direct);
     expect(lifecycle.approval.overviewSummary).toBe(direct.overviewSummary);
   });

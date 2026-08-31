@@ -17,6 +17,7 @@ export type DecisionInput = {
   checkerResult: CheckerResult | null;
   correctionCount: number;
   maximumCorrections: number;
+  allowedCommands?: string[];
   sourceStale: boolean;
   securityReviewVerdict?: SecurityReviewVerdict | null;
   runtimeEscalation?: "AWAITING_APPROVAL" | "BLOCKED" | null;
@@ -208,6 +209,22 @@ export function decide(input: DecisionInput): DecisionOutput {
     });
   }
 
+  if (input.checkerResult.failed && !input.checkerResult.blocked && !input.checkerResult.passed) {
+    if (hasOnlyNonSemanticFailures(input.checkerResult, input.allowedCommands ?? [])) {
+      return baseOutput({
+        nextStatus: "FAILED",
+        verdict: "FAILED",
+        verdictReason: "Checker reported infrastructure or non-contract command failures.",
+        rule: "IRRELEVANT_CHECK_FAILURE",
+        outcome: "FAILED",
+        shouldInvokeWorker: false,
+        shouldInvokeChecker: false,
+        shouldCorrect: false,
+        correctionInstruction: null,
+      });
+    }
+  }
+
   if (input.correctionCount < input.maximumCorrections) {
     return baseOutput({
       nextStatus: "NEEDS_CORRECTION",
@@ -247,6 +264,28 @@ function buildCorrectionInstruction(evidence: CheckerEvidence[]): string {
 
 function failuresEmpty(failures: CheckerEvidence[]): boolean {
   return failures.length === 0;
+}
+
+const IRRELEVANT_COMMAND_CATEGORIES = new Set<CheckerEvidence["category"]>([
+  "command",
+  "typecheck",
+  "test",
+  "lint",
+  "build",
+]);
+
+export function hasOnlyNonSemanticFailures(
+  checkerResult: CheckerResult,
+  allowedCommands: string[],
+): boolean {
+  if (allowedCommands.length > 0) {
+    return false;
+  }
+  const failures = checkerResult.evidence.filter((item) => item.status === "fail");
+  if (failures.length === 0) {
+    return false;
+  }
+  return failures.every((item) => IRRELEVANT_COMMAND_CATEGORIES.has(item.category));
 }
 
 export function transitionStatus(current: RunStatus, event: "inspect" | "worker_done" | "check_done"): RunStatus {

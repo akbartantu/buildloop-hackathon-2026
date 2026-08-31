@@ -61,7 +61,7 @@ export function TaskOverviewView({
   const { locale, t } = useI18n();
   const taskRef = formatTaskRef(task.id);
   const runner = task.runnerState;
-  const lifecycle = buildTaskLifecycleViewModel(task);
+  const lifecycle = buildTaskLifecycleViewModel(task, locale);
   const handoff = getContractHandoff(task, { running, approving }, locale);
   const journey = getJourneySteps(task.status, locale);
   const snapshot = getContractSnapshot(task);

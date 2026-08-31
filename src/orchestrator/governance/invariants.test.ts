@@ -6,7 +6,7 @@ import { createApprovalRequest } from "../approval/model";
 import type { CheckerResult } from "../checker/deterministic-checker";
 
 const failingChecker: CheckerResult = {
-  evidence: [{ id: "1", runId: "r", attemptNumber: 1, category: "test", name: "x", status: "fail", summary: "fail", details: "", affectedFiles: [], severity: "error", createdAt: "" }],
+  evidence: [{ id: "1", runId: "r", attemptNumber: 1, category: "acceptance", name: "x", status: "fail", summary: "fail", details: "", affectedFiles: [], severity: "error", createdAt: "" }],
   blocked: false,
   failed: true,
   passed: false,

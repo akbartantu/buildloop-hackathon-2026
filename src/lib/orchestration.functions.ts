@@ -124,8 +124,11 @@ export const executeTaskRun = createServerFn({ method: "POST" })
               contracts: task.contract.workPlan.contracts.map((c) => ({
                 id: c.id,
                 goal: c.goal,
-                status: result.run.verdict === "PASS" ? "pass" : c.status,
-                approvalState: c.approvalState,
+                status: mapWorkContractExecutionStatus(result.run.status, result.run.verdict),
+                approvalState: mapWorkContractApprovalState(
+                  task.runnerState?.orchestration?.approvalType ?? null,
+                  result.run.verdict,
+                ),
               })),
             }
           : {}),
@@ -173,6 +176,28 @@ function mapOrchestrationPhase(status: string, verdict: string | null): string {
   if (status === "RUNNING" || status === "NEEDS_CORRECTION") return "RUNNING";
   if (status === "INSPECTING") return "PLANNING";
   return status;
+}
+
+function mapWorkContractExecutionStatus(status: string, verdict: string | null): string {
+  if (verdict === "BLOCKED") return "blocked";
+  if (verdict === "FAILED") return "failed";
+  if (verdict === "PASS") return "pass";
+  if (status === "AWAITING_APPROVAL") return "awaiting_approval";
+  if (status === "CHECKING") return "checking";
+  if (status === "RUNNING" || status === "NEEDS_CORRECTION") return "running";
+  if (status === "INSPECTING") return "inspecting";
+  return "pending";
+}
+
+function mapWorkContractApprovalState(
+  approvalType: string | null | undefined,
+  verdict: string | null,
+): string {
+  if (approvalType === "AUTO_APPROVED_BY_POLICY") return "auto_approved_by_policy";
+  if (approvalType === "APPROVED_BY_HUMAN") return "approved_by_human";
+  if (verdict === "PASS") return "auto_approved_by_policy";
+  if (verdict === "FAILED" || verdict === "BLOCKED") return "execution_complete";
+  return "pending";
 }
 
 function mapRunStatus(status: string, verdict: string | null): TaskStatus {

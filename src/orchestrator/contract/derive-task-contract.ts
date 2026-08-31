@@ -62,7 +62,7 @@ function mentionsProtectedPath(scope: string[]): boolean {
   );
 }
 
-function isDocumentationOnlyScope(scope: string[]): boolean {
+export function isDocumentationOnlyScope(scope: string[]): boolean {
   return scope.length > 0 && scope.every((path) => path.endsWith(".md") || path.endsWith(".txt") || path.startsWith("docs/"));
 }
 

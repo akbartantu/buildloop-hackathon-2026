@@ -119,7 +119,7 @@ describe("Decision Engine", () => {
 
   test("correction max remains 2", () => {
     const failedChecker: CheckerResult = {
-      evidence: [{ id: "1", runId: "r", attemptNumber: 1, category: "test", name: "t", status: "fail", summary: "fail", details: "", affectedFiles: [], severity: "error", createdAt: "" }],
+      evidence: [{ id: "1", runId: "r", attemptNumber: 1, category: "acceptance", name: "t", status: "fail", summary: "fail", details: "", affectedFiles: [], severity: "error", createdAt: "" }],
       blocked: false,
       failed: true,
       passed: false,

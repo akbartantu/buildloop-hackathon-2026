@@ -1,5 +1,7 @@
 import type { TaskStatus } from "@/lib/task-contract";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { translate, type Locale, DEFAULT_LOCALE } from "@/i18n";
+import { formatChecksFriendlySummary } from "@/lib/lifecycle-presentations";
 
 export type EvidenceRow = {
   category: string;
@@ -57,7 +59,7 @@ export function finalAttemptNumber(task: TaskRecord): number {
 }
 
 /** Current-state checks use only the latest attempt — not accumulated history. */
-export function analyzeFinalChecks(task: TaskRecord): CheckBreakdownCore {
+export function analyzeFinalChecks(task: TaskRecord, locale: Locale = DEFAULT_LOCALE): CheckBreakdownCore {
   const attempt = finalAttemptNumber(task);
   const all = evidenceRows(task);
   const items =
@@ -72,16 +74,10 @@ export function analyzeFinalChecks(task: TaskRecord): CheckBreakdownCore {
   const total = items.length;
   const allRequiredSatisfied = failed === 0 && blocked === 0;
 
-  let friendlySummary: string;
-  if (total === 0) {
-    friendlySummary = "Belum ada pemeriksaan akhir.";
-  } else if (allRequiredSatisfied && skipped > 0) {
-    friendlySummary = `${passed} pemeriksaan lolos. ${skipped} tidak perlu dijalankan.`;
-  } else if (allRequiredSatisfied) {
-    friendlySummary = "Semua pemeriksaan akhir lolos.";
-  } else {
-    friendlySummary = `${passed} lolos, ${failed} gagal${skipped > 0 ? `, ${skipped} dilewati` : ""}.`;
-  }
+  const friendlySummary = formatChecksFriendlySummary(
+    { passed, failed, skipped, blocked, total, allRequiredSatisfied },
+    locale,
+  );
 
   const technicalSummary =
     total > 0
@@ -128,6 +124,7 @@ export function deriveCorrectionPresentation(
   task: TaskRecord,
   checks: CheckBreakdownCore,
   implementationVerdict: "PASS" | "FAILED" | "BLOCKED" | null,
+  locale: Locale = DEFAULT_LOCALE,
 ): CorrectionPresentation {
   const runner = task.runnerState;
   const automaticUsed = runner?.correctionCount ?? 0;
@@ -139,7 +136,7 @@ export function deriveCorrectionPresentation(
     return {
       phase: "preparing",
       kind: "human",
-      userSummary: "Anda meminta revisi. BuildLoop siap menjalankan worker dan checker kembali.",
+      userSummary: translate(locale, "lifecycle.correction.humanRevisionReady"),
       automaticUsed,
       automaticLimit,
       humanRevisionCount,
@@ -150,7 +147,7 @@ export function deriveCorrectionPresentation(
     return {
       phase: task.status === "CHECKING" ? "verifying" : "applying",
       kind: "human",
-      userSummary: "BuildLoop sedang menjalankan siklus revisi yang Anda minta.",
+      userSummary: translate(locale, "lifecycle.correction.humanRevisionRunning"),
       automaticUsed,
       automaticLimit,
       humanRevisionCount,
@@ -162,7 +159,10 @@ export function deriveCorrectionPresentation(
       return {
         phase: "preparing",
         kind: "automatic",
-        userSummary: `BuildLoop menemukan masalah dan sedang menyiapkan koreksi otomatis ${automaticUsed + 1} dari maksimal ${automaticLimit}.`,
+        userSummary: translate(locale, "lifecycle.correction.preparing", {
+          next: automaticUsed + 1,
+          limit: automaticLimit,
+        }),
         automaticUsed,
         automaticLimit,
         humanRevisionCount,
@@ -172,7 +172,10 @@ export function deriveCorrectionPresentation(
         return {
           phase: "applying",
           kind: "automatic",
-          userSummary: `BuildLoop menerapkan koreksi otomatis ${automaticUsed} dari maksimal ${automaticLimit}.`,
+          userSummary: translate(locale, "lifecycle.correction.applying", {
+            used: automaticUsed,
+            limit: automaticLimit,
+          }),
           automaticUsed,
           automaticLimit,
           humanRevisionCount,
@@ -184,7 +187,10 @@ export function deriveCorrectionPresentation(
         return {
           phase: "verifying",
           kind: "automatic",
-          userSummary: `BuildLoop sedang memeriksa ulang koreksi otomatis ${automaticUsed} dari maksimal ${automaticLimit}.`,
+          userSummary: translate(locale, "lifecycle.correction.verifying", {
+            used: automaticUsed,
+            limit: automaticLimit,
+          }),
           automaticUsed,
           automaticLimit,
           humanRevisionCount,
@@ -195,7 +201,7 @@ export function deriveCorrectionPresentation(
       return {
         phase: "exhausted",
         kind: "automatic",
-        userSummary: "Perbaikan otomatis belum menyelesaikan masalah. Batas koreksi tercapai.",
+        userSummary: translate(locale, "lifecycle.summary.correctionExhausted"),
         automaticUsed,
         automaticLimit,
         humanRevisionCount,
@@ -205,11 +211,10 @@ export function deriveCorrectionPresentation(
   }
 
   if (automaticUsed > 0 && implementationVerdict === "PASS" && checks.allRequiredSatisfied) {
-    const issueWord = automaticUsed === 1 ? "masalah" : "masalah";
     return {
       phase: "verified",
       kind: "automatic",
-      userSummary: `${automaticUsed} ${issueWord} ditemukan sebelumnya dan berhasil diperbaiki otomatis.`,
+      userSummary: translate(locale, "lifecycle.correction.verified", { count: automaticUsed }),
       automaticUsed,
       automaticLimit,
       humanRevisionCount,

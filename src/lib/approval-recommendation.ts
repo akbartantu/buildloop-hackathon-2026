@@ -1,6 +1,8 @@
 import type { TaskRecord } from "@/lib/tasks-schema";
 import type { TaskLifecycleViewModel } from "@/lib/task-lifecycle";
 import { canRecordHumanApproval } from "@/lib/human-approval";
+import { translate, type Locale, DEFAULT_LOCALE } from "@/i18n";
+import type { TranslationKey } from "@/i18n/en";
 
 export type TaskLifecycleCore = Omit<TaskLifecycleViewModel, "approval">;
 
@@ -53,63 +55,57 @@ function hasSensitiveUnresolved(items: EvidenceItem[]): boolean {
   return finalFailedOrBlocked(items).some((item) => SENSITIVE_CATEGORIES.has(item.category));
 }
 
-function plainLanguageIssue(item: EvidenceItem): string {
+function plainLanguageIssue(item: EvidenceItem, locale: Locale): string {
   if (item.summary && !item.summary.match(/^[a-z_]+:/i)) {
     return item.summary.endsWith(".") ? item.summary : `${item.summary}.`;
   }
-  switch (item.category) {
-    case "acceptance":
-      return "Satu atau lebih acceptance criteria belum terpenuhi.";
-    case "protected_path":
-      return "Perubahan menyentuh area terlindungi yang tidak diizinkan.";
-    case "credential":
-      return "Pola credential atau secret terdeteksi pada file yang diubah.";
-    case "dependency":
-      return "Dependency baru terdeteksi dan membutuhkan tinjauan.";
-    case "scope":
-      return "Perubahan di luar scope yang disetujui.";
-    default:
-      return item.summary || "Satu pemeriksaan wajib belum lolos.";
-  }
+  const keyByCategory: Record<string, TranslationKey> = {
+    acceptance: "lifecycle.approvalRecommendation.unresolvedAcceptance",
+    protected_path: "lifecycle.approvalRecommendation.unresolvedProtected",
+    credential: "lifecycle.approvalRecommendation.unresolvedCredential",
+    dependency: "lifecycle.approvalRecommendation.unresolvedDependency",
+    scope: "lifecycle.approvalRecommendation.unresolvedScope",
+  };
+  const key = keyByCategory[item.category] ?? "lifecycle.approvalRecommendation.unresolvedGeneric";
+  return translate(locale, key);
 }
 
-function buildReasonBullets(task: TaskRecord, lifecycle: TaskLifecycleCore): string[] {
+function buildReasonBullets(
+  task: TaskRecord,
+  lifecycle: TaskLifecycleCore,
+  locale: Locale,
+): string[] {
   const bullets: string[] = [];
   const items = evidenceItems(task);
 
   if (lifecycle.checks.allRequiredSatisfied && lifecycle.checks.total > 0) {
-    bullets.push("Semua pemeriksaan akhir lolos.");
+    bullets.push(translate(locale, "lifecycle.approvalRecommendation.allFinalPassed"));
   }
 
   if (lifecycle.implementationVerdict === "PASS") {
-    bullets.push("Checker independen memverifikasi hasil akhir.");
+    bullets.push(translate(locale, "lifecycle.approvalRecommendation.checkerVerified"));
   }
 
   if (items.some((item) => item.category === "scope" && item.status === "pass")) {
-    bullets.push("Perubahan sesuai scope task.");
+    bullets.push(translate(locale, "lifecycle.approvalRecommendation.scopeMatched"));
   } else if (lifecycle.hasRun && lifecycle.isPassLike && items.length === 0) {
     // No scope evidence row — omit rather than claim.
   } else if (lifecycle.isPassLike && task.runnerState?.filesChanged !== undefined) {
-    bullets.push("Perubahan sesuai scope task.");
+    bullets.push(translate(locale, "lifecycle.approvalRecommendation.scopeMatched"));
   }
 
   const protectedPass = items.find(
     (item) => item.category === "protected_path" && item.status === "pass",
   );
   if (protectedPass) {
-    bullets.push("Tidak ada area terlindungi yang diubah.");
+    bullets.push(translate(locale, "lifecycle.approvalRecommendation.noProtectedChanged"));
   }
 
   const dependencyPass = items.find(
     (item) => item.category === "dependency" && item.status === "pass",
   );
   if (dependencyPass) {
-    bullets.push("Tidak ada dependency baru.");
-  } else if (
-    lifecycle.isPassLike &&
-    !items.some((item) => item.category === "dependency")
-  ) {
-    // Omit if no dependency check ran.
+    bullets.push(translate(locale, "lifecycle.approvalRecommendation.noNewDependencies"));
   }
 
   const credentialPass = items.every(
@@ -117,7 +113,7 @@ function buildReasonBullets(task: TaskRecord, lifecycle: TaskLifecycleCore): str
   );
   const hasCredentialCheck = items.some((item) => item.category === "credential");
   if (hasCredentialCheck && credentialPass) {
-    bullets.push("Tidak ada credential atau secret yang disentuh.");
+    bullets.push(translate(locale, "lifecycle.approvalRecommendation.noCredentialsTouched"));
   }
 
   return bullets;
@@ -126,6 +122,7 @@ function buildReasonBullets(task: TaskRecord, lifecycle: TaskLifecycleCore): str
 function buildHistoricalCorrection(
   task: TaskRecord,
   lifecycle: TaskLifecycleCore,
+  locale: Locale,
 ): HistoricalCorrectionView | null {
   const corrections = lifecycle.correctionsUsed;
   if (corrections <= 0) {
@@ -138,47 +135,52 @@ function buildHistoricalCorrection(
 
   correctionEntries.forEach((entry, index) => {
     timeline.push({
-      phase: `Attempt ${index + 1}`,
-      detail: entry.summary || "Pemeriksaan belum lolos.",
+      phase: translate(locale, "lifecycle.approvalRecommendation.timelineAttempt", {
+        number: index + 1,
+      }),
+      detail: entry.summary || translate(locale, "lifecycle.approvalRecommendation.historicalCheckFailed"),
     });
     timeline.push({
-      phase: "Correction",
-      detail: "BuildLoop memperbaiki masalah dalam scope yang disetujui.",
+      phase: translate(locale, "lifecycle.approvalRecommendation.timelineCorrection"),
+      detail: translate(locale, "lifecycle.approvalRecommendation.historicalCorrectionApplied"),
     });
   });
 
   if (correctionEntries.length === 0 && corrections > 0) {
     timeline.push({
-      phase: "Correction",
-      detail: "BuildLoop menemukan masalah dan memperbaikinya otomatis.",
+      phase: translate(locale, "lifecycle.approvalRecommendation.timelineCorrection"),
+      detail: translate(locale, "lifecycle.approvalRecommendation.historicalCorrectionGeneric"),
     });
   }
 
   if (lifecycle.checks.allRequiredSatisfied && lifecycle.implementationVerdict === "PASS") {
     timeline.push({
-      phase: "Final check",
-      detail: "Semua required checks lolos.",
+      phase: translate(locale, "lifecycle.approvalRecommendation.timelineFinalCheck"),
+      detail: translate(locale, "lifecycle.approvalRecommendation.historicalFinalPassed"),
     });
   }
 
-  const issueWord = corrections === 1 ? "masalah" : "masalah";
   const verified =
     lifecycle.checks.allRequiredSatisfied && lifecycle.implementationVerdict === "PASS";
   return {
     issueCount: corrections,
     summary: verified
-      ? `${corrections} ${issueWord} ditemukan sebelumnya dan berhasil diperbaiki otomatis.`
-      : `${corrections} ${issueWord} ditemukan selama proses (lihat riwayat teknis).`,
+      ? translate(locale, "lifecycle.approvalRecommendation.historicalVerified", {
+          count: corrections,
+        })
+      : translate(locale, "lifecycle.approvalRecommendation.historicalUnresolved", {
+          count: corrections,
+        }),
     timeline,
   };
 }
 
-function buildFinalChecksSummary(lifecycle: TaskLifecycleCore): string {
+function buildFinalChecksSummary(lifecycle: TaskLifecycleCore, locale: Locale): string {
   if (lifecycle.checks.total === 0) {
-    return "Belum ada pemeriksaan akhir.";
+    return translate(locale, "lifecycle.approvalRecommendation.noFinalChecks");
   }
   if (lifecycle.checks.allRequiredSatisfied) {
-    return "Semua pemeriksaan akhir lolos.";
+    return translate(locale, "lifecycle.approvalRecommendation.allFinalPassed");
   }
   return lifecycle.checks.friendlySummary;
 }
@@ -187,21 +189,22 @@ function buildOverviewSummary(
   kind: ApprovalRecommendationKind,
   lifecycle: TaskLifecycleCore,
   task: TaskRecord,
+  locale: Locale,
 ): string {
   if (task.runnerState?.commitApproved) {
     if (lifecycle.delivery.commit === "EXECUTED") {
-      return "Commit disetujui dan dijalankan.";
+      return translate(locale, "lifecycle.approvalRecommendation.commitApprovedExecuted");
     }
-    return "Commit disetujui, belum dijalankan.";
+    return translate(locale, "lifecycle.approvalRecommendation.commitApprovedPending");
   }
 
   switch (kind) {
     case "RECOMMENDED_APPROVE":
-      return "BuildLoop recommendation: Approve commit";
+      return translate(locale, "lifecycle.approvalRecommendation.overviewRecommendApprove");
     case "FIX_FIRST":
-      return "Belum disarankan untuk di-approve";
+      return translate(locale, "lifecycle.approvalRecommendation.overviewFixFirst");
     case "HUMAN_REVIEW_REQUIRED":
-      return "Perlu review manusia";
+      return translate(locale, "lifecycle.approvalRecommendation.overviewHumanReview");
   }
 }
 
@@ -209,28 +212,31 @@ function buildOverviewSummary(
 export function deriveApprovalRecommendation(
   task: TaskRecord,
   lifecycle: TaskLifecycleCore,
+  locale: Locale = DEFAULT_LOCALE,
 ): ApprovalRecommendationView {
   const runner = task.runnerState;
   const items = evidenceItems(task);
-  const unresolvedFromEvidence = finalFailedOrBlocked(items).map(plainLanguageIssue);
-  const historicalCorrection = buildHistoricalCorrection(task, lifecycle);
-  const finalChecksSummary = buildFinalChecksSummary(lifecycle);
+  const unresolvedFromEvidence = finalFailedOrBlocked(items).map((item) =>
+    plainLanguageIssue(item, locale),
+  );
+  const historicalCorrection = buildHistoricalCorrection(task, lifecycle, locale);
+  const finalChecksSummary = buildFinalChecksSummary(lifecycle, locale);
 
   const commitAutomationNote =
     lifecycle.delivery.commit === "APPROVED" && !runner?.commit
-      ? "BuildLoop akan mencatat izin commit. Eksekusi Git commit otomatis belum tersedia pada versi ini."
+      ? translate(locale, "lifecycle.approvalRecommendation.commitAutomationNote")
       : null;
 
   if (runner?.commitApproved) {
     return {
       kind: "RECOMMENDED_APPROVE",
-      label: "Commit telah disetujui",
-      description: "Anda telah memberikan izin untuk commit pada task ini.",
-      reasonBullets: buildReasonBullets(task, lifecycle),
+      label: translate(locale, "lifecycle.approvalRecommendation.labelCommitApproved"),
+      description: translate(locale, "lifecycle.approvalRecommendation.descCommitApproved"),
+      reasonBullets: buildReasonBullets(task, lifecycle, locale),
       unresolvedIssues: [],
       historicalCorrection,
       finalChecksSummary,
-      overviewSummary: buildOverviewSummary("RECOMMENDED_APPROVE", lifecycle, task),
+      overviewSummary: buildOverviewSummary("RECOMMENDED_APPROVE", lifecycle, task, locale),
       canRecommendApprove: false,
       commitAutomationNote,
     };
@@ -239,12 +245,12 @@ export function deriveApprovalRecommendation(
   if (task.status === "BLOCKED" || runner?.escalated) {
     return {
       kind: "HUMAN_REVIEW_REQUIRED",
-      label: "Perlu review manusia",
+      label: translate(locale, "lifecycle.approvalRecommendation.labelHumanReview"),
       description:
         task.status === "BLOCKED"
-          ? task.blockedReasons[0]?.explanation ??
-            "BuildLoop tidak merekomendasikan keputusan otomatis untuk kondisi ini."
-          : "BuildLoop tidak memiliki cukup bukti untuk merekomendasikan approval secara otomatis.",
+          ? (task.blockedReasons[0]?.explanation ??
+            translate(locale, "lifecycle.approvalRecommendation.descBlocked"))
+          : translate(locale, "lifecycle.approvalRecommendation.descInsufficientEvidence"),
       reasonBullets: [],
       unresolvedIssues:
         task.blockedReasons.length > 0
@@ -252,7 +258,7 @@ export function deriveApprovalRecommendation(
           : unresolvedFromEvidence,
       historicalCorrection,
       finalChecksSummary,
-      overviewSummary: buildOverviewSummary("HUMAN_REVIEW_REQUIRED", lifecycle, task),
+      overviewSummary: buildOverviewSummary("HUMAN_REVIEW_REQUIRED", lifecycle, task, locale),
       canRecommendApprove: false,
       commitAutomationNote: null,
     };
@@ -261,17 +267,16 @@ export function deriveApprovalRecommendation(
   if (task.status === "FAILED") {
     return {
       kind: "FIX_FIRST",
-      label: "Belum disarankan untuk di-approve",
-      description:
-        "BuildLoop menemukan masalah yang masih belum terselesaikan setelah batas koreksi.",
+      label: translate(locale, "lifecycle.approvalRecommendation.labelFixFirst"),
+      description: translate(locale, "lifecycle.approvalRecommendation.descFailedAfterLimit"),
       reasonBullets: [],
       unresolvedIssues:
         unresolvedFromEvidence.length > 0
           ? unresolvedFromEvidence.slice(0, 3)
-          : ["Checker gagal setelah batas koreksi otomatis."],
+          : [translate(locale, "lifecycle.approvalRecommendation.unresolvedCheckerFailed")],
       historicalCorrection,
       finalChecksSummary,
-      overviewSummary: buildOverviewSummary("FIX_FIRST", lifecycle, task),
+      overviewSummary: buildOverviewSummary("FIX_FIRST", lifecycle, task, locale),
       canRecommendApprove: false,
       commitAutomationNote: null,
     };
@@ -280,14 +285,13 @@ export function deriveApprovalRecommendation(
   if (!runner?.runnerInvoked || lifecycle.checks.total === 0) {
     return {
       kind: "HUMAN_REVIEW_REQUIRED",
-      label: "Perlu review manusia",
-      description:
-        "BuildLoop tidak memiliki cukup bukti untuk merekomendasikan approval secara otomatis.",
+      label: translate(locale, "lifecycle.approvalRecommendation.labelHumanReview"),
+      description: translate(locale, "lifecycle.approvalRecommendation.descInsufficientEvidence"),
       reasonBullets: [],
-      unresolvedIssues: ["Evidence pemeriksaan akhir belum tersedia."],
+      unresolvedIssues: [translate(locale, "lifecycle.approvalRecommendation.unresolvedNoEvidence")],
       historicalCorrection,
       finalChecksSummary,
-      overviewSummary: buildOverviewSummary("HUMAN_REVIEW_REQUIRED", lifecycle, task),
+      overviewSummary: buildOverviewSummary("HUMAN_REVIEW_REQUIRED", lifecycle, task, locale),
       canRecommendApprove: false,
       commitAutomationNote: null,
     };
@@ -296,9 +300,8 @@ export function deriveApprovalRecommendation(
   if (!lifecycle.checks.allRequiredSatisfied) {
     return {
       kind: "FIX_FIRST",
-      label: "Belum disarankan untuk di-approve",
-      description:
-        "Masih ada pemeriksaan yang belum terpenuhi. Selesaikan masalah berikut sebelum memberikan approval.",
+      label: translate(locale, "lifecycle.approvalRecommendation.labelFixFirst"),
+      description: translate(locale, "lifecycle.approvalRecommendation.descChecksIncomplete"),
       reasonBullets: [],
       unresolvedIssues:
         unresolvedFromEvidence.length > 0
@@ -306,7 +309,7 @@ export function deriveApprovalRecommendation(
           : [lifecycle.checks.friendlySummary],
       historicalCorrection,
       finalChecksSummary,
-      overviewSummary: buildOverviewSummary("FIX_FIRST", lifecycle, task),
+      overviewSummary: buildOverviewSummary("FIX_FIRST", lifecycle, task, locale),
       canRecommendApprove: false,
       commitAutomationNote: null,
     };
@@ -318,19 +321,22 @@ export function deriveApprovalRecommendation(
       : "FIX_FIRST";
     return {
       kind,
-      label: kind === "HUMAN_REVIEW_REQUIRED" ? "Perlu review manusia" : "Belum disarankan untuk di-approve",
+      label:
+        kind === "HUMAN_REVIEW_REQUIRED"
+          ? translate(locale, "lifecycle.approvalRecommendation.labelHumanReview")
+          : translate(locale, "lifecycle.approvalRecommendation.labelFixFirst"),
       description:
         kind === "HUMAN_REVIEW_REQUIRED"
-          ? "BuildLoop tidak memiliki cukup bukti untuk merekomendasikan approval secara otomatis."
-          : "BuildLoop menemukan masalah yang masih belum terselesaikan.",
+          ? translate(locale, "lifecycle.approvalRecommendation.descInsufficientEvidence")
+          : translate(locale, "lifecycle.approvalRecommendation.descNotPass"),
       reasonBullets: [],
       unresolvedIssues:
         unresolvedFromEvidence.length > 0
           ? unresolvedFromEvidence.slice(0, 3)
-          : ["Verdict implementasi belum PASS menurut checker."],
+          : [translate(locale, "lifecycle.approvalRecommendation.unresolvedNotPass")],
       historicalCorrection,
       finalChecksSummary,
-      overviewSummary: buildOverviewSummary(kind, lifecycle, task),
+      overviewSummary: buildOverviewSummary(kind, lifecycle, task, locale),
       canRecommendApprove: false,
       commitAutomationNote: null,
     };
@@ -339,14 +345,13 @@ export function deriveApprovalRecommendation(
   if (hasSensitiveUnresolved(items)) {
     return {
       kind: "HUMAN_REVIEW_REQUIRED",
-      label: "Perlu review manusia",
-      description:
-        "Perubahan menyentuh area sensitif atau checker tidak dapat memastikan compliance secara otomatis.",
+      label: translate(locale, "lifecycle.approvalRecommendation.labelHumanReview"),
+      description: translate(locale, "lifecycle.approvalRecommendation.descSensitive"),
       reasonBullets: [],
       unresolvedIssues: unresolvedFromEvidence.slice(0, 3),
       historicalCorrection,
       finalChecksSummary,
-      overviewSummary: buildOverviewSummary("HUMAN_REVIEW_REQUIRED", lifecycle, task),
+      overviewSummary: buildOverviewSummary("HUMAN_REVIEW_REQUIRED", lifecycle, task, locale),
       canRecommendApprove: false,
       commitAutomationNote: null,
     };
@@ -355,13 +360,13 @@ export function deriveApprovalRecommendation(
   if (!canRecordHumanApproval(task.status)) {
     return {
       kind: "HUMAN_REVIEW_REQUIRED",
-      label: "Perlu review manusia",
-      description: "Approval belum sesuai lifecycle task saat ini.",
-      reasonBullets: buildReasonBullets(task, lifecycle),
+      label: translate(locale, "lifecycle.approvalRecommendation.labelHumanReview"),
+      description: translate(locale, "lifecycle.approvalRecommendation.descLifecycleMismatch"),
+      reasonBullets: buildReasonBullets(task, lifecycle, locale),
       unresolvedIssues: [],
       historicalCorrection,
       finalChecksSummary,
-      overviewSummary: buildOverviewSummary("HUMAN_REVIEW_REQUIRED", lifecycle, task),
+      overviewSummary: buildOverviewSummary("HUMAN_REVIEW_REQUIRED", lifecycle, task, locale),
       canRecommendApprove: false,
       commitAutomationNote: null,
     };
@@ -369,14 +374,13 @@ export function deriveApprovalRecommendation(
 
   return {
     kind: "RECOMMENDED_APPROVE",
-    label: "BuildLoop merekomendasikan approval",
-    description:
-      "Task sudah selesai sesuai kontrak dan tidak ada masalah sensitif yang belum terselesaikan. Berdasarkan contract dan pemeriksaan yang dijalankan, BuildLoop merekomendasikan approval.",
-    reasonBullets: buildReasonBullets(task, lifecycle),
+    label: translate(locale, "lifecycle.approvalRecommendation.labelRecommendApprove"),
+    description: translate(locale, "lifecycle.approvalRecommendation.descRecommendApprove"),
+    reasonBullets: buildReasonBullets(task, lifecycle, locale),
     unresolvedIssues: [],
     historicalCorrection,
     finalChecksSummary,
-    overviewSummary: buildOverviewSummary("RECOMMENDED_APPROVE", lifecycle, task),
+    overviewSummary: buildOverviewSummary("RECOMMENDED_APPROVE", lifecycle, task, locale),
     canRecommendApprove: true,
     commitAutomationNote: null,
   };

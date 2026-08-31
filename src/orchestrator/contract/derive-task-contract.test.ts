@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { deriveTaskContractFields, deriveRequiredChecks } from "./derive-task-contract";
+import { deriveTaskContractFields, deriveRequiredChecks, deriveAllowedCommands } from "./derive-task-contract";
 import { planWork, workPlanToContractFields } from "@/orchestrator/agents/planner/planner";
 import { createDraftContract, lockContract } from "@/orchestrator/contract/schema";
 import { PROTECTED_PATHS } from "@/lib/task-contract";
@@ -133,6 +133,7 @@ describe("contract locking preserves derived scope", () => {
     expect(locked.allowedPaths).toEqual(["README.md"]);
     expect(locked.acceptanceCriteria).toEqual(fields.acceptanceCriteria);
     expect(locked.inScope).toEqual(["README.md"]);
+    expect(locked.allowedCommands).toEqual([]);
   });
 });
 
@@ -150,6 +151,11 @@ describe("deriveRequiredChecks", () => {
       "typecheck",
       "relevant test",
       "protected-path check",
+    ]);
+    expect(deriveAllowedCommands(["src/lib/example.ts"])).toEqual([
+      "bun run typecheck",
+      "bun test",
+      "bun run lint",
     ]);
   });
 });

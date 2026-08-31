@@ -58,11 +58,24 @@ export function requiredCommandsForContract(
   contractCommands: string[],
   detected: DetectedProjectCommands,
 ): string[] {
-  if (contractCommands.length > 0) {
-    return contractCommands;
+  if (contractCommands.length === 0) {
+    return [];
   }
-  const defaults = [detected.typecheck, detected.test].filter(Boolean) as string[];
-  return defaults;
+  return contractCommands.filter((command) => {
+    if (command === detected.typecheck || command.startsWith(`${detected.typecheck} `)) {
+      return Boolean(detected.typecheck);
+    }
+    if (command === detected.test || command.startsWith(`${detected.test} `)) {
+      return Boolean(detected.test);
+    }
+    if (command === detected.lint || command.startsWith(`${detected.lint} `)) {
+      return Boolean(detected.lint);
+    }
+    if (command === detected.build || command.startsWith(`${detected.build} `)) {
+      return Boolean(detected.build);
+    }
+    return true;
+  });
 }
 
 async function fileExists(target: string): Promise<boolean> {

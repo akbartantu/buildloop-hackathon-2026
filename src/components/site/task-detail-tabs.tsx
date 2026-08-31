@@ -53,6 +53,7 @@ import type { HumanGateDecision } from "@/lib/human-approval";
 import {
   buildTaskLifecycleViewModel,
   formatLifecycleStepLabel,
+  formatLifecycleStepStatus,
   lifecycleStepIconState,
   type TaskLifecycleViewModel,
 } from "@/lib/task-lifecycle";
@@ -71,6 +72,12 @@ import { useI18n } from "@/i18n/context";
 import type { TranslationKey } from "@/i18n/en";
 import { translate, type Locale } from "@/i18n";
 import { en, id } from "@/i18n";
+import {
+  formatApprovalTypeLabel,
+  formatOrchestrationPhaseLabel,
+  formatWorkContractApprovalLabel,
+  formatWorkContractStatusLabel,
+} from "@/lib/lifecycle-presentations";
 
 type TaskDetailTabsProps = {
   task: TaskRecord;
@@ -125,7 +132,7 @@ export function TaskDetailTabs({
   const canRun = task.status === "APPROVED_FOR_EXECUTION";
   const sourceCommitDrift = detectSourceCommitDrift(task, source?.commitSha);
   const showRevise = canReviseTask(task) && !taskHasExecuted(task);
-  const lifecycle = buildTaskLifecycleViewModel(task);
+  const lifecycle = buildTaskLifecycleViewModel(task, locale);
   const taskRef = formatTaskRef(task.id);
 
   function goToTab(nextTab: DemoTab) {
@@ -440,7 +447,7 @@ function ContractReview({
         </DemoPanel>
       )}
 
-      <DemoCollapsible title="Detail teknis untuk developer">
+      <DemoCollapsible title={t("taskDetail.contract.technicalDetails")}>
         <div className="space-y-3 font-mono text-xs">
           <p>Protected paths: {task.contract.protectedPaths.join(", ")}</p>
           <p>Required checks: {task.contract.requiredChecks.join(", ")}</p>
@@ -549,7 +556,7 @@ function OrchestrationView({
         <ol className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
           {lifecycle.orchestrationSteps.map((step) => {
             const icon = lifecycleStepIconState(step.state);
-            const suffix = formatLifecycleStepLabel(step.state);
+            const suffix = formatLifecycleStepStatus(step.state, locale);
             return (
               <li
                 key={step.key}
@@ -601,7 +608,8 @@ function OrchestrationView({
                     {contract.id} — {contract.goal}
                   </span>
                   <span className="text-xs uppercase tracking-wide text-muted-foreground">
-                    {approval === "auto_approved" ? "AUTO_APPROVED_BY_POLICY" : approval} · {status}
+                    {formatWorkContractApprovalLabel(approval, locale)} ·{" "}
+                    {formatWorkContractStatusLabel(status, locale)}
                   </span>
                 </li>
               );
@@ -617,18 +625,26 @@ function OrchestrationView({
         <DemoPanel title={t("taskDetail.orchestration.orchestrationEvidence")}>
           <DemoKeyValueTable
             rows={[
-              { label: "Phase", value: runner.orchestration.phase },
-              { label: "Approval", value: runner.orchestration.approvalType ?? "—" },
+              { label: "Phase", value: formatOrchestrationPhaseLabel(runner.orchestration.phase, locale) },
+              {
+                label: "Approval",
+                value: formatApprovalTypeLabel(runner.orchestration.approvalType, locale),
+              },
               { label: "Policy", value: runner.orchestration.policyDecision ?? "—" },
               {
                 label: "Security review",
-                value: runner.orchestration.securityReviewInvoked ? "Invoked" : "Skipped",
+                value: runner.orchestration.securityReviewInvoked
+                  ? t("taskDetail.orchestration.securityInvoked")
+                  : t("taskDetail.orchestration.securitySkipped"),
               },
               {
                 label: "Corrections",
                 value: String(runner.orchestration.correctionCount ?? lifecycle.correctionsUsed),
               },
-              { label: "Verdict", value: runner.orchestration.finalVerdict ?? lifecycle.implementationVerdict ?? "—" },
+              {
+                label: "Verdict",
+                value: runner.orchestration.finalVerdict ?? lifecycle.implementationVerdict ?? "—",
+              },
             ]}
           />
         </DemoPanel>
@@ -733,7 +749,7 @@ function EvidenceView({
           <DemoPanel title={t("taskDetail.evidence.summary")}>
             <DemoKeyValueTable
               rows={[
-                { label: "Files changed", value: String(runner?.filesChanged ?? 0) },
+                { label: t("taskDetail.orchestration.filesChanged"), value: String(runner?.filesChanged ?? 0) },
                 { label: "Commands executed", value: String(runner?.commandsExecuted ?? 0) },
                 { label: "Commit", value: lifecycle.deliveryLabels.commit },
                 { label: "Push", value: lifecycle.deliveryLabels.push },
@@ -765,7 +781,7 @@ function EvidenceView({
       {lifecycle.isPassLike ? (
         <DemoStatusBanner
           status="PASS"
-          title={lifecycle.executionCompleteLabel ?? "Perubahan selesai"}
+          title={lifecycle.executionCompleteLabel ?? t("lifecycle.summary.executionComplete")}
           description={lifecycle.plainLanguageSummary}
         />
       ) : (
@@ -832,7 +848,7 @@ function EvidenceView({
         <p className="text-sm leading-relaxed text-foreground">{lifecycle.plainLanguageSummary}</p>
       </DemoPanel>
 
-      <DemoCollapsible title="Detail teknis untuk developer">
+      <DemoCollapsible title={t("taskDetail.evidence.technicalDetails")}>
         <DemoKeyValueTable
           rows={[
             {
@@ -848,7 +864,7 @@ function EvidenceView({
               label: "Checks",
               value: lifecycle.checks.technicalSummary,
             },
-            { label: "Files changed", value: String(runner?.filesChanged ?? 0) },
+            { label: t("taskDetail.orchestration.filesChanged"), value: String(runner?.filesChanged ?? 0) },
             {
               label: "Worker attempt",
               value: `${lifecycle.workerAttemptNumber} of ${lifecycle.workerAttemptLimit}`,
@@ -1180,7 +1196,7 @@ function ApprovalView({
         </form>
       </DemoPanel>
 
-      <DemoCollapsible title="Detail teknis untuk developer">
+      <DemoCollapsible title={t("taskDetail.contract.technicalDetails")}>
         <DemoKeyValueTable
           rows={[
             { label: "Checks (final)", value: lifecycle.checks.technicalSummary },

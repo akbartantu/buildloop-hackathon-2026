@@ -35,8 +35,9 @@ import type {
   Verdict,
   WorkerReport,
 } from "../types";
-import { DemoPassWorker } from "../worker/demo-worker";
+import { countUniqueChangedFiles } from "../run-files";
 import type { CodingWorker } from "../worker/types";
+import { DemoPassWorker } from "../worker/demo-worker";
 import { CheckpointStore } from "../persistence/store-factory";
 import type { RuntimeRunStore } from "../persistence/store-factory";
 
@@ -239,6 +240,7 @@ export class BootstrapOrchestrator {
       checkerResult: null,
       correctionCount,
       maximumCorrections: input.contract.maximumCorrections,
+      allowedCommands: input.contract.allowedCommands,
       sourceStale: false,
     });
 
@@ -440,6 +442,7 @@ export class BootstrapOrchestrator {
         checkerResult,
         correctionCount,
         maximumCorrections: input.contract.maximumCorrections,
+        allowedCommands: input.contract.allowedCommands,
         sourceStale:
           !this.allowDirtyWorkspace && sourceRevisionAtStart !== sourceRevisionNow,
         securityReviewVerdict,
@@ -554,7 +557,7 @@ export class BootstrapOrchestrator {
             workerCalls: input.workerCalls,
             checkerCalls: input.checkerCalls,
             correctionCount: input.correctionCount,
-            filesChanged: (input.workerReports ?? []).flatMap((r) => r.filesChanged).length,
+            filesChanged: countUniqueChangedFiles(input.workerReports ?? []),
             commandsExecuted: (input.workerReports ?? []).flatMap((r) => r.commandsExecuted).length,
           },
           startedAt: input.startedAt,
@@ -599,7 +602,7 @@ export class BootstrapOrchestrator {
     securityReviewInvoked: boolean;
     securityFindings: Array<{ severity: string; finding: string; evidence: string }>;
   }): BootstrapRunResult {
-    const filesChanged = input.workerReports.flatMap((report) => report.filesChanged).length;
+    const filesChanged = countUniqueChangedFiles(input.workerReports);
     const commandsExecuted = input.workerReports.flatMap((report) => report.commandsExecuted).length;
 
     const run: RunSnapshot = {

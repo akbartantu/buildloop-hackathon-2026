@@ -13,6 +13,9 @@ import {
   deriveApprovalRecommendation,
   type ApprovalRecommendationView,
 } from "@/lib/approval-recommendation";
+import { translate, type Locale, DEFAULT_LOCALE } from "@/i18n";
+import type { TranslationKey } from "@/i18n/en";
+import { formatChecksFriendlySummary } from "@/lib/lifecycle-presentations";
 
 export type ImplementationVerdict = "PASS" | "FAILED" | "BLOCKED" | null;
 
@@ -111,7 +114,7 @@ export function taskHasRun(task: TaskRecord): boolean {
   ].includes(task.status);
 }
 
-export function analyzeChecks(task: TaskRecord): CheckBreakdown {
+export function analyzeChecks(task: TaskRecord, locale: Locale = DEFAULT_LOCALE): CheckBreakdown {
   const evidence = task.runnerState?.evidence ?? [];
   const passed = evidence.filter((item) => item.status === "pass").length;
   const failed = evidence.filter((item) => item.status === "fail").length;
@@ -120,16 +123,10 @@ export function analyzeChecks(task: TaskRecord): CheckBreakdown {
   const total = evidence.length;
   const allRequiredSatisfied = failed === 0 && blocked === 0;
 
-  let friendlySummary: string;
-  if (total === 0) {
-    friendlySummary = "Belum ada pemeriksaan.";
-  } else if (allRequiredSatisfied && skipped > 0) {
-    friendlySummary = `${passed} pemeriksaan lolos. ${skipped} tidak perlu dijalankan.`;
-  } else if (allRequiredSatisfied) {
-    friendlySummary = `Semua pemeriksaan wajib lolos (${passed} passed).`;
-  } else {
-    friendlySummary = `${passed} lolos, ${failed} gagal${skipped > 0 ? `, ${skipped} dilewati` : ""}.`;
-  }
+  const friendlySummary = formatChecksFriendlySummary(
+    { passed, failed, skipped, blocked, total, allRequiredSatisfied },
+    locale,
+  );
 
   const technicalSummary =
     total > 0
@@ -189,20 +186,24 @@ function deriveDeliveryStates(task: TaskRecord): TaskLifecycleViewModel["deliver
   };
 }
 
-export function deliveryActionLabel(state: DeliveryActionState, actionName: string): string {
+export function deliveryActionLabel(
+  state: DeliveryActionState,
+  actionName: string,
+  locale: Locale = DEFAULT_LOCALE,
+): string {
   switch (state) {
     case "NOT_REQUESTED":
-      return "Tidak diminta";
+      return translate(locale, "lifecycle.delivery.notRequested");
     case "NOT_APPROVED":
-      return "Belum disetujui";
+      return translate(locale, "lifecycle.delivery.notApproved");
     case "AWAITING_APPROVAL":
-      return "Menunggu approval Anda";
+      return translate(locale, "lifecycle.delivery.awaitingApproval");
     case "APPROVED":
-      return `${actionName} disetujui, belum dijalankan`;
+      return translate(locale, "lifecycle.delivery.approvedPending", { action: actionName });
     case "EXECUTED":
-      return `${actionName} selesai`;
+      return translate(locale, "lifecycle.delivery.executed", { action: actionName });
     case "FAILED":
-      return `${actionName} gagal`;
+      return translate(locale, "lifecycle.delivery.failed", { action: actionName });
   }
 }
 
@@ -210,9 +211,11 @@ function buildOrchestrationSteps(
   task: TaskRecord,
   hasRun: boolean,
   verdict: ImplementationVerdict,
+  locale: Locale = DEFAULT_LOCALE,
 ): OrchestrationStepView[] {
   const runner = task.runnerState;
   const corrections = runner?.correctionCount ?? 0;
+  const correctionLimit = task.contract.maxAttempts;
   const blockedPreflight = task.status === "BLOCKED" && !runner?.runnerInvoked;
   const runFinished =
     hasRun &&
@@ -221,27 +224,54 @@ function buildOrchestrationSteps(
       verdict === "FAILED" ||
       verdict === "BLOCKED");
 
+  const translateStep = (key: string): OrchestrationStepView => {
+    const labelKey = `lifecycle.orchestrationStep.${key}.label` as TranslationKey;
+    const detailKey = `lifecycle.orchestrationStep.${key}.detail` as TranslationKey;
+    return {
+      key,
+      label: translate(locale, labelKey),
+      detail: translate(locale, detailKey),
+      state: "not_run" as LifecycleStepState,
+    };
+  };
+
+  const stepTemplate = (key: string, state: LifecycleStepState, detailOverride?: string) => {
+    const base = translateStep(key);
+    let detail = detailOverride ?? base.detail;
+    if (key === "correction") {
+      if (state === "not_needed") {
+        detail = translate(locale, "lifecycle.correction.stepNotNeeded");
+      } else if (corrections > 0 || state === "active") {
+        detail = translate(locale, "lifecycle.correction.stepProgress", {
+          used: corrections > 0 ? corrections : 1,
+          limit: correctionLimit,
+        });
+      }
+    }
+    return { ...base, state, detail };
+  };
+
   if (blockedPreflight) {
-    return ORCHESTRATION_STEPS.map((step) => ({
-      ...step,
-      state:
-        step.key === "preflight" || step.key === "planning"
-          ? ("blocked" as const)
-          : ("not_run" as const),
-    }));
+    return ORCHESTRATION_STEPS.map((step) =>
+      stepTemplate(
+        step.key,
+        step.key === "preflight" || step.key === "planning" ? "blocked" : "not_run",
+      ),
+    );
   }
 
   if (!hasRun) {
     const planningDone = Boolean(runner?.orchestration?.plannerOutput);
-    return ORCHESTRATION_STEPS.map((step) => ({
-      ...step,
-      state:
+    return ORCHESTRATION_STEPS.map((step) =>
+      stepTemplate(
+        step.key,
         step.key === "planning" && planningDone
-          ? ("complete" as const)
+          ? "complete"
           : step.key === "planning" && task.status === "CONTRACT_READY"
-            ? ("active" as const)
-            : ("not_run" as const),
-    }));
+            ? "active"
+            : "not_run",
+      ),
+    );
   }
 
   const workerDone = Boolean(runner?.runnerInvoked);
@@ -292,7 +322,7 @@ function buildOrchestrationSteps(
     } else if (step.key === "decision") {
       state = decisionState;
     }
-    return { ...step, state };
+    return stepTemplate(step.key, state);
   });
 }
 
@@ -301,74 +331,81 @@ function buildPlainLanguageSummary(
   verdict: ImplementationVerdict,
   checks: CheckBreakdown,
   delivery: TaskLifecycleViewModel["delivery"],
+  locale: Locale,
 ): string {
   if (task.status === "BLOCKED") {
-    return (
-      task.blockedReasons[0]?.explanation ??
-      "BuildLoop berhenti sebelum worker dijalankan karena guardrail."
-    );
+    return task.blockedReasons[0]?.explanation ?? translate(locale, "lifecycle.summary.blockedDefault");
   }
   if (task.status === "FAILED") {
-    return "Checker gagal setelah batas koreksi otomatis.";
+    return translate(locale, "lifecycle.summary.failedAfterLimit");
   }
   if (verdict === "PASS" && task.status === "CLOSED" && delivery.commit === "APPROVED") {
-    return "Eksekusi task selesai dengan PASS. Commit sudah disetujui, tetapi Git commit belum dijalankan oleh BuildLoop.";
+    return translate(locale, "lifecycle.summary.passClosedCommit");
   }
   if (verdict === "PASS" && task.status === "AWAITING_APPROVAL") {
-    return "Perubahan sesuai contract. Commit, push, merge, dan deploy membutuhkan approval terpisah.";
+    return translate(locale, "lifecycle.summary.passAwaitingApproval");
   }
   if (verdict === "PASS") {
     return checks.friendlySummary;
   }
   if (isActiveRun(task.status)) {
-    return "Orchestrator sedang berjalan — worker dan checker bekerja terpisah.";
+    return translate(locale, "lifecycle.summary.running");
   }
   if (task.status === "APPROVED_FOR_EXECUTION") {
-    return "Contract disetujui. Orchestrator siap dijalankan.";
+    return translate(locale, "lifecycle.summary.approvedReady");
   }
-  return "Lanjutkan alur task sesuai contract.";
+  return translate(locale, "lifecycle.summary.default");
 }
 
 function buildOrchestrationUserSummary(
   task: TaskRecord,
   correction: CorrectionPresentation,
   verdict: ImplementationVerdict,
+  locale: Locale,
+  correctionsUsed: number,
+  correctionLimit: number,
 ): string {
   if (correction.userSummary) {
     return correction.userSummary;
   }
   if (task.status === "BLOCKED") {
-    return (
-      task.blockedReasons[0]?.explanation ??
-      "BuildLoop berhenti sebelum worker dijalankan karena guardrail."
-    );
+    return task.blockedReasons[0]?.explanation ?? translate(locale, "lifecycle.summary.blockedDefault");
   }
   if (task.status === "FAILED") {
-    return "Perbaikan otomatis belum menyelesaikan masalah. Batas koreksi tercapai.";
+    return translate(locale, "lifecycle.summary.correctionExhausted");
   }
   if (isActiveRun(task.status)) {
     if (task.status === "CHECKING") {
-      return "BuildLoop sedang memeriksa hasil worker.";
+      return translate(locale, "lifecycle.summary.runningChecking");
     }
     if (task.status === "INSPECTING") {
-      return "BuildLoop menjalankan preflight sebelum worker.";
+      return translate(locale, "lifecycle.summary.runningPreflight");
     }
-    return "BuildLoop masih menjalankan atau memeriksa task.";
+    if (correctionsUsed > 0 || task.status === "NEEDS_CORRECTION" || task.status === "RUNNING") {
+      return translate(locale, "lifecycle.summary.runningWithCorrections", {
+        used: correctionsUsed,
+        limit: correctionLimit,
+      });
+    }
+    return translate(locale, "lifecycle.summary.runningGeneric");
   }
   if (verdict === "PASS") {
-    return "Semua pemeriksaan akhir lolos.";
+    return translate(locale, "lifecycle.summary.allFinalPassed");
   }
   if (task.status === "APPROVED_FOR_EXECUTION" && task.runnerState?.revisionRequested) {
-    return "Anda meminta revisi. Jalankan orchestrator untuk siklus revisi baru.";
+    return translate(locale, "lifecycle.correction.humanRevisionReady");
   }
-  return "Lanjutkan alur task sesuai contract.";
+  return translate(locale, "lifecycle.summary.default");
 }
 
-export function buildTaskLifecycleViewModel(task: TaskRecord): TaskLifecycleViewModel {
+export function buildTaskLifecycleViewModel(
+  task: TaskRecord,
+  locale: Locale = DEFAULT_LOCALE,
+): TaskLifecycleViewModel {
   const hasRun = taskHasRun(task);
-  const checks = analyzeFinalChecks(task);
+  const checks = analyzeFinalChecks(task, locale);
   const verdict = deriveImplementationVerdict(task, checks);
-  const correction = deriveCorrectionPresentation(task, checks, verdict);
+  const correction = deriveCorrectionPresentation(task, checks, verdict, locale);
   const evidenceHistory = buildEvidenceHistory(task);
   const delivery = deriveDeliveryStates(task);
   const runner = task.runnerState;
@@ -381,10 +418,10 @@ export function buildTaskLifecycleViewModel(task: TaskRecord): TaskLifecycleView
   const showOrchestratorNotStarted = !hasRun && task.status !== "BLOCKED";
 
   const deliveryLabels = {
-    commit: deliveryActionLabel(delivery.commit, "Commit"),
-    push: deliveryActionLabel(delivery.push, "Push"),
-    merge: deliveryActionLabel(delivery.merge, "Merge"),
-    deploy: deliveryActionLabel(delivery.deploy, "Deploy"),
+    commit: deliveryActionLabel(delivery.commit, "Commit", locale),
+    push: deliveryActionLabel(delivery.push, "Push", locale),
+    merge: deliveryActionLabel(delivery.merge, "Merge", locale),
+    deploy: deliveryActionLabel(delivery.deploy, "Deploy", locale),
   };
 
   const viewModel: Omit<TaskLifecycleViewModel, "approval"> = {
@@ -400,26 +437,34 @@ export function buildTaskLifecycleViewModel(task: TaskRecord): TaskLifecycleView
     correctionPhase: correction.phase,
     checks,
     evidenceHistory,
-    orchestrationSteps: buildOrchestrationSteps(task, hasRun, verdict),
-    orchestrationUserSummary: buildOrchestrationUserSummary(task, correction, verdict),
+    orchestrationSteps: buildOrchestrationSteps(task, hasRun, verdict, locale),
+    orchestrationUserSummary: buildOrchestrationUserSummary(
+      task,
+      correction,
+      verdict,
+      locale,
+      correctionsUsed,
+      correctionLimit,
+    ),
     delivery,
     deliveryLabels,
-    plainLanguageSummary: buildPlainLanguageSummary(task, verdict, checks, delivery),
-    executionCompleteLabel: isClosed ? "Eksekusi task selesai" : null,
+    plainLanguageSummary: buildPlainLanguageSummary(task, verdict, checks, delivery, locale),
+    executionCompleteLabel: isClosed ? translate(locale, "lifecycle.summary.executionComplete") : null,
     isClosed,
     showOrchestratorNotStarted,
     isPassLike: verdict === "PASS",
     isBlocked: task.status === "BLOCKED",
-    nextAction: task.status === "CLOSED" && delivery.commit === "APPROVED"
-      ? "Izin commit tercatat. Eksekusi Git commit otomatis belum tersedia dalam versi ini."
-      : task.status === "AWAITING_APPROVAL"
-        ? "Tinjau dan berikan approval untuk tindakan sensitif."
-        : "",
+    nextAction:
+      task.status === "CLOSED" && delivery.commit === "APPROVED"
+        ? translate(locale, "lifecycle.summary.commitRecorded")
+        : task.status === "AWAITING_APPROVAL"
+          ? translate(locale, "lifecycle.summary.awaitingApprovalAction")
+          : "",
   };
 
   return {
     ...viewModel,
-    approval: deriveApprovalRecommendation(task, viewModel),
+    approval: deriveApprovalRecommendation(task, viewModel, locale),
   };
 }
 
@@ -441,17 +486,4 @@ export function lifecycleStepIconState(state: LifecycleStepState): "done" | "act
   return "neutral";
 }
 
-export function formatLifecycleStepLabel(state: LifecycleStepState): string {
-  switch (state) {
-    case "not_needed":
-      return "Tidak diperlukan";
-    case "not_run":
-      return "Belum dijalankan";
-    case "blocked":
-      return "BLOCKED";
-    case "failed":
-      return "FAILED";
-    default:
-      return "";
-  }
-}
+export { formatLifecycleStepLabel, formatLifecycleStepStatus } from "@/lib/lifecycle-presentations";

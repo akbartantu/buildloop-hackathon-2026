@@ -62,7 +62,7 @@ export function createDraftContract(input: {
     outOfScope: input.outOfScope,
     acceptanceCriteria: input.acceptanceCriteria,
     protectedAreas: [...PROTECTED_PATHS],
-    allowedCommands: input.allowedCommands ?? ["bun run typecheck", "bun test", "bun run lint"],
+    allowedCommands: input.allowedCommands ?? [],
     allowedPaths: input.allowedPaths ?? [],
     maximumCorrections: input.maximumCorrections ?? MAX_ATTEMPTS,
     lockedAt: null,

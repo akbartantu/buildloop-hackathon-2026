@@ -46,15 +46,15 @@ function baseTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
 }
 
 describe("mandatory lifecycle regression T1–T14", () => {
-  test("T1 re-check not finished — sedang diperiksa ulang, not berhasil diperbaiki", () => {
+  test("T1 re-check not finished — verifying, not verified yet", () => {
     const task = baseTask({ status: "CHECKING" });
     const checks = analyzeFinalChecks(task);
-    const vm = buildTaskLifecycleViewModel(task);
+    const vm = buildTaskLifecycleViewModel(task, "en");
     expect(checks.failed).toBe(0);
     expect(vm.correction.phase).toBe("verifying");
-    expect(vm.correction.userSummary).toContain("memeriksa ulang");
-    expect(vm.correction.userSummary).not.toContain("berhasil diperbaiki");
-    expect(vm.approval.historicalCorrection?.summary ?? "").not.toContain("berhasil diperbaiki");
+    expect(vm.correction.userSummary).toContain("re-verifying");
+    expect(vm.correction.userSummary).not.toContain("fixed automatically");
+    expect(vm.approval.historicalCorrection?.summary ?? "").not.toContain("fixed automatically");
   });
 
   test("T2 correction verified — final summary shows all checks passed", () => {
@@ -75,11 +75,11 @@ describe("mandatory lifecycle regression T1–T14", () => {
         ],
       },
     });
-    const vm = buildTaskLifecycleViewModel(task);
+    const vm = buildTaskLifecycleViewModel(task, "en");
     expect(vm.implementationVerdict).toBe("PASS");
-    expect(vm.checks.friendlySummary).toContain("Semua pemeriksaan akhir lolos");
+    expect(vm.checks.friendlySummary).toContain("All final checks passed");
     expect(vm.correction.phase).toBe("verified");
-    expect(vm.correction.userSummary).toContain("berhasil diperbaiki");
+    expect(vm.correction.userSummary).toContain("fixed automatically");
   });
 
   test("T3 NEEDS_CORRECTION — approval not actionable", () => {
@@ -127,8 +127,9 @@ describe("mandatory lifecycle regression T1–T14", () => {
         status: result.status,
         runnerState: result.runnerState,
       },
-      analyzeFinalChecks(baseTask()),
+      analyzeFinalChecks(baseTask(), "en"),
       null,
+      "en",
     );
     expect(presentation.kind).toBe("human");
   });

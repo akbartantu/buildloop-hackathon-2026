@@ -243,7 +243,7 @@ export function getAttentionState(task: TaskRecord, locale: Locale = DEFAULT_LOC
   }
 
   if (task.status === "AWAITING_APPROVAL") {
-    const lifecycle = buildTaskLifecycleViewModel(task);
+    const lifecycle = buildTaskLifecycleViewModel(task, locale);
     return {
       title: lifecycle.approval.canRecommendApprove
         ? translate(locale, "overview.attention.readyForApproval")

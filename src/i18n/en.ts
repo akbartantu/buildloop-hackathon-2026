@@ -208,6 +208,10 @@ export const en = {
     formDescription:
       "Write a clear goal and acceptance criteria. BuildLoop creates a deterministic contract before orchestration runs.",
     formPanelTitle: "New task",
+    editFormTitle: "Edit task plan",
+    editFormDescription:
+      "Update the goal or acceptance criteria. BuildLoop revises the draft contract under the same task.",
+    editFormPanelTitle: "Edit plan",
     goalLabel: "What needs to be done?",
     goalPlaceholder:
       "Example: Update README subtitle to mention governed autonomous software delivery.",
@@ -217,6 +221,8 @@ export const en = {
     criteriaHelp: "Each line becomes a locked acceptance criterion in the contract.",
     criteriaEditingHelp:
       "One criterion per line. Your edits will be saved when you create the task.",
+    criteriaEditingHelpEdit:
+      "One criterion per line. Your edits update this task's draft contract.",
     criteriaReadyCount: "{count} criteria ready",
     suggestedCriteriaAdded: "Suggested criteria added",
     workspace: "Workspace",
@@ -224,6 +230,8 @@ export const en = {
     maxCorrections: "Max correction attempts",
     protectedPaths: "Protected paths",
     createTask: "Create task",
+    savePlan: "Save plan",
+    updatePlanError: "Could not save plan changes.",
     createError: "Could not create task.",
     notFound: "Task not found.",
     criteriaOptional: "Optional — BuildLoop can suggest criteria from your goal.",

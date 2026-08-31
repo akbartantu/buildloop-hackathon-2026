@@ -351,6 +351,7 @@ export function createSupabaseTaskRepository(
       userId: string;
       goal: string;
       acceptanceCriteria?: string[];
+      clarificationAnswer?: string;
     }): Promise<TaskRecord> {
       const existing = await this.getTask(input.id);
       if (!existing) throw new Error("Task not found.");
@@ -363,8 +364,10 @@ export function createSupabaseTaskRepository(
         {
           goal: input.goal,
           ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
+          ...(input.clarificationAnswer ? { clarificationAnswer: input.clarificationAnswer } : {}),
         },
         planningDeps,
+        { incrementVersion: true },
       );
       const { data: row, error } = await supabase
         .from("tasks")

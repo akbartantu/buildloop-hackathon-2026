@@ -375,6 +375,7 @@ export function createDevTaskRepository(
       userId: string;
       goal: string;
       acceptanceCriteria?: string[];
+      clarificationAnswer?: string;
     }): Promise<TaskRecord> {
       const store = await readStore();
       const index = store.tasks.findIndex((task) => task.id === input.id);
@@ -385,8 +386,10 @@ export function createDevTaskRepository(
         {
           goal: input.goal,
           ...(input.acceptanceCriteria ? { acceptanceCriteria: input.acceptanceCriteria } : {}),
+          ...(input.clarificationAnswer ? { clarificationAnswer: input.clarificationAnswer } : {}),
         },
         planningDeps,
+        { incrementVersion: true },
       );
       updated.updatedAt = new Date().toISOString();
       store.tasks[index] = updated;

@@ -20,6 +20,7 @@ export const createTaskSchema = z.object({
 export const updateDraftTaskSchema = taskIdSchema.extend({
   goal: z.string().trim().min(10, "Goal is too short").max(GOAL_MAX),
   acceptanceCriteria: z.array(z.string().trim().min(3)).min(1).max(20).optional(),
+  clarificationAnswer: z.string().trim().min(1).max(500).optional(),
 });
 
 export const analyzeTaskGoalSchema = z.object({

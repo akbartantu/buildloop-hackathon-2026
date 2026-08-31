@@ -165,6 +165,7 @@ export const updateDraftTask = createServerFn({ method: "POST" })
       userId: context.auth.userId,
       goal: data.goal,
       ...(data.acceptanceCriteria ? { acceptanceCriteria: data.acceptanceCriteria } : {}),
+      ...(data.clarificationAnswer ? { clarificationAnswer: data.clarificationAnswer } : {}),
     });
   });
 

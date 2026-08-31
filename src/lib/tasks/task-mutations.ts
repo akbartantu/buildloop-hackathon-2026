@@ -67,11 +67,14 @@ export async function applyDraftUpdate(
   task: StoredTask,
   input: { goal: string; acceptanceCriteria?: string[]; clarificationAnswer?: string },
   deps: PlanningDeps = {},
+  options?: { incrementVersion?: boolean },
 ): Promise<{ task: StoredTask; planned: Awaited<ReturnType<typeof planAndEvaluateTask>> }> {
   if (!canUpdateDraft(task as TaskRecord)) {
     throw new Error("Task cannot be edited in its current lifecycle state.");
   }
-  const planned = await replanTask(task, input, deps, { incrementVersion: false });
+  const planned = await replanTask(task, input, deps, {
+    incrementVersion: options?.incrementVersion ?? false,
+  });
   return {
     task: {
       ...task,

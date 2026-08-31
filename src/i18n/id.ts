@@ -211,6 +211,10 @@ export const id = {
     formDescription:
       "Tulis goal dan kriteria penerimaan yang jelas. BuildLoop membuat contract deterministik sebelum orchestrator dijalankan.",
     formPanelTitle: "Task baru",
+    editFormTitle: "Edit rencana task",
+    editFormDescription:
+      "Perbarui goal atau kriteria penerimaan. BuildLoop merevisi draft contract pada task yang sama.",
+    editFormPanelTitle: "Edit rencana",
     goalLabel: "Apa yang perlu dikerjakan?",
     goalPlaceholder:
       "Contoh: Update README subtitle to mention governed autonomous software delivery.",
@@ -220,6 +224,8 @@ export const id = {
     criteriaHelp: "Setiap baris menjadi acceptance criterion yang terkunci di contract.",
     criteriaEditingHelp:
       "Satu kriteria per baris. Perubahan Anda akan disimpan saat task dibuat.",
+    criteriaEditingHelpEdit:
+      "Satu kriteria per baris. Perubahan Anda memperbarui draft contract task ini.",
     criteriaReadyCount: "{count} kriteria siap",
     suggestedCriteriaAdded: "Kriteria yang disarankan ditambahkan",
     workspace: "Workspace",
@@ -227,6 +233,8 @@ export const id = {
     maxCorrections: "Maks. percobaan koreksi",
     protectedPaths: "Protected paths",
     createTask: "Buat task",
+    savePlan: "Simpan rencana",
+    updatePlanError: "Gagal menyimpan perubahan rencana.",
     createError: "Gagal membuat task.",
     notFound: "Task tidak ditemukan.",
     criteriaOptional: "Opsional — BuildLoop dapat menyarankan kriteria dari goal Anda.",

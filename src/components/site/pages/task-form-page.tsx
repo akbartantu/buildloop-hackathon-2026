@@ -19,6 +19,7 @@ import { analyzeTaskGoalPreview } from "@/lib/tasks.functions";
 import { abbreviateCommitSha } from "@/lib/repository/task-source-display";
 import { formatPlanningSourceLabel } from "@/lib/planning/planning-source";
 import { MAX_ATTEMPTS, PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
+import { canUpdateDraft } from "@/lib/task-lifecycle-ops";
 import { ClarificationGate, clarificationValidationMessageKey, resolveClarificationSubmission } from "@/components/site/clarification-gate";
 import { CLARIFICATION_OTHER_OPTION_ID } from "@/lib/planning/clarification-options";
 import type { TaskGoalAnalysis } from "@/lib/task-planning";
@@ -26,12 +27,15 @@ import type { TaskGoalAnalysis } from "@/lib/task-planning";
 export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
   const navigate = useNavigate();
   const { t } = useI18n();
-  const { tasks, createMutation } = useWorkspaceTasks();
+  const { tasks, createMutation, updateDraftTaskMutation } = useWorkspaceTasks();
   const { source, activeProject } = useProjects();
   const analyzeGoal = useServerFn(analyzeTaskGoalPreview);
   const criteriaTextareaRef = useRef<HTMLTextAreaElement>(null);
   const suggestedNoticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sourceTask = fromTaskId ? (tasks.find((task) => task.id === fromTaskId) ?? null) : null;
+  const isEditMode = Boolean(fromTaskId);
+  const canEditSourceTask = sourceTask ? canUpdateDraft(sourceTask) : false;
+  const isSaving = createMutation.isPending || updateDraftTaskMutation.isPending;
   const [taskGoal, setTaskGoal] = useState("");
   const [acceptanceCriteriaText, setAcceptanceCriteriaText] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
@@ -146,6 +150,10 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
 
   async function handleSubmit() {
     setFormError(null);
+    if (isEditMode && sourceTask && !canEditSourceTask) {
+      setFormError(t("tasks.updatePlanError"));
+      return;
+    }
     if (analysis?.needsClarification && analysis.clarificationQuestion) {
       const validationKey = clarificationValidationMessageKey({
         ...(analysis.clarificationPresentationMode
@@ -166,6 +174,22 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
     try {
       const acceptanceCriteria = parseAcceptanceCriteria(acceptanceCriteriaText);
       const clarification = resolvedClarification();
+      if (isEditMode && fromTaskId) {
+        const task = await updateDraftTaskMutation.mutateAsync({
+          id: fromTaskId,
+          goal: taskGoal,
+          ...(acceptanceCriteria ? { acceptanceCriteria } : {}),
+          ...(clarification.answer ? { clarificationAnswer: clarification.answer } : {}),
+        });
+        navigate({
+          to: "/app/tasks/$taskId",
+          params: { taskId: task.id },
+          search: { tab: "contract" },
+          replace: true,
+        });
+        return;
+      }
+
       const task = await createMutation.mutateAsync({
         goal: taskGoal,
         ...(acceptanceCriteria ? { acceptanceCriteria } : {}),
@@ -182,7 +206,13 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
         replace: true,
       });
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : t("tasks.createError"));
+      setFormError(
+        error instanceof Error
+          ? error.message
+          : isEditMode
+            ? t("tasks.updatePlanError")
+            : t("tasks.createError"),
+      );
     }
   }
 
@@ -190,9 +220,12 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
 
   return (
     <div className="space-y-6">
-      <DemoPageHeader title={t("tasks.formTitle")} description={t("tasks.formDescription")} />
+      <DemoPageHeader
+        title={isEditMode ? t("tasks.editFormTitle") : t("tasks.formTitle")}
+        description={isEditMode ? t("tasks.editFormDescription") : t("tasks.formDescription")}
+      />
 
-      <DemoPanel title={t("tasks.formPanelTitle")} tourTarget="task-goal">
+      <DemoPanel title={isEditMode ? t("tasks.editFormPanelTitle") : t("tasks.formPanelTitle")} tourTarget="task-goal">
         <div className="space-y-2">
           <Label htmlFor="task-goal">{t("tasks.goalLabel")}</Label>
           <Textarea
@@ -301,7 +334,15 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
             placeholder={t("tasks.criteriaPlaceholder")}
             rows={6}
           />
-          <p className="text-xs text-muted-foreground">{t("tasks.criteriaEditingHelp")}</p>
+          <p className="text-xs text-muted-foreground">
+            {isEditMode ? t("tasks.criteriaEditingHelpEdit") : t("tasks.criteriaEditingHelp")}
+          </p>
+          {isEditMode && fromTaskId && !sourceTask ? (
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          ) : null}
+          {isEditMode && sourceTask && !canEditSourceTask ? (
+            <p className="text-sm text-status-blocked">{t("tasks.updatePlanError")}</p>
+          ) : null}
           {formError ? <p className="text-sm text-status-blocked">{formError}</p> : null}
         </div>
 
@@ -345,11 +386,22 @@ export function TaskFormPage({ fromTaskId }: { fromTaskId?: string }) {
         </dl>
 
         <div className="mt-6 flex flex-wrap gap-3 border-t border-border pt-5">
-          <Button onClick={handleSubmit} disabled={createMutation.isPending}>
-            {createMutation.isPending ? t("common.saving") : t("tasks.createTask")}
+          <Button
+            onClick={handleSubmit}
+            disabled={
+              isSaving ||
+              (isEditMode && (!sourceTask || !canEditSourceTask))
+            }
+          >
+            {isSaving ? t("common.saving") : isEditMode ? t("tasks.savePlan") : t("tasks.createTask")}
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/app/tasks">{t("common.cancel")}</Link>
+            <Link
+              to={isEditMode && fromTaskId ? "/app/tasks/$taskId" : "/app/tasks"}
+              {...(isEditMode && fromTaskId ? { params: { taskId: fromTaskId } } : {})}
+            >
+              {t("common.cancel")}
+            </Link>
           </Button>
         </div>
       </DemoPanel>

@@ -56,6 +56,10 @@ describe("task form acceptance criteria i18n", () => {
     expect(translate("en", "tasks.criteriaEditingHelp")).toBe(
       "One criterion per line. Your edits will be saved when you create the task.",
     );
+    expect(translate("en", "tasks.criteriaEditingHelpEdit")).toBe(
+      "One criterion per line. Your edits update this task's draft contract.",
+    );
+    expect(translate("en", "tasks.savePlan")).toBe("Save plan");
     expect(translate("en", "tasks.criteriaReadyCount", { count: 5 })).toBe("5 criteria ready");
   });
 

@@ -109,29 +109,35 @@ export function DeliveryHandoffPanel({ handoff, viewModel, locale: localeProp }:
       ) : null}
 
       <div className="mt-4 space-y-4">
-        <CopyField
-          label={t("delivery.handoff.suggestedMessage")}
-          value={viewModel.suggestedCommitMessage}
-          locale={locale}
-        />
-        <CopyField
-          label={t("delivery.handoff.suggestedDescription")}
-          value={viewModel.suggestedCommitDescription}
-          locale={locale}
-        />
+        {viewModel.suggestedCommitMessage ? (
+          <CopyField
+            label={t("delivery.handoff.suggestedMessage")}
+            value={viewModel.suggestedCommitMessage}
+            locale={locale}
+          />
+        ) : null}
+        {viewModel.suggestedCommitDescription ? (
+          <CopyField
+            label={t("delivery.handoff.suggestedDescription")}
+            value={viewModel.suggestedCommitDescription}
+            locale={locale}
+          />
+        ) : null}
       </div>
 
-      <div className="mt-4">
-        <DemoSectionLabel>{t("delivery.handoff.applyLocally")}</DemoSectionLabel>
-        <CopyField label={t("delivery.handoff.applyCommands")} value={viewModel.applyCommands} locale={locale} />
-        <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
-          <li>{t("delivery.handoff.steps.apply")}</li>
-          <li>{t("delivery.handoff.steps.review")}</li>
-          <li>{t("delivery.handoff.steps.stage")}</li>
-          <li>{t("delivery.handoff.steps.commit")}</li>
-          <li>{t("delivery.handoff.steps.push")}</li>
-        </ol>
-      </div>
+      {viewModel.patchAvailable && viewModel.applyCommands.trim() ? (
+        <div className="mt-4">
+          <DemoSectionLabel>{t("delivery.handoff.applyLocally")}</DemoSectionLabel>
+          <CopyField label={t("delivery.handoff.applyCommands")} value={viewModel.applyCommands} locale={locale} />
+          <ol className="mt-3 list-decimal space-y-1 pl-5 text-sm text-muted-foreground">
+            <li>{t("delivery.handoff.steps.apply")}</li>
+            <li>{t("delivery.handoff.steps.review")}</li>
+            <li>{t("delivery.handoff.steps.stage")}</li>
+            <li>{t("delivery.handoff.steps.commit")}</li>
+            <li>{t("delivery.handoff.steps.push")}</li>
+          </ol>
+        </div>
+      ) : null}
 
       <div className="mt-4">
         <DemoSectionLabel>{t("delivery.handoff.remoteActions")}</DemoSectionLabel>

@@ -792,6 +792,8 @@ export const id = {
       sourceDriftWarning:
         "Repository telah berubah sejak patch ini diverifikasi. Jalankan ulang atau refresh task jika patch tidak lagi bisa diterapkan dengan bersih.",
       blockedDefault: "Patch unduhan tidak tersedia untuk hasil terverifikasi ini.",
+      loadError: "Paket delivery terverifikasi tidak dapat dimuat.",
+      loading: "Memuat paket delivery terverifikasi…",
       binaryNotice:
         "{count} file binary berubah. File tersebut dicantumkan sebagai referensi tetapi tidak disertakan dalam patch teks.",
       remoteActions: "Aksi remote",

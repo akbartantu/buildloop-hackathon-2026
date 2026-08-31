@@ -6,7 +6,7 @@ import { WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
 import type { RunnerState, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
-import { sanitizeTaskRecordForClient } from "@/lib/delivery-artifact-gate";
+import { sanitizeTaskRecordForClient, resolveAuthorizedDeliveryHandoff, DeliveryArtifactAccessError, type AuthorizedDeliveryHandoff } from "@/lib/delivery-artifact-gate";
 import { buildPlanningInputForTask, type PlanningDeps } from "@/lib/planning/build-planning-input";
 import { planAndEvaluateTask } from "@/lib/task-planning";
 import { DEV_AUTH_BYPASS_USER_ID } from "@/lib/dev-auth-bypass";
@@ -81,8 +81,8 @@ async function writeStore(store: DevTaskStore): Promise<void> {
   await writeFile(filePath, JSON.stringify(store, null, 2), "utf8");
 }
 
-function toRecord(task: DevTaskStore["tasks"][number]): TaskRecord {
-  return sanitizeTaskRecordForClient({
+function toRawRecord(task: DevTaskStore["tasks"][number]): TaskRecord {
+  return {
     id: task.id,
     workspace: task.workspace,
     goal: task.goal,
@@ -95,7 +95,11 @@ function toRecord(task: DevTaskStore["tasks"][number]): TaskRecord {
     lockedAt: task.lockedAt,
     projectId: task.projectId,
     sourceCommitSha: task.sourceCommitSha,
-  });
+  };
+}
+
+function toRecord(task: DevTaskStore["tasks"][number]): TaskRecord {
+  return sanitizeTaskRecordForClient(toRawRecord(task));
 }
 
 export type DevTaskRepository = ReturnType<typeof createDevTaskRepository>;
@@ -192,6 +196,18 @@ export function createDevTaskRepository(
       const store = await readStore();
       const task = store.tasks.find((item) => item.id === id);
       return task ? toRecord(task) : null;
+    },
+
+    async getAuthorizedDeliveryHandoff(input: {
+      id: string;
+      userId: string;
+    }): Promise<AuthorizedDeliveryHandoff> {
+      const store = await readStore();
+      const task = store.tasks.find((item) => item.id === input.id);
+      if (!task || task.userId !== input.userId) {
+        throw new DeliveryArtifactAccessError("Delivery handoff is not authorized.");
+      }
+      return resolveAuthorizedDeliveryHandoff(toRawRecord(task));
     },
 
     async listTasks(userId: string, filter?: { projectId?: string | null }): Promise<TaskRecord[]> {

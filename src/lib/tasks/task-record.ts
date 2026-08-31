@@ -18,8 +18,8 @@ export type TaskRowShape = {
   source_commit_sha?: string | null;
 };
 
-export function toTaskRecord(row: TaskRowShape): TaskRecord {
-  return sanitizeTaskRecordForClient({
+export function fromTaskRow(row: TaskRowShape): TaskRecord {
+  return {
     id: row.id,
     workspace: row.workspace,
     goal: row.goal,
@@ -32,5 +32,9 @@ export function toTaskRecord(row: TaskRowShape): TaskRecord {
     lockedAt: row.locked_at,
     projectId: row.project_id ?? null,
     sourceCommitSha: row.source_commit_sha ?? null,
-  });
+  };
+}
+
+export function toTaskRecord(row: TaskRowShape): TaskRecord {
+  return sanitizeTaskRecordForClient(fromTaskRow(row));
 }

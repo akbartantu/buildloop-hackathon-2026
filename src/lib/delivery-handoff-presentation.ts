@@ -70,6 +70,7 @@ export function buildDeliveryHandoffViewModel(input: {
   sourceCommitSha: string | null;
   sourceCommitDrift: boolean;
   locale?: Locale;
+  loadError?: string | null;
 }): DeliveryHandoffViewModel {
   const locale = input.locale ?? DEFAULT_LOCALE;
   const handoff = input.handoff;
@@ -79,24 +80,39 @@ export function buildDeliveryHandoffViewModel(input: {
   const binaryFiles = handoff.files
     .filter((file) => file.changeType === "binary")
     .map((file) => file.path);
-  const commands = buildGitApplyCommands({
-    patchFilename: handoff.patchFilename,
-    targetBranch: input.targetBranch,
-    changedFiles: textChangedFiles,
-    commitMessage: handoff.suggestedCommitMessage,
-    commitDescription: handoff.suggestedCommitDescription,
-  });
+  const patchAvailable = Boolean(handoff.patch?.trim() && !handoff.blocked && !input.loadError);
+  const commitMessage = handoff.suggestedCommitMessage.trim();
+  const commitDescription = handoff.suggestedCommitDescription.trim();
+  const commands =
+    patchAvailable && commitMessage
+      ? buildGitApplyCommands({
+          patchFilename: handoff.patchFilename,
+          targetBranch: input.targetBranch,
+          changedFiles: textChangedFiles,
+          commitMessage,
+          commitDescription: commitDescription || commitMessage,
+        })
+      : {
+          applyCommands: "",
+          pushCommand: `git push origin ${input.targetBranch.trim() || "<target-branch>"}`,
+        };
 
   return {
     title: t(locale, "delivery.handoff.title"),
     intro: t(locale, "delivery.handoff.intro"),
     patchFilename: handoff.patchFilename,
-    patchAvailable: Boolean(handoff.patch && !handoff.blocked),
-    blockedReason: handoff.blocked ? handoff.blockedReason ?? t(locale, "delivery.handoff.blockedDefault") : null,
+    patchAvailable,
+    blockedReason: input.loadError
+      ? input.loadError
+      : handoff.blocked
+        ? handoff.blockedReason ?? t(locale, "delivery.handoff.blockedDefault")
+        : !patchAvailable
+          ? t(locale, "delivery.handoff.blockedDefault")
+          : null,
     changedFiles: handoff.changedFiles,
     binaryFiles,
-    suggestedCommitMessage: handoff.suggestedCommitMessage,
-    suggestedCommitDescription: handoff.suggestedCommitDescription,
+    suggestedCommitMessage: commitMessage,
+    suggestedCommitDescription: commitDescription,
     verifiedAgainstSha: abbreviateCommitSha(handoff.baselineSha),
     sourceDriftWarning: input.sourceCommitDrift
       ? t(locale, "delivery.handoff.sourceDriftWarning")

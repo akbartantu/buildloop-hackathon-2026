@@ -6,6 +6,7 @@ import {
   DeliveryArtifactAccessError,
   isDeliveryArtifactAuthorized,
   readAuthorizedDeliveryPatch,
+  resolveAuthorizedDeliveryHandoff,
   sanitizeRunnerStateForClient,
   sanitizeTaskRecordForClient,
 } from "@/lib/delivery-artifact-gate";
@@ -122,11 +123,22 @@ describe("delivery artifact approval gate K", () => {
     expect(canShowDeliveryHandoff({ runnerState: task.runnerState })).toBe(true);
 
     const clientTask = sanitizeTaskRecordForClient(task);
-    expect(clientTask.runnerState?.deliveryHandoff?.patch).toContain("README.md");
+    expect(clientTask.runnerState?.deliveryHandoff?.patch).toBeNull();
+    expect(clientTask.runnerState?.deliveryHandoff?.suggestedCommitMessage).toBe("");
+
+    const authorized = resolveAuthorizedDeliveryHandoff(task);
+    expect(authorized.patch).toContain("verified");
+    expect(authorized.patchFilename).toContain("buildloop-");
+    expect(authorized.suggestedCommitMessage).toContain("feat:");
     expect(readAuthorizedDeliveryPatch(task.runnerState)).toContain("verified");
 
     const viewModel = buildDeliveryHandoffViewModel({
-      handoff: task.runnerState!.deliveryHandoff!,
+      handoff: {
+        ...task.runnerState!.deliveryHandoff!,
+        patch: authorized.patch,
+        suggestedCommitMessage: authorized.suggestedCommitMessage,
+        suggestedCommitDescription: authorized.suggestedCommitDescription,
+      },
       targetBranch: "main",
       sourceCommitSha: null,
       sourceCommitDrift: false,
@@ -135,6 +147,7 @@ describe("delivery artifact approval gate K", () => {
     expect(viewModel.patchAvailable).toBe(true);
     expect(viewModel.suggestedCommitMessage).toContain("feat:");
     expect(viewModel.applyCommands).toContain("git apply");
+    expect(viewModel.applyCommands).not.toContain("git commit -m ''");
   });
 
   test("40 approval from previous run does not unlock current run artifact", () => {

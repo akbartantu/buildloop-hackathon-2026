@@ -8,8 +8,13 @@ import type { TaskRecord } from "@/lib/tasks-schema";
 import { buildPlanningInputForTask, type PlanningDeps } from "@/lib/planning/build-planning-input";
 import { planAndEvaluateTask } from "@/lib/task-planning";
 import { getWorkspaceRoot } from "@/orchestrator/product/orchestrator";
-import { toTaskRecord, type TaskRowShape } from "@/lib/tasks/task-record";
-import { sanitizeRunnerStateForClient } from "@/lib/delivery-artifact-gate";
+import { toTaskRecord, fromTaskRow, type TaskRowShape } from "@/lib/tasks/task-record";
+import {
+  resolveAuthorizedDeliveryHandoff,
+  sanitizeRunnerStateForClient,
+  DeliveryArtifactAccessError,
+  type AuthorizedDeliveryHandoff,
+} from "@/lib/delivery-artifact-gate";
 import {
   applyClarificationAnswer,
   applyContractRefresh,
@@ -26,6 +31,26 @@ import { captureContractInputs } from "@/lib/task-rerun";
 
 const SELECT_COLUMNS =
   "id, workspace, goal, status, contract, blocked_reasons, runner_state, created_at, updated_at, locked_at, project_id, source_commit_sha";
+
+const SELECT_COLUMNS_WITH_OWNER = `${SELECT_COLUMNS}, user_id`;
+
+async function readTaskRow(
+  supabase: SupabaseClient<Database>,
+  id: string,
+  withOwner = false,
+): Promise<(TaskRowShape & { user_id?: string }) | null> {
+  const { data: row, error } = await supabase
+    .from("tasks")
+    .select(withOwner ? SELECT_COLUMNS_WITH_OWNER : SELECT_COLUMNS)
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    console.error("readTaskRow failed", error.code);
+    throw new Error("Task gagal dibaca.");
+  }
+  return row ? (row as unknown as TaskRowShape & { user_id?: string }) : null;
+}
 
 export type SupabaseTaskRepository = ReturnType<typeof createSupabaseTaskRepository>;
 
@@ -123,17 +148,19 @@ export function createSupabaseTaskRepository(
     },
 
     async getTask(id: string): Promise<TaskRecord | null> {
-      const { data: row, error } = await supabase
-        .from("tasks")
-        .select(SELECT_COLUMNS)
-        .eq("id", id)
-        .maybeSingle();
+      const row = await readTaskRow(supabase, id);
+      return row ? toTaskRecord(row) : null;
+    },
 
-      if (error) {
-        console.error("getTask failed", error.code);
-        throw new Error("Task gagal dibaca.");
+    async getAuthorizedDeliveryHandoff(input: {
+      id: string;
+      userId: string;
+    }): Promise<AuthorizedDeliveryHandoff> {
+      const row = await readTaskRow(supabase, input.id, true);
+      if (!row || row.user_id !== input.userId) {
+        throw new DeliveryArtifactAccessError("Delivery handoff is not authorized.");
       }
-      return row ? toTaskRecord(row as TaskRowShape) : null;
+      return resolveAuthorizedDeliveryHandoff(fromTaskRow(row));
     },
 
     async listTasks(userId: string, filter?: { projectId?: string | null }): Promise<TaskRecord[]> {
@@ -258,10 +285,11 @@ export function createSupabaseTaskRepository(
         throw new Error("Konfirmasi review diperlukan sebelum menyimpan approval commit.");
       }
 
-      const task = await this.getTask(input.id);
-      if (!task) {
+      const row = await readTaskRow(supabase, input.id);
+      if (!row) {
         throw new Error("Task tidak ditemukan.");
       }
+      const task = fromTaskRow(row);
 
       const runId = task.runnerState?.runId ?? null;
       const existing = findExistingHumanApproval(
@@ -271,7 +299,7 @@ export function createSupabaseTaskRepository(
         runId,
       );
       if (existing) {
-        return task;
+        return toTaskRecord(row as TaskRowShape);
       }
 
       const result = applyHumanApproval({
@@ -287,7 +315,7 @@ export function createSupabaseTaskRepository(
         ...(input.reviewType !== undefined ? { reviewType: input.reviewType } : {}),
       });
 
-      const { data: row, error: updateError } = await supabase
+      const { data: updatedRow, error: updateError } = await supabase
         .from("tasks")
         .update({
           status: result.status,
@@ -297,7 +325,7 @@ export function createSupabaseTaskRepository(
         .select(SELECT_COLUMNS)
         .maybeSingle();
 
-      if (updateError || !row) {
+      if (updateError || !updatedRow) {
         console.error("recordHumanApproval update failed", updateError?.code);
         throw new Error("Approval belum tersimpan. Coba lagi.");
       }
@@ -314,7 +342,7 @@ export function createSupabaseTaskRepository(
         throw new Error("Approval belum tersimpan. Coba lagi.");
       }
 
-      return toTaskRecord(row as TaskRowShape);
+      return toTaskRecord(updatedRow as TaskRowShape);
     },
 
     async updateDraftTask(input: {

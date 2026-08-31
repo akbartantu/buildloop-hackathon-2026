@@ -788,6 +788,8 @@ export const en = {
       sourceDriftWarning:
         "Repository has changed since this patch was verified. Re-run or refresh the task if the patch no longer applies cleanly.",
       blockedDefault: "Downloadable patch is not available for this verified result.",
+      loadError: "Verified delivery package could not be loaded.",
+      loading: "Loading verified delivery package…",
       binaryNotice:
         "{count} binary file(s) changed. They are listed for reference but are not included in the text patch.",
       remoteActions: "Remote actions",

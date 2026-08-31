@@ -83,11 +83,10 @@ import { cn } from "@/lib/utils";
 import { TaskOverviewView } from "@/components/site/task-overview-view";
 import { LifecycleProgressPanel } from "@/components/site/lifecycle-progress-panel";
 import { ChangeEvidencePanel } from "@/components/site/change-evidence-panel";
-import { DeliveryHandoffPanel } from "@/components/site/delivery-handoff-panel";
+import { AuthorizedDeliveryHandoffSection } from "@/components/site/authorized-delivery-handoff-section";
 import { EvidenceSummaryPanel } from "@/components/site/evidence-summary-panel";
 import { buildChangeEvidenceViewModel } from "@/lib/change-evidence-presentation";
 import {
-  buildDeliveryHandoffViewModel,
   canShowDeliveryHandoff,
 } from "@/lib/delivery-handoff-presentation";
 import { SemanticStatusBadge } from "@/components/site/semantic-status-badge";
@@ -1116,15 +1115,6 @@ function ApprovalView({
     canShowDeliveryHandoff({
       runnerState: runner ?? null,
     }) && deliveryHandoff;
-  const deliveryViewModel = showDelivery
-    ? buildDeliveryHandoffViewModel({
-        handoff: deliveryHandoff,
-        targetBranch: taskSourceBranch(task, activeProject),
-        sourceCommitSha: taskSourceCommitSha(task, activeProject),
-        sourceCommitDrift,
-        locale,
-      })
-    : null;
   const [decision, setDecision] = useState<HumanGateDecision>("APPROVE_COMMIT");
   const [confirmedReview, setConfirmedReview] = useState(false);
   const [decisionNote, setDecisionNote] = useState("");
@@ -1269,11 +1259,12 @@ function ApprovalView({
               />
             </DemoPanel>
 
-            {showDelivery && deliveryViewModel ? (
-              <DeliveryHandoffPanel
-                handoff={deliveryHandoff}
-                viewModel={deliveryViewModel}
+            {showDelivery ? (
+              <AuthorizedDeliveryHandoffSection
+                task={task}
                 locale={locale}
+                activeProject={activeProject}
+                sourceCommitDrift={sourceCommitDrift}
               />
             ) : null}
           </>

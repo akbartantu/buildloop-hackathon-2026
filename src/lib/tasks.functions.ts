@@ -46,6 +46,16 @@ export const getTaskState = createServerFn({ method: "POST" })
     return context.tasks.getTaskState(data.id);
   });
 
+export const getAuthorizedDeliveryHandoff = createServerFn({ method: "POST" })
+  .middleware([requireAuth])
+  .inputValidator((input: unknown) => taskIdSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    return context.tasks.getAuthorizedDeliveryHandoff({
+      id: data.id,
+      userId: context.auth.userId,
+    });
+  });
+
 export const listTasks = createServerFn({ method: "POST" })
   .middleware([requireAuth])
   .inputValidator((input: unknown) => listTasksSchema.parse(input ?? {}))

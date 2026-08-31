@@ -97,8 +97,9 @@ export function useWorkspaceTasks() {
       }
       return submitHumanApproval({ data: payload });
     },
-    onSuccess: async () => {
+    onSuccess: async (_result, input) => {
       await queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      await queryClient.invalidateQueries({ queryKey: ["authorized-delivery", input.id] });
     },
   });
 

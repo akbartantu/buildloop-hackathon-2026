@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 import { safeLogSummary } from "@/lib/redaction";
-import { GeminiClientError } from "./errors";
+import { GeminiClientError, type WorkerOutputParseDiagnostics } from "./errors";
 import {
   classifyGeminiError,
   computeOperationalBackoffMs,
@@ -166,7 +166,7 @@ export class GeminiClient {
   }
 }
 
-export { GeminiClientError } from "./errors";
+export { GeminiClientError, type WorkerOutputParseDiagnostics } from "./errors";
 
 export const workerOutputSchema = z.object({
   summary: z.string().min(1),
@@ -197,33 +197,160 @@ export function normalizeWorkerFilePath(filePath: string): string {
   return normalized;
 }
 
+const UTF8_BOM = "\uFEFF";
+const SINGLE_FENCE_PATTERN = /^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/i;
+
+export function stripWorkerOutputBom(raw: string): string {
+  return raw.startsWith(UTF8_BOM) ? raw.slice(UTF8_BOM.length) : raw;
+}
+
+export function inspectWorkerOutputFence(raw: string): Pick<
+  WorkerOutputParseDiagnostics,
+  "startsWithFence" | "endsWithFence"
+> {
+  const trimmed = stripWorkerOutputBom(raw).trim();
+  return {
+    startsWithFence: trimmed.startsWith("```"),
+    endsWithFence: trimmed.endsWith("```"),
+  };
+}
+
+function describeParsedWorkerPayload(parsed: unknown): Pick<
+  WorkerOutputParseDiagnostics,
+  "topLevelType" | "topLevelKeys" | "changedFilesPresent" | "changedFilesType"
+> {
+  if (parsed === null || typeof parsed !== "object") {
+    return {
+      topLevelType: parsed === null ? "null" : typeof parsed,
+      topLevelKeys: null,
+      changedFilesPresent: false,
+      changedFilesType: null,
+    };
+  }
+  if (Array.isArray(parsed)) {
+    return {
+      topLevelType: "array",
+      topLevelKeys: null,
+      changedFilesPresent: false,
+      changedFilesType: null,
+    };
+  }
+  const record = parsed as Record<string, unknown>;
+  const changedFiles = record["changedFiles"] ?? record["changed_files"];
+  return {
+    topLevelType: "object",
+    topLevelKeys: Object.keys(record),
+    changedFilesPresent: changedFiles !== undefined,
+    changedFilesType:
+      changedFiles === undefined ? null : Array.isArray(changedFiles) ? "array" : typeof changedFiles,
+  };
+}
+
+export function buildWorkerOutputParseDiagnostics(input: {
+  raw: string;
+  parsed?: unknown;
+  schemaFailureCode?: string | null;
+}): WorkerOutputParseDiagnostics {
+  const fence = inspectWorkerOutputFence(input.raw);
+  const payload = describeParsedWorkerPayload(input.parsed ?? null);
+  return {
+    ...fence,
+    ...payload,
+    schemaFailureCode: input.schemaFailureCode ?? null,
+  };
+}
+
+function throwWorkerOutputParseFailure(
+  message: string,
+  input: {
+    raw: string;
+    parsed?: unknown;
+    schemaFailureCode?: string | null;
+  },
+): never {
+  throw new GeminiClientError("GEMINI_MALFORMED", message, undefined, undefined, {
+    parseDiagnostics: buildWorkerOutputParseDiagnostics(input),
+  });
+}
+
+/** Map harmless representation aliases onto the canonical worker output schema. */
+export function normalizeWorkerOutputPayload(parsed: unknown): unknown {
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return parsed;
+  }
+
+  const record = { ...(parsed as Record<string, unknown>) };
+  if (record["changedFiles"] === undefined && Array.isArray(record["changed_files"])) {
+    record["changedFiles"] = record["changed_files"];
+    delete record["changed_files"];
+  }
+
+  if (Array.isArray(record["changedFiles"])) {
+    record["changedFiles"] = record["changedFiles"].map((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return entry;
+      }
+      const file = entry as Record<string, unknown>;
+      if (typeof file["path"] === "string") {
+        return entry;
+      }
+      if (typeof file["filename"] === "string") {
+        return { ...file, path: file["filename"] };
+      }
+      return entry;
+    });
+  }
+
+  return record;
+}
+
 export function extractWorkerOutputJson(raw: string): string {
-  const trimmed = raw.trim();
-  const fenced = trimmed.match(/```(?:json)?\s*\n([\s\S]*?)\n```/i);
+  const trimmed = stripWorkerOutputBom(raw).trim();
+  if (!trimmed) {
+    throwWorkerOutputParseFailure("Worker output was empty.", { raw });
+  }
+
+  const fenced = trimmed.match(SINGLE_FENCE_PATTERN);
   if (fenced?.[1]) {
     return fenced[1].trim();
   }
-  const jsonStart = trimmed.indexOf("{");
-  const jsonEnd = trimmed.lastIndexOf("}");
-  return jsonStart >= 0 && jsonEnd > jsonStart ? trimmed.slice(jsonStart, jsonEnd + 1) : trimmed;
+
+  if (trimmed.startsWith("{")) {
+    return trimmed;
+  }
+
+  throwWorkerOutputParseFailure(
+    "Worker output was not a single JSON object or fenced JSON block.",
+    { raw },
+  );
 }
 
 export function parseWorkerStructuredOutput(raw: string): WorkerStructuredOutput {
-  const candidate = extractWorkerOutputJson(raw);
+  let candidate = "";
   let parsed: unknown;
   try {
+    candidate = extractWorkerOutputJson(raw);
     parsed = JSON.parse(candidate);
-  } catch {
-    throw new GeminiClientError(
-      "GEMINI_MALFORMED",
-      "Worker output was not valid JSON.",
-    );
+  } catch (error) {
+    if (error instanceof GeminiClientError) {
+      throw error;
+    }
+    throwWorkerOutputParseFailure("Worker output was not valid JSON.", {
+      raw,
+      schemaFailureCode: "invalid_json",
+    });
   }
-  const validated = workerOutputSchema.safeParse(parsed);
+
+  const normalized = normalizeWorkerOutputPayload(parsed);
+  const validated = workerOutputSchema.safeParse(normalized);
   if (!validated.success) {
-    throw new GeminiClientError(
-      "GEMINI_MALFORMED",
-      `Worker output failed schema validation: ${validated.error.message}`,
+    throwWorkerOutputParseFailure(
+      "Worker output failed schema validation.",
+      {
+        raw,
+        parsed: normalized,
+        schemaFailureCode: validated.error.issues[0]?.code ?? "invalid_schema",
+      },
     );
   }
   return validated.data;

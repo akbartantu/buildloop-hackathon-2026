@@ -102,6 +102,7 @@ function logWorkerExecutionFailure(input: {
   rawResponseLength?: number;
   changedFilesCount?: number;
   changedFilePaths?: string[];
+  parseDiagnostics?: import("../gemini/errors").WorkerOutputParseDiagnostics;
 }) {
   console.error("[worker] execution failed", {
     attempt: input.attemptNumber,
@@ -110,6 +111,17 @@ function logWorkerExecutionFailure(input: {
     rawResponseLength: input.rawResponseLength,
     changedFilesCount: input.changedFilesCount,
     changedFilePaths: input.changedFilePaths,
+    ...(input.parseDiagnostics
+      ? {
+          startsWithFence: input.parseDiagnostics.startsWithFence,
+          endsWithFence: input.parseDiagnostics.endsWithFence,
+          topLevelType: input.parseDiagnostics.topLevelType,
+          topLevelKeys: input.parseDiagnostics.topLevelKeys,
+          changedFilesPresent: input.parseDiagnostics.changedFilesPresent,
+          changedFilesType: input.parseDiagnostics.changedFilesType,
+          schemaFailureCode: input.parseDiagnostics.schemaFailureCode,
+        }
+      : {}),
     message: safeLogSummary(input.message, 200),
   });
 }
@@ -189,6 +201,9 @@ export class AdkGeminiWorker implements CodingWorker {
           code: error instanceof GeminiClientError ? error.code : "WORKER_ERROR",
           message: error instanceof Error ? error.message : String(error),
           rawResponseLength: result.text.length,
+          ...(error instanceof GeminiClientError && error.parseDiagnostics
+            ? { parseDiagnostics: error.parseDiagnostics }
+            : {}),
         });
         throw error;
       }
@@ -248,6 +263,9 @@ export class AdkGeminiWorker implements CodingWorker {
         stage,
         code: rawCode,
         message: rawMessage,
+        ...(error instanceof GeminiClientError && error.parseDiagnostics
+          ? { parseDiagnostics: error.parseDiagnostics }
+          : {}),
         ...(error instanceof WorkerPatchRejectedError
           ? { changedFilePaths: [error.path], changedFilesCount: 0 }
           : {}),

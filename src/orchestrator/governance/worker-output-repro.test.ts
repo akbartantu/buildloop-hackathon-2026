@@ -13,11 +13,28 @@ import { DeterministicChecker } from "../checker/deterministic-checker";
 import { createDraftContract, lockContract } from "../contract/schema";
 import { decide } from "../decision/engine";
 import {
+  buildWorkerOutputParseDiagnostics,
   extractWorkerOutputJson,
   normalizeWorkerFilePath,
+  normalizeWorkerOutputPayload,
   parseWorkerStructuredOutput,
 } from "../gemini/client";
+import { GeminiClientError } from "../gemini/errors";
 import { isOperationalWorkerError } from "../gemini/retry-policy";
+
+const validPayload = {
+  summary: "Added prototype pages.",
+  changedFiles: [
+    {
+      path: "prototype/index.html",
+      content: "<!doctype html><html><head></head><body><h1>Clevia</h1></body></html>",
+    },
+    {
+      path: "prototype/styles.css",
+      content: "body { margin: 0; font-family: sans-serif; }\n.main { display: flex; }",
+    },
+  ],
+};
 
 function staticPrototypeContract() {
   return lockContract(
@@ -25,7 +42,7 @@ function staticPrototypeContract() {
       id: crypto.randomUUID(),
       taskId: crypto.randomUUID(),
       version: 1,
-      goal: "Add static HTML/CSS prototype pages.",
+      goal: "Create prototype/index.html and prototype/styles.css only.",
       inScope: ["prototype/**"],
       outOfScope: [],
       acceptanceCriteria: ["Prototype pages render static layout."],
@@ -52,15 +69,7 @@ function mockStaticPrototypeRunner(text: string) {
 
 describe("worker structured output parsing", () => {
   test("valid raw JSON response parses two allowed files", () => {
-    const parsed = parseWorkerStructuredOutput(
-      JSON.stringify({
-        summary: "Added prototype pages.",
-        changedFiles: [
-          { path: "prototype/index.html", content: "<!doctype html><html></html>" },
-          { path: "prototype/styles.css", content: "body { margin: 0; }" },
-        ],
-      }),
-    );
+    const parsed = parseWorkerStructuredOutput(JSON.stringify(validPayload));
     expect(parsed.changedFiles).toHaveLength(2);
   });
 
@@ -74,13 +83,102 @@ describe("worker structured output parsing", () => {
     expect(extractWorkerOutputJson("```json\n" + inner + "\n```")).toBe(inner);
   });
 
-  test("malformed JSON throws structured parse error", () => {
-    expect(() => parseWorkerStructuredOutput("{not-json")).toThrow();
+  test("fenced JSON without newline after label parses safely", () => {
+    const inner = JSON.stringify(validPayload);
+    const parsed = parseWorkerStructuredOutput("```json" + inner + "```");
+    expect(parsed.changedFiles).toHaveLength(2);
+  });
+
+  test("JSON with BOM and surrounding whitespace parses safely", () => {
+    const parsed = parseWorkerStructuredOutput("  \uFEFF" + JSON.stringify(validPayload) + "  \n");
+    expect(parsed.changedFiles).toHaveLength(2);
+  });
+
+  test("changed_files alias normalizes to changedFiles", () => {
+    const parsed = parseWorkerStructuredOutput(
+      JSON.stringify({
+        summary: validPayload.summary,
+        changed_files: validPayload.changedFiles,
+      }),
+    );
+    expect(parsed.changedFiles).toHaveLength(2);
+    expect(parsed.changedFiles[0]?.path).toBe("prototype/index.html");
+  });
+
+  test("filename alias normalizes to path within changedFiles entries", () => {
+    const parsed = parseWorkerStructuredOutput(
+      JSON.stringify({
+        summary: validPayload.summary,
+        changedFiles: [
+          { filename: "prototype/index.html", content: validPayload.changedFiles[0]!.content },
+          { filename: "prototype/styles.css", content: validPayload.changedFiles[1]!.content },
+        ],
+      }),
+    );
+    expect(parsed.changedFiles.map((file) => file.path)).toEqual([
+      "prototype/index.html",
+      "prototype/styles.css",
+    ]);
+  });
+
+  test("arbitrary prose plus JSON remains rejected", () => {
+    expect(() =>
+      parseWorkerStructuredOutput("Here is the implementation:\n" + JSON.stringify(validPayload)),
+    ).toThrow(GeminiClientError);
+  });
+
+  test("multiple JSON objects remain rejected", () => {
+    expect(() =>
+      parseWorkerStructuredOutput(JSON.stringify(validPayload) + "\n" + JSON.stringify(validPayload)),
+    ).toThrow(GeminiClientError);
+  });
+
+  test("invalid JSON remains GEMINI_MALFORMED with diagnostics", () => {
     try {
       parseWorkerStructuredOutput("{not-json");
     } catch (error) {
-      expect(error).toMatchObject({ code: "GEMINI_MALFORMED" });
+      expect(error).toBeInstanceOf(GeminiClientError);
+      expect((error as GeminiClientError).code).toBe("GEMINI_MALFORMED");
+      expect((error as GeminiClientError).parseDiagnostics?.schemaFailureCode).toBe("invalid_json");
+      return;
     }
+    throw new Error("expected parse failure");
+  });
+
+  test("schema-missing changedFiles remains rejected", () => {
+    try {
+      parseWorkerStructuredOutput(JSON.stringify({ summary: "Only summary provided." }));
+    } catch (error) {
+      expect(error).toBeInstanceOf(GeminiClientError);
+      expect((error as GeminiClientError).parseDiagnostics?.changedFilesPresent).toBe(false);
+      expect((error as GeminiClientError).parseDiagnostics?.schemaFailureCode).toBeTruthy();
+      return;
+    }
+    throw new Error("expected schema failure");
+  });
+
+  test("normalizeWorkerOutputPayload leaves unrelated keys untouched", () => {
+    const normalized = normalizeWorkerOutputPayload({
+      summary: "x",
+      files: [{ path: "ignored.ts", content: "x" }],
+    }) as Record<string, unknown>;
+    expect(normalized.files).toBeDefined();
+    expect(normalized.changedFiles).toBeUndefined();
+  });
+
+  test("parse diagnostics capture safe metadata without content", () => {
+    const diagnostics = buildWorkerOutputParseDiagnostics({
+      raw: "```json\n" + JSON.stringify({ summary: "x", changed_files: [] }) + "\n```",
+      parsed: { summary: "x", changed_files: [] },
+      schemaFailureCode: "too_small",
+    });
+    expect(diagnostics.startsWithFence).toBe(true);
+    expect(diagnostics.endsWithFence).toBe(true);
+    expect(diagnostics.topLevelType).toBe("object");
+    expect(diagnostics.topLevelKeys).toContain("changed_files");
+    expect(diagnostics.changedFilesPresent).toBe(true);
+    expect(diagnostics.changedFilesType).toBe("array");
+    expect(diagnostics.schemaFailureCode).toBe("too_small");
   });
 
   test("normalizeWorkerFilePath accepts ./ and leading slash prefixes", () => {
@@ -100,6 +198,33 @@ describe("AdkGeminiWorker static prototype apply path", () => {
     }
   });
 
+  test("live-like changed_files fenced output applies 2 allowed files", async () => {
+    sandbox = path.join(tmpdir(), `bl-worker-static-${crypto.randomUUID()}`);
+    await mkdir(sandbox, { recursive: true });
+    mockStaticPrototypeRunner(
+      "```json\n" +
+        JSON.stringify({
+          summary: validPayload.summary,
+          changed_files: [
+            { filename: "./prototype/index.html", content: validPayload.changedFiles[0]!.content },
+            { filename: "./prototype/styles.css", content: validPayload.changedFiles[1]!.content },
+          ],
+        }) +
+        "\n```",
+    );
+
+    const report = await new AdkGeminiWorker().execute({
+      contract: staticPrototypeContract(),
+      sandboxRoot: sandbox,
+      workspaceRoot: sandbox,
+      sourceRevision: "a10183eb",
+      attemptNumber: 1,
+    });
+
+    expect(report.error).toBeUndefined();
+    expect(report.filesChanged).toEqual(["prototype/index.html", "prototype/styles.css"]);
+  });
+
   test("prefixed paths apply to allowed static files", async () => {
     sandbox = path.join(tmpdir(), `bl-worker-static-${crypto.randomUUID()}`);
     await mkdir(sandbox, { recursive: true });
@@ -107,15 +232,14 @@ describe("AdkGeminiWorker static prototype apply path", () => {
       JSON.stringify({
         summary: "Added prototype pages.",
         changedFiles: [
-          { path: "./prototype/index.html", content: "<!doctype html><html></html>" },
-          { path: "./prototype/styles.css", content: "body { margin: 0; }" },
+          { path: "./prototype/index.html", content: validPayload.changedFiles[0]!.content },
+          { path: "./prototype/styles.css", content: validPayload.changedFiles[1]!.content },
         ],
       }),
     );
 
-    const contract = staticPrototypeContract();
     const report = await new AdkGeminiWorker().execute({
-      contract,
+      contract: staticPrototypeContract(),
       sandboxRoot: sandbox,
       workspaceRoot: sandbox,
       sourceRevision: "a10183eb",
@@ -153,15 +277,7 @@ describe("AdkGeminiWorker static prototype apply path", () => {
   test("clevia static task reaches checker with filesChanged=2", async () => {
     sandbox = path.join(tmpdir(), `bl-worker-static-${crypto.randomUUID()}`);
     await mkdir(sandbox, { recursive: true });
-    mockStaticPrototypeRunner(
-      JSON.stringify({
-        summary: "Added prototype pages.",
-        changedFiles: [
-          { path: "prototype/index.html", content: "<!doctype html><html></html>" },
-          { path: "prototype/styles.css", content: "body { margin: 0; }" },
-        ],
-      }),
-    );
+    mockStaticPrototypeRunner(JSON.stringify(validPayload));
 
     const contract = staticPrototypeContract();
     const workerReport = await new AdkGeminiWorker().execute({
@@ -194,9 +310,8 @@ describe("AdkGeminiWorker static prototype apply path", () => {
     await mkdir(sandbox, { recursive: true });
     mockStaticPrototypeRunner("{not-json");
 
-    const contract = staticPrototypeContract();
     const workerReport = await new AdkGeminiWorker().execute({
-      contract,
+      contract: staticPrototypeContract(),
       sandboxRoot: sandbox,
       workspaceRoot: sandbox,
       sourceRevision: "a10183eb",
@@ -209,7 +324,7 @@ describe("AdkGeminiWorker static prototype apply path", () => {
     const checkerResult = await new DeterministicChecker().run({
       runId: "run-parse-fail",
       attemptNumber: 1,
-      contract,
+      contract: staticPrototypeContract(),
       sandboxRoot: sandbox,
       workspaceRoot: sandbox,
       workerReport,
@@ -237,9 +352,9 @@ describe("worker execution evidence presentation", () => {
     const task: TaskRecord = {
       id: "00000000-0000-4000-8000-000000000010",
       workspace: "akbartantu/clevia",
-      goal: "Add static HTML/CSS prototype pages.",
+      goal: "Create prototype/index.html and prototype/styles.css only.",
       status: "FAILED",
-      contract: buildContract("Add static HTML/CSS prototype pages."),
+      contract: buildContract("Create prototype/index.html and prototype/styles.css only."),
       blockedReasons: [],
       runnerState: {
         ...zeroChangeRunnerState("Worker failed."),

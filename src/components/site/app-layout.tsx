@@ -28,9 +28,8 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useWorkspaceSession } from "@/hooks/use-workspace-session";
-import { useWorkspaceTasks } from "@/hooks/use-workspace-tasks";
 import { WorkspaceSwitcher } from "@/components/site/workspace-switcher";
-import { ProductTour, useProductTourController } from "@/components/site/product-tour";
+import { useProductTour } from "@/components/site/product-tour-host";
 import {
   APP_NAV_ITEMS,
   APP_SECONDARY_NAV_ITEMS,
@@ -82,7 +81,10 @@ function NavLink({ item, isActive }: { item: AppNavItem; isActive: boolean }) {
 
   return (
     <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
-      <Link to={item.to!} data-tour={`nav-${item.key}`}>
+      <Link
+        to={item.to!}
+        data-tour={item.key === "runs" ? "lifecycle" : `nav-${item.key}`}
+      >
         <Icon className="size-4" />
         <span>{label}</span>
       </Link>
@@ -96,17 +98,19 @@ export function AppLayout() {
 
 function AppLayoutContent() {
   const { displayName, email, avatarUrl } = useWorkspaceSession();
-  const { tasks } = useWorkspaceTasks();
   const { t } = useI18n();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
   const activeNav = resolveActiveNav(pathname);
-  const latestTask = tasks[0] ?? null;
-  const hasRunEvidence = Boolean(latestTask?.runnerState?.runnerInvoked);
-  const tour = useProductTourController(latestTask?.id ?? null, hasRunEvidence);
+  const tour = useProductTour();
 
   return (
     <SidebarProvider defaultOpen>
-      <Sidebar collapsible="icon" className="border-r border-sidebar-border" data-testid="workspace-sidebar">
+      <Sidebar
+        collapsible="icon"
+        className="border-r border-sidebar-border"
+        data-testid="workspace-sidebar"
+        data-tour="workspace-sidebar"
+      >
         <SidebarHeader className="gap-3 p-4">
           <Link
             to="/app"
@@ -174,21 +178,15 @@ function AppLayoutContent() {
       </Sidebar>
 
       <SidebarInset className="min-h-svh bg-background" data-testid="workspace-app-layout">
-        <AppShellHeader onReplayTour={() => tour.start({ replay: true })} />
+        <AppShellHeader
+          {...(tour ? { onReplayTour: () => tour.start({ replay: true }) } : {})}
+        />
 
         <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8" data-tour="main-content">
           <Outlet />
         </div>
       </SidebarInset>
 
-      <ProductTour
-        active={tour.isActive}
-        stepIndex={tour.stepIndex}
-        latestTaskId={latestTask?.id ?? null}
-        hasRunEvidence={hasRunEvidence}
-        onClose={tour.close}
-        onStepChange={tour.setStepIndex}
-      />
     </SidebarProvider>
   );
 }

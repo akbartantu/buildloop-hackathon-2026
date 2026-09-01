@@ -57,7 +57,45 @@ describe("workspace overview page behavior", () => {
     expect(source).toContain('data-testid={`workspace-card-${project.id}`}');
     expect(source).toContain('navigate({ to: "/app/dashboard" })');
     expect(source).toContain('search={{ create: "1" }}');
-    expect(source).toContain("WorkspaceOverviewEmptyState");
+  });
+
+  test("primary create workspace CTA appears in heading area", async () => {
+    const source = await readSource(overviewSourcePath);
+    expect(source).toContain("CreateWorkspacePrimaryButton");
+    expect(source).toContain('data-testid="workspace-create-primary"');
+    expect(source).toContain("sm:flex-row sm:items-start sm:justify-between");
+  });
+
+  test("create-workspace tile is first in grid before workspace cards", async () => {
+    const source = await readSource(overviewSourcePath);
+    const gridSection = source.slice(
+      source.indexOf('data-testid="workspace-overview-grid"'),
+      source.indexOf("WorkspaceUsagePanel workspaceCount"),
+    );
+    expect(gridSection.indexOf("<CreateWorkspaceCard />")).toBeLessThan(
+      gridSection.indexOf("projects.map"),
+    );
+  });
+
+  test("duplicate bottom create workspace CTA is removed", async () => {
+    const source = await readSource(overviewSourcePath);
+    expect(source).not.toContain("projects.length > 0 ?");
+    expect(source).not.toContain("WorkspaceOverviewEmptyState");
+    expect(source).toContain("CreateWorkspacePrimaryButton");
+    expect(source).toContain("<CreateWorkspaceCard />");
+  });
+
+  test("usage panel remains in workspace overview grid", async () => {
+    const source = await readSource(overviewSourcePath);
+    expect(source).toContain('data-testid="workspace-usage-panel"');
+    expect(source).toContain("<WorkspaceUsagePanel workspaceCount={projects.length} />");
+  });
+
+  test("zero-workspace state uses create tile and usage panel without placeholder cards", async () => {
+    const source = await readSource(overviewSourcePath);
+    expect(source).not.toContain("WorkspaceOverviewEmptyState");
+    expect(source).toContain("<CreateWorkspaceCard />");
+    expect(source).not.toContain("projects.length === 0");
   });
 
   test("usage panel omits fake upgrade and quota limits", async () => {
@@ -70,11 +108,11 @@ describe("workspace overview page behavior", () => {
     expect(source).not.toContain("pricing-plans");
   });
 
-  test("layout uses responsive grid without forcing overflow", async () => {
+  test("layout uses responsive unified grid without forcing overflow", async () => {
     const source = await readSource(overviewSourcePath);
     expect(source).toContain("workspaceOverviewLayoutClassName");
-    expect(source).toContain("lg:grid-cols-3");
-    expect(source).toContain("sm:grid-cols-2");
+    expect(source).toContain("workspaceOverviewGridClassName");
+    expect(source).not.toContain("lg:grid-cols-3");
   });
 });
 

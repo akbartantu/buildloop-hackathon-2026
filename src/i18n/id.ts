@@ -40,44 +40,51 @@ export const id = {
     createFirstTask: "Buat task pertama",
     evidencePending:
       "Evidence muncul setelah Anda menjalankan orchestrator pada task yang sudah disetujui.",
-    specificationsPending:
-      "Hubungkan repositori terlebih dahulu, lalu impor specifications dari halaman Projects.",
     steps: {
-      workspace: {
-        title: "Pilih workspace Anda",
-        body: "Buat atau pilih workspace. Setiap workspace terhubung ke satu repositori GitHub publik dan menyimpan task, specifications, serta riwayat run sendiri.",
+      welcome: {
+        title: "Selamat datang di BuildLoop",
+        body: "BuildLoop mengorganisir pekerjaan pengiriman perangkat lunak yang tergoverned per workspace. Setiap workspace menyimpan konteks repositori, task, run, evidence, dan approval sendiri.",
       },
-      repository: {
-        title: "Hubungkan repositori",
-        body: "Hubungkan satu repositori GitHub publik ke workspace ini. BuildLoop memakai repositori itu sebagai batas eksekusi task.",
+      "workspace-overview": {
+        title: "Workspace Anda",
+        body: "Pilih workspace yang sudah ada atau buat workspace baru. Halaman ini adalah beranda global sebelum Anda membuka workspace.",
       },
-      specifications: {
-        title: "Impor specifications (opsional)",
-        body: "Unggah PRD, catatan arsitektur, atau folder Spec Kit sekali saja. BuildLoop memakai ulang sebagai konteks planning dan mengutip file relevan di Sources Used. Jangan unggah kredensial atau secret.",
+      "open-workspace": {
+        title: "Buat atau buka workspace",
+        bodyOpen:
+          "Buka workspace untuk masuk ke dashboard-nya. Setiap workspace memisahkan konteks repositori, task, run, evidence, dan approval.",
+        bodyCreate:
+          "Buat workspace pertama untuk menghubungkan repositori dan memulai delivery yang tergoverned. Setiap workspace menyimpan task, run, evidence, dan approval sendiri.",
+      },
+      "workspace-shell": {
+        title: "Navigasi workspace",
+        body: "Sidebar ini berlaku untuk workspace yang Anda buka. Home, Projects, Tasks, Runs, Approvals, dan Settings semuanya beroperasi di dalam workspace tersebut.",
+      },
+      "workspace-switcher": {
+        title: "Ganti workspace",
+        body: "Gunakan workspace switcher untuk berpindah antar workspace. Pilih All workspaces kapan saja untuk kembali ke overview di /app.",
       },
       "create-task": {
-        title: "Buat task terbatas",
-        body: "Jelaskan perubahan yang diinginkan, lalu analisis goal. BuildLoop memeriksa repositori dan specifications relevan untuk mengusulkan acceptance criteria dan scope terbatas.",
+        title: "Buat task",
+        body: "Jelaskan goal pengembangan perangkat lunak yang terbatas. BuildLoop menganalisisnya dan mengubah hasilnya menjadi contract sebelum eksekusi dimulai.",
       },
-      contract: {
-        title: "Tinjau contract",
-        body: "Konfirmasi goal, acceptance criteria, scope yang diizinkan, dan Sources Used. BuildLoop hanya mengajukan satu klarifikasi tertarget bila keputusan benar-benar ambigu.",
-      },
-      orchestration: {
-        title: "Mulai orchestration",
-        body: "Setelah contract disetujui, BuildLoop menjalankan preflight, worker, checker, dan hingga dua koreksi terbatas. Worker tidak menentukan PASS sendiri.",
+      lifecycle: {
+        title: "Lifecycle tergoverned",
+        body: "Run mengikuti Planning → Preflight → Worker → Checker → Decision. BuildLoop mengizinkan koreksi terbatas, menghentikan aksi berisiko, dan menampilkan status nyata alih-alih progress persentase palsu.",
       },
       evidence: {
-        title: "Periksa hasil",
-        body: "Evidence menampilkan checks, attempts, file yang berubah, dan hasil checker sehingga PASS, FAILED, atau BLOCKED dapat dipahami.",
+        title: "Evidence",
+        body: "Tinjau file yang berubah, checks, hasil protected-path, dan verdict akhir agar Anda memahami apa yang terjadi sebelum menyetujui delivery.",
       },
       approval: {
-        title: "Setujui aksi sensitif",
-        body: "Commit, push, merge, deploy, dan aksi ireversibel lainnya membutuhkan persetujuan Anda sebelum BuildLoop melanjutkan.",
+        title: "Persetujuan manusia",
+        body: "Commit, push, merge, dan deploy tetap human-gated. BuildLoop berhenti menunggu keputusan Anda sebelum aksi Git atau deployment yang ireversibel dilanjutkan.",
       },
       finish: {
         title: "Anda siap",
-        body: "Ikuti alur ini: workspace → repositori → specifications opsional → task → contract → orchestration → evidence. Putar ulang tour ini kapan saja dari menu bantuan.",
+        body: "Anda sudah mengenal alurnya: pilih workspace, jalankan eksekusi tergoverned, periksa evidence, dan pertahankan kontrol manusia atas aksi sensitif. Putar ulang tour ini kapan saja dari menu bantuan.",
+        bodyNoWorkspace:
+          "Mulai dengan membuat workspace, lalu buka untuk melanjutkan task, run, evidence, dan approval. Putar ulang tour ini kapan saja dari menu bantuan setelah workspace pertama ada.",
       },
     },
   },

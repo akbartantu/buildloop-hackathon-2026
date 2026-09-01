@@ -2,12 +2,13 @@
 export const PRODUCT_TOUR_STORAGE_KEY = "buildloop.productTour.completed.v2";
 
 export type TourStepId =
-  | "workspace"
-  | "repository"
-  | "specifications"
+  | "welcome"
+  | "workspace-overview"
+  | "open-workspace"
+  | "workspace-shell"
+  | "workspace-switcher"
   | "create-task"
-  | "contract"
-  | "orchestration"
+  | "lifecycle"
   | "evidence"
   | "approval"
   | "finish";
@@ -27,99 +28,167 @@ export type ProductTourStep = {
 
 export type ProductTourStepDef = {
   id: TourStepId;
-  titleKey: `productTour.steps.${TourStepId}.title`;
-  bodyKey: `productTour.steps.${TourStepId}.body`;
+  titleKey: `productTour.steps.${TourStepId}.title` | `productTour.steps.open-workspace.title`;
+  bodyKey:
+    | `productTour.steps.${TourStepId}.body`
+    | `productTour.steps.open-workspace.bodyOpen`
+    | `productTour.steps.open-workspace.bodyCreate`
+    | `productTour.steps.finish.bodyNoWorkspace`;
   target?: string;
   placement?: TourPlacement;
   fallbackTarget?: string;
 };
 
-export const PRODUCT_TOUR_STEP_DEFS: ProductTourStepDef[] = [
-  {
-    id: "workspace",
-    titleKey: "productTour.steps.workspace.title",
-    bodyKey: "productTour.steps.workspace.body",
-    target: "workspace",
-    placement: "right",
-  },
-  {
-    id: "repository",
-    titleKey: "productTour.steps.repository.title",
-    bodyKey: "productTour.steps.repository.body",
-    target: "projects-repository",
-    fallbackTarget: "nav-projects",
-    placement: "bottom",
-  },
-  {
-    id: "specifications",
-    titleKey: "productTour.steps.specifications.title",
-    bodyKey: "productTour.steps.specifications.body",
-    target: "projects-specifications",
-    fallbackTarget: "nav-projects",
-    placement: "top",
-  },
-  {
-    id: "create-task",
-    titleKey: "productTour.steps.create-task.title",
-    bodyKey: "productTour.steps.create-task.body",
-    target: "task-goal",
-    fallbackTarget: "nav-tasks",
-    placement: "right",
-  },
-  {
-    id: "contract",
-    titleKey: "productTour.steps.contract.title",
-    bodyKey: "productTour.steps.contract.body",
-    target: "tab-contract",
-    fallbackTarget: "nav-tasks",
-    placement: "bottom",
-  },
-  {
-    id: "orchestration",
-    titleKey: "productTour.steps.orchestration.title",
-    bodyKey: "productTour.steps.orchestration.body",
-    target: "nav-runs",
-    fallbackTarget: "tab-orchestration",
-    placement: "right",
-  },
-  {
-    id: "evidence",
-    titleKey: "productTour.steps.evidence.title",
-    bodyKey: "productTour.steps.evidence.body",
-    target: "tab-evidence",
-    fallbackTarget: "nav-runs",
-    placement: "bottom",
-  },
-  {
-    id: "approval",
-    titleKey: "productTour.steps.approval.title",
-    bodyKey: "productTour.steps.approval.body",
-    target: "nav-approvals",
-    fallbackTarget: "tab-approval",
-    placement: "right",
-  },
-  {
-    id: "finish",
-    titleKey: "productTour.steps.finish.title",
-    bodyKey: "productTour.steps.finish.body",
-    placement: "center",
-  },
-];
+export type ProductTourBuildOptions = {
+  hasWorkspaces: boolean;
+};
 
-/** @deprecated Use buildProductTourSteps() for localized copy. */
-export const PRODUCT_TOUR_STEPS: ProductTourStep[] = PRODUCT_TOUR_STEP_DEFS.map((def) => ({
-  id: def.id,
-  title: def.titleKey,
-  body: def.bodyKey,
-  ...(def.target ? { target: def.target } : {}),
-  ...(def.placement ? { placement: def.placement } : {}),
-  ...(def.fallbackTarget ? { fallbackTarget: def.fallbackTarget } : {}),
-}));
+export const GLOBAL_TOUR_STEP_IDS = ["welcome", "workspace-overview", "open-workspace"] as const;
+
+export const WORKSPACE_TOUR_STEP_IDS = [
+  "workspace-shell",
+  "workspace-switcher",
+  "create-task",
+  "lifecycle",
+  "evidence",
+  "approval",
+] as const;
+
+const WELCOME_STEP: ProductTourStepDef = {
+  id: "welcome",
+  titleKey: "productTour.steps.welcome.title",
+  bodyKey: "productTour.steps.welcome.body",
+  placement: "center",
+};
+
+const WORKSPACE_OVERVIEW_STEP: ProductTourStepDef = {
+  id: "workspace-overview",
+  titleKey: "productTour.steps.workspace-overview.title",
+  bodyKey: "productTour.steps.workspace-overview.body",
+  target: "workspace-overview",
+  fallbackTarget: "main-content",
+  placement: "bottom",
+};
+
+const WORKSPACE_SHELL_STEP: ProductTourStepDef = {
+  id: "workspace-shell",
+  titleKey: "productTour.steps.workspace-shell.title",
+  bodyKey: "productTour.steps.workspace-shell.body",
+  target: "workspace-sidebar",
+  fallbackTarget: "main-content",
+  placement: "right",
+};
+
+const WORKSPACE_SWITCHER_STEP: ProductTourStepDef = {
+  id: "workspace-switcher",
+  titleKey: "productTour.steps.workspace-switcher.title",
+  bodyKey: "productTour.steps.workspace-switcher.body",
+  target: "workspace-switcher",
+  placement: "right",
+};
+
+const CREATE_TASK_STEP: ProductTourStepDef = {
+  id: "create-task",
+  titleKey: "productTour.steps.create-task.title",
+  bodyKey: "productTour.steps.create-task.body",
+  target: "task-goal",
+  fallbackTarget: "create-task",
+  placement: "right",
+};
+
+const LIFECYCLE_STEP: ProductTourStepDef = {
+  id: "lifecycle",
+  titleKey: "productTour.steps.lifecycle.title",
+  bodyKey: "productTour.steps.lifecycle.body",
+  target: "lifecycle",
+  fallbackTarget: "main-content",
+  placement: "right",
+};
+
+const EVIDENCE_STEP: ProductTourStepDef = {
+  id: "evidence",
+  titleKey: "productTour.steps.evidence.title",
+  bodyKey: "productTour.steps.evidence.body",
+  target: "tab-evidence",
+  fallbackTarget: "nav-runs",
+  placement: "bottom",
+};
+
+const APPROVAL_STEP: ProductTourStepDef = {
+  id: "approval",
+  titleKey: "productTour.steps.approval.title",
+  bodyKey: "productTour.steps.approval.body",
+  target: "nav-approvals",
+  fallbackTarget: "tab-approval",
+  placement: "right",
+};
+
+const FINISH_STEP: ProductTourStepDef = {
+  id: "finish",
+  titleKey: "productTour.steps.finish.title",
+  bodyKey: "productTour.steps.finish.body",
+  placement: "center",
+};
+
+const FINISH_NO_WORKSPACE_STEP: ProductTourStepDef = {
+  id: "finish",
+  titleKey: "productTour.steps.finish.title",
+  bodyKey: "productTour.steps.finish.bodyNoWorkspace",
+  placement: "center",
+};
+
+function openWorkspaceStep(hasWorkspaces: boolean): ProductTourStepDef {
+  return {
+    id: "open-workspace",
+    titleKey: "productTour.steps.open-workspace.title",
+    bodyKey: hasWorkspaces
+      ? "productTour.steps.open-workspace.bodyOpen"
+      : "productTour.steps.open-workspace.bodyCreate",
+    target: hasWorkspaces ? "workspace-card" : "create-workspace",
+    ...(hasWorkspaces ? { fallbackTarget: "create-workspace" } : {}),
+    placement: "bottom",
+  };
+}
+
+export function getProductTourStepDefs(options: ProductTourBuildOptions): ProductTourStepDef[] {
+  const globalSteps: ProductTourStepDef[] = [
+    WELCOME_STEP,
+    WORKSPACE_OVERVIEW_STEP,
+    openWorkspaceStep(options.hasWorkspaces),
+  ];
+
+  if (!options.hasWorkspaces) {
+    return [...globalSteps, FINISH_NO_WORKSPACE_STEP];
+  }
+
+  return [
+    ...globalSteps,
+    WORKSPACE_SHELL_STEP,
+    WORKSPACE_SWITCHER_STEP,
+    CREATE_TASK_STEP,
+    LIFECYCLE_STEP,
+    EVIDENCE_STEP,
+    APPROVAL_STEP,
+    FINISH_STEP,
+  ];
+}
+
+/** Full workspace tour defs for tests and documentation. */
+export const PRODUCT_TOUR_STEP_DEFS = getProductTourStepDefs({ hasWorkspaces: true });
+
+export function isGlobalTourStep(stepId: TourStepId): boolean {
+  return (GLOBAL_TOUR_STEP_IDS as readonly string[]).includes(stepId);
+}
+
+export function isWorkspaceTourStep(stepId: TourStepId): boolean {
+  return (WORKSPACE_TOUR_STEP_IDS as readonly string[]).includes(stepId);
+}
 
 export function buildProductTourSteps(
   t: (key: ProductTourStepDef["titleKey"] | ProductTourStepDef["bodyKey"]) => string,
+  options: ProductTourBuildOptions = { hasWorkspaces: true },
 ): ProductTourStep[] {
-  return PRODUCT_TOUR_STEP_DEFS.map((def) => ({
+  return getProductTourStepDefs(options).map((def) => ({
     id: def.id,
     title: t(def.titleKey),
     body: t(def.bodyKey),
@@ -182,15 +251,16 @@ export function resolveTourTarget(step: ProductTourStep): string | null {
 }
 
 export const PRODUCT_TOUR_TARGETS = [
-  "workspace",
-  "nav-projects",
-  "projects-repository",
-  "projects-specifications",
+  "workspace-overview",
+  "workspace-card",
+  "create-workspace",
+  "workspace-sidebar",
+  "workspace-switcher",
   "task-goal",
+  "create-task",
+  "lifecycle",
   "nav-tasks",
-  "tab-contract",
   "nav-runs",
-  "tab-orchestration",
   "tab-evidence",
   "nav-approvals",
   "tab-approval",

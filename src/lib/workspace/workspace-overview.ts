@@ -110,3 +110,8 @@ export function formatTaskCountLabel(
 export function workspaceOverviewLayoutClassName(): string {
   return "mx-auto w-full max-w-full space-y-6 overflow-x-hidden";
 }
+
+/** Responsive workspace overview grid: create tile first, then workspaces, usage last in row flow. */
+export function workspaceOverviewGridClassName(): string {
+  return "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4";
+}

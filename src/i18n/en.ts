@@ -38,44 +38,51 @@ export const en = {
     openTask: "Open task",
     createFirstTask: "Create first task",
     evidencePending: "Evidence appears after you run the orchestrator on an approved task.",
-    specificationsPending:
-      "Connect a repository first, then import specifications from the Projects page.",
     steps: {
-      workspace: {
-        title: "Choose your workspace",
-        body: "Create or select a workspace. Each workspace maps to one connected public GitHub repository and keeps its own tasks, specifications, and run history.",
+      welcome: {
+        title: "Welcome to BuildLoop",
+        body: "BuildLoop organizes governed software-delivery work by workspace. Each workspace keeps its own repository context, tasks, runs, evidence, and approvals.",
       },
-      repository: {
-        title: "Connect a repository",
-        body: "Connect one public GitHub repository to this workspace. BuildLoop uses that repository as the execution boundary for tasks.",
+      "workspace-overview": {
+        title: "Your workspaces",
+        body: "Choose an existing workspace or create a new one. This overview is your global home before you open a workspace.",
       },
-      specifications: {
-        title: "Import specifications (optional)",
-        body: "Upload PRDs, architecture notes, or a Spec Kit folder once. BuildLoop reuses them as planning context and cites relevant files in Sources Used. Do not upload credentials or secrets.",
+      "open-workspace": {
+        title: "Create or open a workspace",
+        bodyOpen:
+          "Open a workspace to enter its dashboard. Each workspace separates repository context, tasks, runs, evidence, and approvals.",
+        bodyCreate:
+          "Create your first workspace to connect a repository and start governed delivery. Each workspace keeps its own tasks, runs, evidence, and approvals.",
+      },
+      "workspace-shell": {
+        title: "Workspace navigation",
+        body: "This sidebar applies to the workspace you opened. Home, Projects, Tasks, Runs, Approvals, and Settings all operate within that workspace.",
+      },
+      "workspace-switcher": {
+        title: "Switch workspaces",
+        body: "Use the workspace switcher to move between workspaces. Choose All workspaces anytime to return to the overview at /app.",
       },
       "create-task": {
-        title: "Create a bounded task",
-        body: "Describe what should change, then analyze the goal. BuildLoop inspects the repository and relevant specifications to propose acceptance criteria and bounded scope.",
+        title: "Create a task",
+        body: "Describe a bounded software-development goal. BuildLoop analyzes it and turns the result into a contract before execution begins.",
       },
-      contract: {
-        title: "Review the contract",
-        body: "Confirm the goal, acceptance criteria, allowed scope, and Sources Used. BuildLoop asks one targeted clarification only when a decision is materially ambiguous.",
-      },
-      orchestration: {
-        title: "Start orchestration",
-        body: "After contract approval, BuildLoop runs preflight, worker, checker, and up to two bounded correction attempts. The worker does not decide its own PASS result.",
+      lifecycle: {
+        title: "Governed lifecycle",
+        body: "Runs follow Planning → Preflight → Worker → Checker → Decision. BuildLoop allows limited self-correction, stops risky actions, and shows real status instead of fake percentage progress.",
       },
       evidence: {
-        title: "Inspect outcomes",
-        body: "Evidence shows checks, attempts, changed files, and checker results so PASS, FAILED, or BLOCKED outcomes can be understood.",
+        title: "Evidence",
+        body: "Review changed files, checks, protected-path results, and the final verdict so you can understand what happened before approving delivery.",
       },
       approval: {
-        title: "Approve sensitive actions",
-        body: "Commit, push, merge, deploy, and other irreversible actions require your approval before BuildLoop continues.",
+        title: "Human approval",
+        body: "Commit, push, merge, and deploy remain human-gated. BuildLoop pauses for your decision before irreversible Git or deployment actions continue.",
       },
       finish: {
         title: "You're ready",
-        body: "Follow this path: workspace → repository → optional specifications → task → contract → orchestration → evidence. Replay this tour anytime from the help menu.",
+        body: "You now know the flow: pick a workspace, run governed execution, inspect evidence, and keep human control over sensitive actions. Replay this tour anytime from the help menu.",
+        bodyNoWorkspace:
+          "Start by creating a workspace, then open it to continue with tasks, runs, evidence, and approvals. Replay this tour anytime from the help menu after your first workspace exists.",
       },
     },
   },

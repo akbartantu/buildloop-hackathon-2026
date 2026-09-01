@@ -22,7 +22,7 @@ export function TasksPage() {
           description={t("tasks.description", { workspace: workspaceLabel })}
         />
         <Button asChild className="shrink-0">
-          <Link to="/app/tasks/new">
+          <Link to="/app/tasks/new" data-tour="create-task">
             <Plus className="mr-2 size-4" />
             {t("tasks.createNew")}
           </Link>

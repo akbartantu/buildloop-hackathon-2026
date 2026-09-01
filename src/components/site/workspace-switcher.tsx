@@ -31,7 +31,7 @@ export function WorkspaceSwitcher() {
           variant="outline"
           className="h-auto w-full justify-between px-3 py-2 text-left font-normal"
           disabled={!isHydrated}
-          data-tour="workspace"
+          data-tour="workspace-switcher"
         >
           <span className="min-w-0">
             <span className="block font-mono text-[10px] uppercase tracking-[0.14em] text-muted-foreground">

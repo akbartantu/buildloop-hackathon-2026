@@ -12,6 +12,7 @@ import {
   LIST_TASKS_RESULT_LIMIT,
   resolveWorkspaceOverviewStats,
   workspaceOverviewLayoutClassName,
+  workspaceOverviewGridClassName,
 } from "@/lib/workspace/workspace-overview";
 
 function makeProject(id: string): ProjectRecord {
@@ -127,6 +128,12 @@ describe("workspace overview helpers", () => {
   test("layout class avoids intentional horizontal overflow", () => {
     expect(workspaceOverviewLayoutClassName()).toContain("overflow-x-hidden");
     expect(workspaceOverviewLayoutClassName()).toContain("max-w-full");
+  });
+
+  test("grid class supports create-first responsive columns", () => {
+    expect(workspaceOverviewGridClassName()).toContain("grid-cols-1");
+    expect(workspaceOverviewGridClassName()).toContain("sm:grid-cols-2");
+    expect(workspaceOverviewGridClassName()).toContain("xl:grid-cols-4");
   });
 
   test("relative time formatting supports EN locale", () => {

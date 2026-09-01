@@ -1,7 +1,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ArrowRight, FolderKanban, GitBranch, Plus } from "lucide-react";
+import { ArrowRight, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +28,7 @@ import {
   formatWorkspaceCountSummary,
   resolveWorkspaceOverviewStats,
   workspaceOverviewLayoutClassName,
+  workspaceOverviewGridClassName,
 } from "@/lib/workspace/workspace-overview";
 
 function repositoryStatusLabel(
@@ -63,6 +64,7 @@ function WorkspaceOverviewCard({
     <div
       className="flex h-full flex-col rounded-lg border border-border bg-card"
       data-testid={`workspace-card-${project.id}`}
+      data-tour="workspace-card"
     >
       <div className="border-b border-border px-5 py-4 sm:px-6">
         <div className="flex items-start justify-between gap-3">
@@ -142,6 +144,7 @@ function CreateWorkspaceCard() {
       search={{ create: "1" }}
       className="group flex h-full min-h-[220px] flex-col rounded-lg border border-dashed border-border bg-card transition-colors hover:border-foreground/20 hover:bg-muted/20"
       data-testid="workspace-create-card"
+      data-tour="create-workspace"
     >
       <div className="flex flex-1 flex-col items-center justify-center gap-3 p-5 text-center sm:p-6">
         <div className="rounded-md border border-border bg-muted/30 p-3">
@@ -158,12 +161,25 @@ function CreateWorkspaceCard() {
   );
 }
 
+function CreateWorkspacePrimaryButton({ className }: { className?: string }) {
+  const { t } = useI18n();
+
+  return (
+    <Button asChild className={className}>
+      <Link to="/app/projects" search={{ create: "1" }} data-testid="workspace-create-primary" data-tour="create-workspace">
+        <Plus className="mr-2 size-4" />
+        {t("workspaceOverview.createWorkspace")}
+      </Link>
+    </Button>
+  );
+}
+
 function WorkspaceUsagePanel({ workspaceCount }: { workspaceCount: number }) {
   const { t } = useI18n();
   const rows = buildWorkspaceUsageRows(workspaceCount);
 
   return (
-    <DemoPanel title={t("workspaceOverview.usageTitle")} className="h-fit">
+    <DemoPanel title={t("workspaceOverview.usageTitle")} className="h-fit" data-testid="workspace-usage-panel">
       {rows.length > 0 ? (
         <DemoKeyValueTable
           rows={rows.map((row) => ({
@@ -175,34 +191,6 @@ function WorkspaceUsagePanel({ workspaceCount }: { workspaceCount: number }) {
       <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
         {t("workspaceOverview.noPlanData")}
       </p>
-    </DemoPanel>
-  );
-}
-
-function WorkspaceOverviewEmptyState() {
-  const { t } = useI18n();
-
-  return (
-    <DemoPanel>
-      <div className="flex flex-col items-start gap-4 py-2">
-        <div className="rounded-md border border-border bg-muted/20 p-3">
-          <FolderKanban className="size-5 text-muted-foreground" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">
-            {t("workspaceOverview.emptyTitle")}
-          </h2>
-          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
-            {t("workspaceOverview.emptyDescription")}
-          </p>
-        </div>
-        <Button asChild>
-          <Link to="/app/projects" search={{ create: "1" }}>
-            <GitBranch className="mr-2 size-4" />
-            {t("workspaceOverview.createWorkspace")}
-          </Link>
-        </Button>
-      </div>
     </DemoPanel>
   );
 }
@@ -232,48 +220,33 @@ export function WorkspaceOverviewPage() {
   }
 
   return (
-    <div className={workspaceOverviewLayoutClassName()} data-testid="workspace-overview-page">
-      <DemoPageHeader
-        title={t("workspaceOverview.title")}
-        description={t("workspaceOverview.description")}
-      />
+    <div className={workspaceOverviewLayoutClassName()} data-testid="workspace-overview-page" data-tour="workspace-overview">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <DemoPageHeader
+          title={t("workspaceOverview.title")}
+          description={t("workspaceOverview.description")}
+        />
+        <CreateWorkspacePrimaryButton className="w-full shrink-0 sm:w-auto sm:self-center" />
+      </div>
 
       <DemoSectionLabel>{countSummary}</DemoSectionLabel>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="space-y-4 lg:col-span-2">
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-          ) : projects.length === 0 ? (
-            <WorkspaceOverviewEmptyState />
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2">
-              {projects.map((project) => (
-                <WorkspaceOverviewCard
-                  key={project.id}
-                  project={project}
-                  tasks={tasksByProjectId.get(project.id) ?? []}
-                  onOpen={openWorkspace}
-                />
-              ))}
-              <CreateWorkspaceCard />
-            </div>
-          )}
+      {isLoading ? (
+        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+      ) : (
+        <div className={workspaceOverviewGridClassName()} data-testid="workspace-overview-grid">
+          <CreateWorkspaceCard />
+          {projects.map((project) => (
+            <WorkspaceOverviewCard
+              key={project.id}
+              project={project}
+              tasks={tasksByProjectId.get(project.id) ?? []}
+              onOpen={openWorkspace}
+            />
+          ))}
+          <WorkspaceUsagePanel workspaceCount={projects.length} />
         </div>
-
-        <WorkspaceUsagePanel workspaceCount={projects.length} />
-      </div>
-
-      {projects.length > 0 ? (
-        <div className="flex flex-wrap gap-3">
-          <Button asChild>
-            <Link to="/app/projects" search={{ create: "1" }}>
-              <Plus className="mr-2 size-4" />
-              {t("workspaceOverview.createWorkspace")}
-            </Link>
-          </Button>
-        </div>
-      ) : null}
+      )}
     </div>
   );
 }

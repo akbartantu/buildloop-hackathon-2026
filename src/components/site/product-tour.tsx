@@ -31,6 +31,7 @@ type ProductTourProps = {
   stepIndex: number;
   latestTaskId: string | null;
   hasRunEvidence: boolean;
+  hasWorkspaces: boolean;
   onClose: () => void;
   onStepChange: (index: number) => void;
 };
@@ -118,14 +119,6 @@ function contextualBody(
   if (step.id === "evidence" && !hasRunEvidence) {
     return `${step.body} ${t("productTour.evidencePending")}`;
   }
-  if (step.id === "specifications") {
-    const hasSpecificationsTarget =
-      typeof document !== "undefined" &&
-      Boolean(document.querySelector('[data-tour="projects-specifications"]'));
-    if (!hasSpecificationsTarget) {
-      return `${step.body} ${t("productTour.specificationsPending")}`;
-    }
-  }
   return step.body;
 }
 
@@ -160,6 +153,7 @@ export function ProductTour({
   stepIndex,
   latestTaskId,
   hasRunEvidence,
+  hasWorkspaces,
   onClose,
   onStepChange,
 }: ProductTourProps) {
@@ -173,7 +167,10 @@ export function ProductTour({
   const [targetReady, setTargetReady] = useState(false);
   const layoutVersionRef = useRef(0);
 
-  const steps = useMemo(() => buildProductTourSteps(t), [t]);
+  const steps = useMemo(
+    () => buildProductTourSteps(t, { hasWorkspaces }),
+    [hasWorkspaces, t],
+  );
   const step = steps[stepIndex];
   const isFirst = stepIndex === 0;
   const isLast = stepIndex === steps.length - 1;
@@ -279,30 +276,41 @@ export function ProductTour({
     if (!active || !step) return;
 
     const runNavigation = async () => {
-      if (step.id === "workspace" || step.id === "finish") {
-        await navigate({ to: "/app" });
-      } else if (step.id === "repository" || step.id === "specifications") {
-        await navigate({ to: "/app/projects" });
-      } else if (step.id === "create-task") {
-        await navigate({ to: "/app/tasks/new" });
-      } else if (step.id === "contract" && latestTaskId) {
-        await navigate({
-          to: "/app/tasks/$taskId",
-          params: { taskId: latestTaskId },
-          search: { tab: "contract" },
-        });
-      } else if (step.id === "evidence" && latestTaskId && hasRunEvidence) {
-        await navigate({
-          to: "/app/tasks/$taskId",
-          params: { taskId: latestTaskId },
-          search: { tab: "evidence" },
-        });
-      } else if (step.id === "orchestration") {
-        await navigate({ to: "/app/runs" });
-      } else if (step.id === "approval") {
-        await navigate({ to: "/app/approvals" });
-      } else if (step.id === "contract" || step.id === "evidence") {
-        await navigate({ to: "/app/tasks" });
+      switch (step.id) {
+        case "welcome":
+        case "workspace-overview":
+        case "open-workspace":
+          await navigate({ to: "/app" });
+          break;
+        case "workspace-shell":
+        case "workspace-switcher":
+          await navigate({ to: "/app/dashboard" });
+          break;
+        case "create-task":
+          await navigate({ to: "/app/tasks/new" });
+          break;
+        case "lifecycle":
+          await navigate({ to: "/app/runs" });
+          break;
+        case "evidence":
+          if (latestTaskId && hasRunEvidence) {
+            await navigate({
+              to: "/app/tasks/$taskId",
+              params: { taskId: latestTaskId },
+              search: { tab: "evidence" },
+            });
+          } else {
+            await navigate({ to: "/app/runs" });
+          }
+          break;
+        case "approval":
+          await navigate({ to: "/app/approvals" });
+          break;
+        case "finish":
+          await navigate({ to: hasWorkspaces ? "/app/dashboard" : "/app" });
+          break;
+        default:
+          break;
       }
 
       window.setTimeout(() => {
@@ -311,7 +319,16 @@ export function ProductTour({
     };
 
     void runNavigation();
-  }, [active, stepIndex, latestTaskId, hasRunEvidence, navigate, recomputeTargetLayout, step]);
+  }, [
+    active,
+    hasRunEvidence,
+    hasWorkspaces,
+    latestTaskId,
+    navigate,
+    recomputeTargetLayout,
+    step,
+    stepIndex,
+  ]);
 
   useEffect(() => {
     if (!active) return;

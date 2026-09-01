@@ -1,39 +1,53 @@
+import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useI18n } from "./context";
 import type { Locale } from "./index";
 
-const OPTIONS: Array<{ locale: Locale; shortLabel: string }> = [
-  { locale: "en", shortLabel: "EN" },
-  { locale: "id", shortLabel: "ID" },
+const OPTIONS: Array<{ locale: Locale; shortLabel: string; labelKey: "language.english" | "language.indonesian" }> = [
+  { locale: "en", shortLabel: "EN", labelKey: "language.english" },
+  { locale: "id", shortLabel: "ID", labelKey: "language.indonesian" },
 ];
 
 export function LanguageSwitcher({ className }: { className?: string }) {
   const { locale, setLocale, t } = useI18n();
+  const active = OPTIONS.find((option) => option.locale === locale) ?? OPTIONS[0]!;
 
   return (
-    <div
-      className={cn(
-        "inline-flex items-center rounded-md border border-border bg-background p-0.5 font-mono text-[10px] uppercase tracking-[0.14em]",
-        className,
-      )}
-      aria-label={t("language.switchLabel")}
-    >
-      {OPTIONS.map((option) => (
-        <button
-          key={option.locale}
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
           type="button"
-          onClick={() => setLocale(option.locale)}
+          variant="outline"
+          size="sm"
           className={cn(
-            "rounded px-2 py-1 transition-colors",
-            locale === option.locale
-              ? "bg-primary text-primary-foreground"
-              : "text-muted-foreground hover:text-foreground",
+            "h-8 gap-1.5 px-2.5 font-mono text-[10px] uppercase tracking-[0.14em]",
+            className,
           )}
-          aria-pressed={locale === option.locale}
+          aria-label={t("language.switchLabel")}
         >
-          {option.shortLabel}
-        </button>
-      ))}
-    </div>
+          <span aria-hidden="true">{active.shortLabel}</span>
+          <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[10rem]">
+        {OPTIONS.map((option) => (
+          <DropdownMenuItem
+            key={option.locale}
+            onClick={() => setLocale(option.locale)}
+            aria-current={locale === option.locale ? "true" : undefined}
+            className={locale === option.locale ? "bg-muted/60" : undefined}
+          >
+            {t(option.labelKey)}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

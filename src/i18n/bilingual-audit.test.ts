@@ -77,11 +77,12 @@ describe("bilingual audit", () => {
   test("landing page exposes language switcher in site header", () => {
     const header = readSource("components/site/site-header.tsx");
     expect(header).toContain("LanguageSwitcher");
+    expect(readSource("i18n/language-switcher.tsx")).toContain("DropdownMenu");
   });
 
   test("authenticated shell exposes language switcher", () => {
-    const layout = readSource("components/site/app-layout.tsx");
-    expect(layout).toContain("LanguageSwitcher");
+    const header = readSource("components/site/app-shell-header.tsx");
+    expect(header).toContain("LanguageSwitcher");
   });
 
   test("auth sign-in and sign-up expose language switcher", () => {
@@ -95,14 +96,14 @@ describe("bilingual audit", () => {
       expect(translatePublic("en", "header.signIn")).not.toBe("Masuk");
       expect(translatePublic("en", "pilot.submit")).not.toBe("Gabung Pilot");
     }
-    expect(translatePublic("en", "hero.titleLine1")).toBe("AI can build.");
+    expect(translatePublic("en", "hero.titleLine1")).toBe("Ship software tasks autonomously.");
   });
 
   test("Indonesian public hero has no known English-only leaks where translation is expected", () => {
     for (const leak of EN_LEAKS_IN_ID_PUBLIC) {
       expect(translatePublic("id", "hero.titleLine1")).not.toContain(leak);
     }
-    expect(translatePublic("id", "hero.titleLine1")).toBe("AI boleh membangun.");
+    expect(translatePublic("id", "hero.titleLine1")).toBe("Kirim task perangkat lunak secara otonom.");
   });
 
   test("raw internal task statuses are not shown as normal user labels", () => {

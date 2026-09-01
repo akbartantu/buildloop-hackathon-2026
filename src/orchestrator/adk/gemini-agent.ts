@@ -18,6 +18,10 @@ import {
 } from "../gemini/client";
 import { normalizeOperationalWorkerError } from "../gemini/retry-policy";
 import { getBuildLoopAdkRunner, type AdkAgentRunner } from "./runner";
+import {
+  formatWorkerGeminiResponseDiagnostics,
+  type WorkerGeminiResponseDiagnostics,
+} from "./worker-response-diagnostics";
 import { safeLogSummary } from "@/lib/redaction";
 import type { CodingWorker, WorkerInput } from "../worker/types";
 
@@ -103,6 +107,7 @@ function logWorkerExecutionFailure(input: {
   changedFilesCount?: number;
   changedFilePaths?: string[];
   parseDiagnostics?: import("../gemini/errors").WorkerOutputParseDiagnostics;
+  geminiResponseDiagnostics?: WorkerGeminiResponseDiagnostics;
 }) {
   console.error("[worker] execution failed", {
     attempt: input.attemptNumber,
@@ -111,6 +116,7 @@ function logWorkerExecutionFailure(input: {
     rawResponseLength: input.rawResponseLength,
     changedFilesCount: input.changedFilesCount,
     changedFilePaths: input.changedFilePaths,
+    ...(formatWorkerGeminiResponseDiagnostics(input.geminiResponseDiagnostics) ?? {}),
     ...(input.parseDiagnostics
       ? {
           startsWithFence: input.parseDiagnostics.startsWithFence,
@@ -201,6 +207,9 @@ export class AdkGeminiWorker implements CodingWorker {
           code: error instanceof GeminiClientError ? error.code : "WORKER_ERROR",
           message: error instanceof Error ? error.message : String(error),
           rawResponseLength: result.text.length,
+          ...(result.responseDiagnostics
+            ? { geminiResponseDiagnostics: result.responseDiagnostics }
+            : {}),
           ...(error instanceof GeminiClientError && error.parseDiagnostics
             ? { parseDiagnostics: error.parseDiagnostics }
             : {}),

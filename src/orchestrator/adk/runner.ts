@@ -8,8 +8,13 @@ import {
 } from "../gemini/retry-policy";
 import {
   BUILDLOOP_WORKER_AGENT_NAME,
+  BUILDLOOP_WORKER_GENERATE_CONTENT_CONFIG,
   buildBuildLoopWorkerAgentOptions,
 } from "./worker-agent-config";
+import {
+  buildWorkerGeminiResponseDiagnostics,
+  type WorkerGeminiResponseDiagnostics,
+} from "./worker-response-diagnostics";
 
 export const BUILDLOOP_ADK_MODEL = "gemini-3.6-flash";
 
@@ -27,6 +32,7 @@ export type AdkAgentRunResult = {
   geminiCallCount: number;
   adkRunnerInvoked: true;
   adkAgentName: string;
+  responseDiagnostics?: WorkerGeminiResponseDiagnostics;
 };
 
 export type AdkAgentRunner = {
@@ -39,6 +45,13 @@ type AdkEvent = {
   errorMessage?: string;
   errorCode?: string;
   output?: unknown;
+  finishReason?: unknown;
+  usageMetadata?: {
+    promptTokenCount?: number;
+    candidatesTokenCount?: number;
+    thoughtsTokenCount?: number;
+    totalTokenCount?: number;
+  };
 };
 
 type OfficialAdkModule = {
@@ -164,15 +177,24 @@ async function invokeOfficialAdkRunner(
     events.push(event);
   }
 
-  const text = extractAdkResponseText(events, {
+  const selection = selectBuildLoopAdkResponse(events, {
     agentName,
     stringifyContent,
     isFinalResponse,
   });
+  const text = selection.text;
   if (!text) {
     const errorMessage = events.map((event) => event.errorMessage).filter(Boolean).join(" ");
     throw classifyEmptyAdkResponse(errorMessage);
   }
+
+  const responseDiagnostics = selection.selectedEvent
+    ? buildWorkerGeminiResponseDiagnostics({
+        event: selection.selectedEvent,
+        rawResponseLength: text.length,
+        maxOutputTokens: BUILDLOOP_WORKER_GENERATE_CONTENT_CONFIG.maxOutputTokens,
+      })
+    : undefined;
 
   return {
     text,
@@ -180,6 +202,7 @@ async function invokeOfficialAdkRunner(
     latencyMs: 0,
     adkRunnerInvoked: true,
     adkAgentName: agentName,
+    ...(responseDiagnostics ? { responseDiagnostics } : {}),
   };
 }
 
@@ -211,10 +234,10 @@ type ExtractAdkResponseTextOptions = {
 };
 
 /** Select the authoritative final coding-agent response from ADK events. */
-export function extractAdkResponseText(
+export function selectBuildLoopAdkResponse(
   events: AdkEvent[],
   options: ExtractAdkResponseTextOptions,
-): string {
+): { text: string; selectedEvent?: AdkEvent } {
   for (const event of events) {
     if (event.errorMessage) {
       throw mapAdkEventError(event.errorCode, event.errorMessage);
@@ -243,10 +266,21 @@ export function extractAdkResponseText(
   }
 
   if (!selected) {
-    return "";
+    return { text: "" };
   }
 
-  return options.stringifyContent(selected).trim();
+  return {
+    text: options.stringifyContent(selected).trim(),
+    selectedEvent: selected,
+  };
+}
+
+/** Select the authoritative final coding-agent response text from ADK events. */
+export function extractAdkResponseText(
+  events: AdkEvent[],
+  options: ExtractAdkResponseTextOptions,
+): string {
+  return selectBuildLoopAdkResponse(events, options).text;
 }
 
 function mapAdkEventError(code: string | undefined, message: string): GeminiClientError {

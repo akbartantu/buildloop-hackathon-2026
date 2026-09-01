@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 
 import { AdkGeminiWorker } from "../adk/gemini-agent";
 import { setAdkRunnerOverride, type AdkAgentRunner } from "../adk/runner";
+import { buildBuildLoopWorkerAgentOptions } from "../adk/worker-agent-config";
 import { createDraftContract, lockContract } from "../contract/schema";
 import { decide } from "../decision/engine";
 import type { CheckerResult } from "../checker/deterministic-checker";
@@ -139,6 +140,17 @@ describe("ADK integration", () => {
 
   test("ADK-6: malformed official ADK response is rejected safely", () => {
     expect(() => parseWorkerStructuredOutput("{not-json")).toThrow();
+  });
+
+  test("ADK-7: official ADK worker agent requests structured JSON output", () => {
+    const options = buildBuildLoopWorkerAgentOptions({
+      model: "gemini-3.6-flash",
+      systemInstruction: "Return JSON only.",
+    });
+
+    expect(options.outputSchema).toBeDefined();
+    expect(options.generateContentConfig.responseMimeType).toBe("application/json");
+    expect("responseSchema" in options.generateContentConfig).toBe(false);
   });
 
   test("operational failure does not trigger correction", () => {

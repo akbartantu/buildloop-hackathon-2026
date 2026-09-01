@@ -6,6 +6,10 @@ import {
   runWithOperationalRetry,
   type OperationalRetryConfig,
 } from "../gemini/retry-policy";
+import {
+  BUILDLOOP_WORKER_AGENT_NAME,
+  buildBuildLoopWorkerAgentOptions,
+} from "./worker-agent-config";
 
 export const BUILDLOOP_ADK_MODEL = "gemini-3.6-flash";
 
@@ -136,18 +140,13 @@ async function invokeOfficialAdkRunner(
   model: string,
 ): Promise<Omit<AdkAgentRunResult, "operationalRetries" | "geminiCallCount">> {
   const { Gemini, InMemoryRunner, LlmAgent, stringifyContent } = await loadOfficialAdkModule();
-  const agentName = "buildloop_coding_worker";
-  const agent = new LlmAgent({
-    name: agentName,
-    model: new Gemini({ model }),
-    instruction: request.systemInstruction,
-    includeContents: "none",
-    generateContentConfig: {
-      temperature: 0.2,
-      maxOutputTokens: 4096,
-      responseMimeType: "application/json",
-    },
-  });
+  const agentName = BUILDLOOP_WORKER_AGENT_NAME;
+  const agent = new LlmAgent(
+    buildBuildLoopWorkerAgentOptions({
+      model: new Gemini({ model }),
+      systemInstruction: request.systemInstruction,
+    }),
+  );
 
   const runner = new InMemoryRunner({
     agent,

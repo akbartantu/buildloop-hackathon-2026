@@ -231,7 +231,7 @@ export const id = {
     workspace: "Workspace",
     sourceCommit: "Source commit",
     maxCorrections: "Maks. percobaan koreksi",
-    protectedPaths: "Protected paths",
+    protectedPaths: "Path yang dilindungi",
     createTask: "Buat task",
     savePlan: "Simpan rencana",
     updatePlanError: "Gagal menyimpan perubahan rencana.",
@@ -1029,6 +1029,22 @@ export const id = {
         "BuildLoop akan menjalankan task sesuai kontrak ini di workspace terkontrol, memeriksa hasilnya, dan mencoba memperbaiki maksimal 2 kali jika diperlukan. Jika tindakan sensitif terdeteksi, proses akan berhenti dan meminta persetujuan Anda.",
       nextStepsShort: "Langkah selanjutnya",
       technicalDetails: "Detail teknis untuk developer",
+    },
+    contractGovernance: {
+      labels: {
+        protectedPaths: "Path yang dilindungi",
+        requiredChecks: "Pemeriksaan wajib",
+        allowedActions: "Tindakan yang diizinkan",
+      },
+      values: {
+        typecheck: "Validasi tipe proyek",
+        relevantTest: "Pengujian otomatis yang relevan",
+        protectedPathCheck: "Pemeriksaan path terlindungi",
+        readProjectFiles: "Membaca file project",
+        editInScope: "Mengedit kode aplikasi di dalam scope yang disetujui",
+        updateRelevantTests: "Menambah atau memperbarui test yang relevan",
+        runAllowlistChecks: "Menjalankan check dari allowlist",
+      },
     },
     orchestration: {
       title: "BuildLoop mengoordinasikan task",

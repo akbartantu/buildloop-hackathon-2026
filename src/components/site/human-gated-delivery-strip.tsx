@@ -15,6 +15,9 @@ type HumanGatedDeliveryStripProps = {
   locale: Locale;
 };
 
+export const DELIVERY_STRIP_LIST_CLASS =
+  "mt-3 flex flex-nowrap items-stretch gap-2 overflow-x-auto pb-1";
+
 export function HumanGatedDeliveryStrip({
   task,
   lifecycle,
@@ -28,12 +31,12 @@ export function HumanGatedDeliveryStrip({
       <p id="human-gated-delivery-heading" className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
         {t("runClarity.strip.title")}
       </p>
-      <ol className="mt-3 flex flex-wrap items-center gap-2 overflow-x-auto pb-1">
+      <ol className={DELIVERY_STRIP_LIST_CLASS}>
         {steps.map((step, index) => (
-          <li key={step.key} className="flex items-center gap-2">
+          <li key={step.key} className="flex shrink-0 items-center gap-2">
             <DeliveryStripStepCard step={step} locale={locale} />
             {index < steps.length - 1 ? (
-              <span className="hidden text-muted-foreground sm:inline" aria-hidden="true">
+              <span className="shrink-0 text-muted-foreground" aria-hidden="true">
                 →
               </span>
             ) : null}
@@ -56,6 +59,7 @@ function DeliveryStripStepCard({
     <div
       className={cn(
         "flex min-h-[5.5rem] w-[9.5rem] shrink-0 flex-col rounded-lg border px-3 py-2",
+        step.key === "delivery" && "w-[10.75rem]",
         presentation.borderClass,
         step.visualState === "completed" && "bg-status-pass/5",
         step.visualState === "active" && "bg-status-review/5",
@@ -76,4 +80,8 @@ function DeliveryStripStepCard({
 
 export function deliveryStripStepKeys(steps: DeliveryStripStepView[]): string[] {
   return steps.map((step) => step.key);
+}
+
+export function deliveryStripUsesSingleContinuousRow(): boolean {
+  return DELIVERY_STRIP_LIST_CLASS.includes("flex-nowrap") && !DELIVERY_STRIP_LIST_CLASS.includes("flex-wrap");
 }

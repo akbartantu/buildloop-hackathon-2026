@@ -115,6 +115,7 @@ import {
   formatBlockedReasonExplanationList,
   formatPrimaryBlockedExplanation,
 } from "@/lib/blocked-reason-presentation";
+import { buildContractGovernanceRows } from "@/lib/contract-governance-presentation";
 import {
   formatApprovalTypeLabel,
   formatOrchestrationPhaseLabel,
@@ -517,11 +518,12 @@ function ContractReview({
       )}
 
       <DemoCollapsible title={t("taskDetail.contract.technicalDetails")}>
-        <div className="space-y-3 font-mono text-xs">
-          <p>Protected paths: {task.contract.protectedPaths.join(", ")}</p>
-          <p>Required checks: {task.contract.requiredChecks.join(", ")}</p>
-          <p>Allowed actions: {task.contract.allowedActions.join("; ")}</p>
-        </div>
+        <DemoKeyValueTable
+          rows={buildContractGovernanceRows(task.contract, locale).map((row) => ({
+            label: row.label,
+            value: row.value,
+          }))}
+        />
       </DemoCollapsible>
     </>
   );

@@ -1025,6 +1025,22 @@ export const en = {
       nextStepsShort: "Next steps",
       technicalDetails: "Technical details for developers",
     },
+    contractGovernance: {
+      labels: {
+        protectedPaths: "Protected paths",
+        requiredChecks: "Required checks",
+        allowedActions: "Allowed actions",
+      },
+      values: {
+        typecheck: "Project type check",
+        relevantTest: "Relevant automated tests",
+        protectedPathCheck: "Protected path check",
+        readProjectFiles: "Read project files",
+        editInScope: "Edit application code within approved scope",
+        updateRelevantTests: "Add or update relevant tests",
+        runAllowlistChecks: "Run checks from the allowlist",
+      },
+    },
     orchestration: {
       title: "BuildLoop coordinates the task",
       meta: "{taskRef} · Auto corrections {used} / {limit} · {version}",

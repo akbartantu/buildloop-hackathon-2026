@@ -15,6 +15,9 @@ import {
 } from "@/lib/pricing-plans";
 import { cn } from "@/lib/utils";
 
+export const pricingCurrencyToggleItemClassName =
+  "min-w-[5.5rem] rounded-md px-3 font-medium text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm";
+
 function planFeatureKeys(planId: PricingPlanId): readonly string[] {
   switch (planId) {
     case "free":
@@ -54,18 +57,21 @@ export function PricingSection() {
             }}
             aria-label={pt("pricing.currencyLabel")}
             className="shrink-0 self-start rounded-lg border border-border bg-muted/30 p-1 sm:self-auto"
-            variant="outline"
             size="sm"
           >
             <ToggleGroupItem
               value="usd"
-              className="rounded-md px-3 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+              data-testid="pricing-currency-usd"
+              aria-selected={currency === "usd"}
+              className={pricingCurrencyToggleItemClassName}
             >
               {pt("pricing.currencyUsd")}
             </ToggleGroupItem>
             <ToggleGroupItem
               value="idr"
-              className="rounded-md px-3 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+              data-testid="pricing-currency-idr"
+              aria-selected={currency === "idr"}
+              className={pricingCurrencyToggleItemClassName}
             >
               {pt("pricing.currencyIdr")}
             </ToggleGroupItem>

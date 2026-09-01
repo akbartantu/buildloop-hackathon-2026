@@ -10,7 +10,6 @@ import { SectionHeading } from "@/components/site/section-heading";
 import { ScopeBoundary } from "@/components/site/scope-boundary";
 import { LifecycleRailCompact, LifecycleRailDetailed } from "@/components/site/lifecycle-rail";
 import { PricingSection } from "@/components/site/pricing-section";
-import { WaitlistForm } from "@/components/site/waitlist-form";
 import { usePublicI18n, usePublicPageMeta } from "@/i18n/use-public-i18n";
 
 export function LandingPage() {
@@ -160,23 +159,6 @@ export function LandingPage() {
       </section>
 
       <PricingSection />
-
-      <section id="pilot" className="border-b border-border">
-        <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
-          <h2 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-            {pt("pilot.title")}
-          </h2>
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground">
-            {pt("pilot.description")}
-          </p>
-          <ul className="mt-5 flex flex-wrap gap-x-6 gap-y-2 font-mono text-[11px] text-muted-foreground">
-            <li>{pt("pilot.limitRepo")}</li>
-            <li>{pt("pilot.limitTask")}</li>
-            <li>{pt("pilot.limitContract")}</li>
-          </ul>
-          <WaitlistForm />
-        </div>
-      </section>
 
       <section id="faq">
         <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">

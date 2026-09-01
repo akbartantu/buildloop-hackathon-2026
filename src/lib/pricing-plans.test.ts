@@ -25,7 +25,7 @@ describe("pricing plans", () => {
 });
 
 describe("pricing landing integration", () => {
-  test("landing page includes pricing section and nav anchor", async () => {
+  test("landing page includes pricing section and hides pilot waitlist CTA", async () => {
     const landing = await Bun.file(
       new URL("../components/site/pages/landing-page.tsx", import.meta.url),
     ).text();
@@ -34,6 +34,8 @@ describe("pricing landing integration", () => {
     ).text();
 
     expect(landing).toContain("PricingSection");
+    expect(landing).not.toContain("WaitlistForm");
+    expect(landing).not.toContain('id="pilot"');
     expect(header).toContain('hash: "pricing"');
   });
 

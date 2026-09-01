@@ -22,6 +22,12 @@ import {
   sanitizePersistedRuntimeDiagnostics,
   type WorkerRuntimeDiagnostics,
 } from "@/lib/runtime-diagnostics";
+import {
+  extractEvidenceCheckCommand,
+  formatEvidenceCheckSummary,
+  formatEvidenceCheckTitle,
+  formatEvidenceCheckUserLine,
+} from "@/lib/evidence-check-presentation";
 
 export type FailureClassification =
   | "verification"
@@ -56,7 +62,7 @@ export type EvidenceSummaryViewModel = {
   runtimeFailureExplanation: string | null;
 };
 
-type CheckKey =
+export type CheckKey =
   | "typecheck"
   | "test"
   | "scope"
@@ -294,27 +300,23 @@ export function buildCheckTechnicalDetails(
   locale: Locale,
 ): CheckTechnicalDetail[] {
   return rows.map((row) => {
-    const checkKey = resolveCheckKey(row.category, row.name);
-    const command = extractCommand(row.summary);
+    const command = extractEvidenceCheckCommand(row.summary);
     const preflightLine =
       row.category === "preflight" && row.status === "blocked"
         ? formatPreflightBlockedUserLine(row.name, locale)
         : null;
+    const userLine = preflightLine ?? formatEvidenceCheckUserLine(row, locale);
+    const summary = preflightLine ?? formatEvidenceCheckSummary(row, locale);
     return {
       category: row.category,
       name: row.name,
       status: row.status,
-      summary: preflightLine ?? row.summary,
+      summary,
       ...(command ? { command } : {}),
-      title: formatCheckTitle(checkKey, locale),
-      userLine: preflightLine ?? formatCheckUserLine(checkKey, row.status, locale),
+      title: formatEvidenceCheckTitle(row, locale),
+      userLine,
     };
   });
-}
-
-function extractCommand(summary: string): string | undefined {
-  const match = summary.match(/Command failed:\s*(.+)/i) ?? summary.match(/^(bun run .+)$/i);
-  return match?.[1]?.trim();
 }
 
 export function userFacingFailureExplanation(details: CheckTechnicalDetail[]): string {

@@ -100,6 +100,7 @@ import { SafetyGuaranteesPanel } from "@/components/site/safety-guarantees-panel
 import { HumanGatedDeliveryStrip } from "@/components/site/human-gated-delivery-strip";
 import { shouldShowHumanGatedDeliveryStrip } from "@/lib/run-clarity-presentation";
 import { buildChangeEvidenceViewModel } from "@/lib/change-evidence-presentation";
+import { shouldShowEvidenceCheckSummary } from "@/lib/evidence-check-presentation";
 import {
   canShowDeliveryHandoff,
 } from "@/lib/delivery-handoff-presentation";
@@ -1069,10 +1070,12 @@ function EvidenceView({
                     </p>
                     {item.command ? (
                       <p className="mt-1 font-mono text-xs text-muted-foreground">
-                        Command: {item.command}
+                        {t("taskDetail.evidence.commandLabel")}: {item.command}
                       </p>
                     ) : null}
-                    <p className="mt-1 text-xs text-muted-foreground">{item.summary}</p>
+                    {shouldShowEvidenceCheckSummary(item.userLine, item.summary) ? (
+                      <p className="mt-1 text-xs text-muted-foreground">{item.summary}</p>
+                    ) : null}
                   </li>
                 );
               })}

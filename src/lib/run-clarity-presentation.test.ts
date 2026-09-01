@@ -10,7 +10,12 @@ import {
   shouldShowHumanGatedDeliveryStrip,
 } from "@/lib/run-clarity-presentation";
 import { lifecycleStageVisualStates } from "@/components/site/lifecycle-progress-panel";
-import { deliveryStripStepKeys } from "@/components/site/human-gated-delivery-strip";
+import {
+  deliveryStripStepKeys,
+  deliveryStripUsesCompactDesktopLayout,
+  deliveryStripUsesSingleContinuousRow,
+  humanGatedDeliveryStripUsesExternalHeadingOnly,
+} from "@/components/site/human-gated-delivery-strip";
 import { buildEvidenceSummaryViewModel } from "@/lib/evidence-summary";
 import { runtimeDiagnosticsDisplayKeys } from "@/components/site/runtime-diagnostics-panel";
 import { sanitizePersistedRuntimeDiagnostics } from "@/lib/runtime-diagnostics";
@@ -138,6 +143,12 @@ describe("run clarity presentation", () => {
     ]);
     expect(strip.find((step) => step.key === "delivery")?.statusLabel).toContain("human-gated");
     expect(deliveryStripImpliesUnexecutedGitActions(strip)).toBe(true);
+  });
+
+  test("human-gated delivery strip uses external heading only and compact desktop layout", () => {
+    expect(humanGatedDeliveryStripUsesExternalHeadingOnly()).toBe(true);
+    expect(deliveryStripUsesSingleContinuousRow()).toBe(true);
+    expect(deliveryStripUsesCompactDesktopLayout()).toBe(true);
   });
 
   test("old runs without runtime diagnostics still render evidence summary", () => {

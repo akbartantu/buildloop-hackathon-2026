@@ -56,6 +56,12 @@ describe("workspace switch synchronization", () => {
     expect(source).not.toContain("ProjectsProvider");
   });
 
+  test("global app layout does not render workspace sidebar", async () => {
+    const source = await readSource(new URL("../components/site/global-app-layout.tsx", import.meta.url));
+    expect(source).not.toContain("SidebarProvider");
+    expect(source).not.toContain("WorkspaceSwitcher");
+  });
+
   test("workspace tasks hide stale rows while scope is transitioning", () => {
     expect(
       isWorkspaceTasksLoading({

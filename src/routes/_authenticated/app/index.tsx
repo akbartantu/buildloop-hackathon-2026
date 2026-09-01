@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { GlobalAppLayout } from "@/components/site/global-app-layout";
 import { WorkspaceOverviewPage } from "@/components/site/pages/workspace-overview-page";
 
 export const Route = createFileRoute("/_authenticated/app/")({
-  component: WorkspaceOverviewPage,
+  component: WorkspaceOverviewRoute,
   head: () => ({
     meta: [
       { title: "Workspaces — BuildLoop" },
@@ -13,3 +14,11 @@ export const Route = createFileRoute("/_authenticated/app/")({
     ],
   }),
 });
+
+function WorkspaceOverviewRoute() {
+  return (
+    <GlobalAppLayout>
+      <WorkspaceOverviewPage />
+    </GlobalAppLayout>
+  );
+}

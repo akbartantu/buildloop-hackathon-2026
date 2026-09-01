@@ -6,7 +6,7 @@ const newTaskSearchSchema = z.object({
   from: z.string().uuid().optional(),
 });
 
-export const Route = createFileRoute("/_authenticated/app/tasks/new")({
+export const Route = createFileRoute("/_authenticated/app/_workspace/tasks/new")({
   validateSearch: (search) => newTaskSearchSchema.parse(search),
   component: NewTaskRoute,
   head: () => ({

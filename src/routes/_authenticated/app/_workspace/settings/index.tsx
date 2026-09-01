@@ -6,7 +6,7 @@ const settingsSearchSchema = z.object({
   tab: z.enum(["profile", "workspace", "environment"]).default("profile"),
 });
 
-export const Route = createFileRoute("/_authenticated/app/settings/")({
+export const Route = createFileRoute("/_authenticated/app/_workspace/settings/")({
   component: SettingsPage,
   validateSearch: (search) => settingsSearchSchema.parse(search),
   head: () => ({

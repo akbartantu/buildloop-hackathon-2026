@@ -4,7 +4,8 @@ import { translate } from "@/i18n";
 import { resolveActiveNav } from "@/lib/app-nav";
 
 const overviewSourcePath = new URL("./workspace-overview-page.tsx", import.meta.url);
-const dashboardRoutePath = new URL("../../../routes/_authenticated/app/dashboard/index.tsx", import.meta.url);
+const dashboardRoutePath = new URL("../../../routes/_authenticated/app/_workspace/dashboard/index.tsx", import.meta.url);
+const workspaceRoutePath = new URL("../../../routes/_authenticated/app/_workspace/route.tsx", import.meta.url);
 const appIndexRoutePath = new URL("../../../routes/_authenticated/app/index.tsx", import.meta.url);
 const switcherSourcePath = new URL("../workspace-switcher.tsx", import.meta.url);
 const appNavPath = new URL("../../../lib/app-nav.ts", import.meta.url);
@@ -20,10 +21,22 @@ describe("workspace overview routing", () => {
     expect(source).not.toContain("WorkspaceDashboardPage");
   });
 
-  test("workspace dashboard route preserves operational overview", async () => {
+  test("workspace dashboard route preserves operational overview under workspace shell", async () => {
     const source = await readSource(dashboardRoutePath);
     expect(source).toContain("WorkspaceDashboardPage");
-    expect(source).toContain("/_authenticated/app/dashboard/");
+    expect(source).toContain("/_authenticated/app/_workspace/dashboard/");
+  });
+
+  test("workspace shell layout wraps dashboard and task routes", async () => {
+    const source = await readSource(workspaceRoutePath);
+    expect(source).toContain("AppLayout");
+    expect(source).toContain("WorkspaceShellGuard");
+  });
+
+  test("app index uses global shell without workspace sidebar", async () => {
+    const source = await readSource(appIndexRoutePath);
+    expect(source).toContain("GlobalAppLayout");
+    expect(source).not.toContain('from "@/components/site/app-layout"');
   });
 
   test("nav home points to workspace dashboard while /app remains overview", async () => {

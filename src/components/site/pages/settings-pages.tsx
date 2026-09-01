@@ -59,7 +59,7 @@ import {
 } from "@/lib/runtime/runtime-status";
 import { WORKSPACE_NAME } from "@/lib/task-contract";
 
-const settingsRoute = getRouteApi("/_authenticated/app/settings/");
+const settingsRoute = getRouteApi("/_authenticated/app/_workspace/settings/");
 
 type UserMetadata = {
   full_name?: string;

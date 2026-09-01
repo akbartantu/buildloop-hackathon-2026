@@ -9,7 +9,7 @@ const taskDetailSearchSchema = z.object({
     .optional(),
 });
 
-export const Route = createFileRoute("/_authenticated/app/tasks/$taskId")({
+export const Route = createFileRoute("/_authenticated/app/_workspace/tasks/$taskId")({
   validateSearch: (search) => taskDetailSearchSchema.parse(search),
   component: TaskDetailRoute,
   head: () => ({

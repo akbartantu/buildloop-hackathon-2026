@@ -25,17 +25,18 @@ import { Route as AuthForgotPasswordRouteImport } from './routes/auth/forgot-pas
 import { Route as AuthResetPasswordRouteImport } from './routes/auth/reset-password'
 import { Route as AuthSignUpRouteImport } from './routes/auth/sign-up'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app/index'
+import { Route as AuthenticatedAppWorkspaceRouteRouteImport } from './routes/_authenticated/app/_workspace/route'
 import { Route as AuthForgotPasswordSentRouteImport } from './routes/auth/forgot-password.sent'
 import { Route as AuthResetPasswordSuccessRouteImport } from './routes/auth/reset-password.success'
-import { Route as AuthenticatedAppApprovalsIndexRouteImport } from './routes/_authenticated/app/approvals/index'
-import { Route as AuthenticatedAppDashboardIndexRouteImport } from './routes/_authenticated/app/dashboard/index'
-import { Route as AuthenticatedAppIntegrationsIndexRouteImport } from './routes/_authenticated/app/integrations/index'
-import { Route as AuthenticatedAppProjectsIndexRouteImport } from './routes/_authenticated/app/projects/index'
-import { Route as AuthenticatedAppRunsIndexRouteImport } from './routes/_authenticated/app/runs/index'
-import { Route as AuthenticatedAppSettingsIndexRouteImport } from './routes/_authenticated/app/settings/index'
-import { Route as AuthenticatedAppTasksIndexRouteImport } from './routes/_authenticated/app/tasks/index'
-import { Route as AuthenticatedAppTasksTaskIdRouteImport } from './routes/_authenticated/app/tasks/$taskId'
-import { Route as AuthenticatedAppTasksNewRouteImport } from './routes/_authenticated/app/tasks/new'
+import { Route as AuthenticatedAppWorkspaceApprovalsIndexRouteImport } from './routes/_authenticated/app/_workspace/approvals/index'
+import { Route as AuthenticatedAppWorkspaceDashboardIndexRouteImport } from './routes/_authenticated/app/_workspace/dashboard/index'
+import { Route as AuthenticatedAppWorkspaceIntegrationsIndexRouteImport } from './routes/_authenticated/app/_workspace/integrations/index'
+import { Route as AuthenticatedAppWorkspaceProjectsIndexRouteImport } from './routes/_authenticated/app/_workspace/projects/index'
+import { Route as AuthenticatedAppWorkspaceRunsIndexRouteImport } from './routes/_authenticated/app/_workspace/runs/index'
+import { Route as AuthenticatedAppWorkspaceSettingsIndexRouteImport } from './routes/_authenticated/app/_workspace/settings/index'
+import { Route as AuthenticatedAppWorkspaceTasksIndexRouteImport } from './routes/_authenticated/app/_workspace/tasks/index'
+import { Route as AuthenticatedAppWorkspaceTasksTaskIdRouteImport } from './routes/_authenticated/app/_workspace/tasks/$taskId'
+import { Route as AuthenticatedAppWorkspaceTasksNewRouteImport } from './routes/_authenticated/app/_workspace/tasks/new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -116,6 +117,11 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedAppRouteRoute,
 } as any)
+const AuthenticatedAppWorkspaceRouteRoute =
+  AuthenticatedAppWorkspaceRouteRouteImport.update({
+    id: '/_workspace',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthForgotPasswordSentRoute = AuthForgotPasswordSentRouteImport.update({
   id: '/sent',
   path: '/sent',
@@ -127,59 +133,59 @@ const AuthResetPasswordSuccessRoute =
     path: '/success',
     getParentRoute: () => AuthResetPasswordRoute,
   } as any)
-const AuthenticatedAppApprovalsIndexRoute =
-  AuthenticatedAppApprovalsIndexRouteImport.update({
+const AuthenticatedAppWorkspaceApprovalsIndexRoute =
+  AuthenticatedAppWorkspaceApprovalsIndexRouteImport.update({
     id: '/approvals/',
     path: '/approvals/',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedAppWorkspaceRouteRoute,
   } as any)
-const AuthenticatedAppDashboardIndexRoute =
-  AuthenticatedAppDashboardIndexRouteImport.update({
+const AuthenticatedAppWorkspaceDashboardIndexRoute =
+  AuthenticatedAppWorkspaceDashboardIndexRouteImport.update({
     id: '/dashboard/',
     path: '/dashboard/',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedAppWorkspaceRouteRoute,
   } as any)
-const AuthenticatedAppIntegrationsIndexRoute =
-  AuthenticatedAppIntegrationsIndexRouteImport.update({
+const AuthenticatedAppWorkspaceIntegrationsIndexRoute =
+  AuthenticatedAppWorkspaceIntegrationsIndexRouteImport.update({
     id: '/integrations/',
     path: '/integrations/',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedAppWorkspaceRouteRoute,
   } as any)
-const AuthenticatedAppProjectsIndexRoute =
-  AuthenticatedAppProjectsIndexRouteImport.update({
+const AuthenticatedAppWorkspaceProjectsIndexRoute =
+  AuthenticatedAppWorkspaceProjectsIndexRouteImport.update({
     id: '/projects/',
     path: '/projects/',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedAppWorkspaceRouteRoute,
   } as any)
-const AuthenticatedAppRunsIndexRoute =
-  AuthenticatedAppRunsIndexRouteImport.update({
+const AuthenticatedAppWorkspaceRunsIndexRoute =
+  AuthenticatedAppWorkspaceRunsIndexRouteImport.update({
     id: '/runs/',
     path: '/runs/',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedAppWorkspaceRouteRoute,
   } as any)
-const AuthenticatedAppSettingsIndexRoute =
-  AuthenticatedAppSettingsIndexRouteImport.update({
+const AuthenticatedAppWorkspaceSettingsIndexRoute =
+  AuthenticatedAppWorkspaceSettingsIndexRouteImport.update({
     id: '/settings/',
     path: '/settings/',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedAppWorkspaceRouteRoute,
   } as any)
-const AuthenticatedAppTasksIndexRoute =
-  AuthenticatedAppTasksIndexRouteImport.update({
+const AuthenticatedAppWorkspaceTasksIndexRoute =
+  AuthenticatedAppWorkspaceTasksIndexRouteImport.update({
     id: '/tasks/',
     path: '/tasks/',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedAppWorkspaceRouteRoute,
   } as any)
-const AuthenticatedAppTasksTaskIdRoute =
-  AuthenticatedAppTasksTaskIdRouteImport.update({
+const AuthenticatedAppWorkspaceTasksTaskIdRoute =
+  AuthenticatedAppWorkspaceTasksTaskIdRouteImport.update({
     id: '/tasks/$taskId',
     path: '/tasks/$taskId',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedAppWorkspaceRouteRoute,
   } as any)
-const AuthenticatedAppTasksNewRoute =
-  AuthenticatedAppTasksNewRouteImport.update({
+const AuthenticatedAppWorkspaceTasksNewRoute =
+  AuthenticatedAppWorkspaceTasksNewRouteImport.update({
     id: '/tasks/new',
     path: '/tasks/new',
-    getParentRoute: () => AuthenticatedAppRouteRoute,
+    getParentRoute: () => AuthenticatedAppWorkspaceRouteRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -200,15 +206,15 @@ export interface FileRoutesByFullPath {
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
   '/auth/reset-password/success': typeof AuthResetPasswordSuccessRoute
   '/app/': typeof AuthenticatedAppIndexRoute
-  '/app/tasks/$taskId': typeof AuthenticatedAppTasksTaskIdRoute
-  '/app/tasks/new': typeof AuthenticatedAppTasksNewRoute
-  '/app/approvals/': typeof AuthenticatedAppApprovalsIndexRoute
-  '/app/dashboard/': typeof AuthenticatedAppDashboardIndexRoute
-  '/app/integrations/': typeof AuthenticatedAppIntegrationsIndexRoute
-  '/app/projects/': typeof AuthenticatedAppProjectsIndexRoute
-  '/app/runs/': typeof AuthenticatedAppRunsIndexRoute
-  '/app/settings/': typeof AuthenticatedAppSettingsIndexRoute
-  '/app/tasks/': typeof AuthenticatedAppTasksIndexRoute
+  '/app/tasks/$taskId': typeof AuthenticatedAppWorkspaceTasksTaskIdRoute
+  '/app/tasks/new': typeof AuthenticatedAppWorkspaceTasksNewRoute
+  '/app/approvals/': typeof AuthenticatedAppWorkspaceApprovalsIndexRoute
+  '/app/dashboard/': typeof AuthenticatedAppWorkspaceDashboardIndexRoute
+  '/app/integrations/': typeof AuthenticatedAppWorkspaceIntegrationsIndexRoute
+  '/app/projects/': typeof AuthenticatedAppWorkspaceProjectsIndexRoute
+  '/app/runs/': typeof AuthenticatedAppWorkspaceRunsIndexRoute
+  '/app/settings/': typeof AuthenticatedAppWorkspaceSettingsIndexRoute
+  '/app/tasks/': typeof AuthenticatedAppWorkspaceTasksIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -223,18 +229,18 @@ export interface FileRoutesByTo {
   '/auth/reset-password': typeof AuthResetPasswordRouteWithChildren
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth': typeof AuthIndexRoute
+  '/app': typeof AuthenticatedAppIndexRoute
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
   '/auth/reset-password/success': typeof AuthResetPasswordSuccessRoute
-  '/app': typeof AuthenticatedAppIndexRoute
-  '/app/tasks/$taskId': typeof AuthenticatedAppTasksTaskIdRoute
-  '/app/tasks/new': typeof AuthenticatedAppTasksNewRoute
-  '/app/approvals': typeof AuthenticatedAppApprovalsIndexRoute
-  '/app/dashboard': typeof AuthenticatedAppDashboardIndexRoute
-  '/app/integrations': typeof AuthenticatedAppIntegrationsIndexRoute
-  '/app/projects': typeof AuthenticatedAppProjectsIndexRoute
-  '/app/runs': typeof AuthenticatedAppRunsIndexRoute
-  '/app/settings': typeof AuthenticatedAppSettingsIndexRoute
-  '/app/tasks': typeof AuthenticatedAppTasksIndexRoute
+  '/app/tasks/$taskId': typeof AuthenticatedAppWorkspaceTasksTaskIdRoute
+  '/app/tasks/new': typeof AuthenticatedAppWorkspaceTasksNewRoute
+  '/app/approvals': typeof AuthenticatedAppWorkspaceApprovalsIndexRoute
+  '/app/dashboard': typeof AuthenticatedAppWorkspaceDashboardIndexRoute
+  '/app/integrations': typeof AuthenticatedAppWorkspaceIntegrationsIndexRoute
+  '/app/projects': typeof AuthenticatedAppWorkspaceProjectsIndexRoute
+  '/app/runs': typeof AuthenticatedAppWorkspaceRunsIndexRoute
+  '/app/settings': typeof AuthenticatedAppWorkspaceSettingsIndexRoute
+  '/app/tasks': typeof AuthenticatedAppWorkspaceTasksIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -253,18 +259,19 @@ export interface FileRoutesById {
   '/auth/reset-password': typeof AuthResetPasswordRouteWithChildren
   '/auth/sign-up': typeof AuthSignUpRoute
   '/auth/': typeof AuthIndexRoute
+  '/_authenticated/app/_workspace': typeof AuthenticatedAppWorkspaceRouteRouteWithChildren
   '/auth/forgot-password/sent': typeof AuthForgotPasswordSentRoute
   '/auth/reset-password/success': typeof AuthResetPasswordSuccessRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
-  '/_authenticated/app/tasks/$taskId': typeof AuthenticatedAppTasksTaskIdRoute
-  '/_authenticated/app/tasks/new': typeof AuthenticatedAppTasksNewRoute
-  '/_authenticated/app/approvals/': typeof AuthenticatedAppApprovalsIndexRoute
-  '/_authenticated/app/dashboard/': typeof AuthenticatedAppDashboardIndexRoute
-  '/_authenticated/app/integrations/': typeof AuthenticatedAppIntegrationsIndexRoute
-  '/_authenticated/app/projects/': typeof AuthenticatedAppProjectsIndexRoute
-  '/_authenticated/app/runs/': typeof AuthenticatedAppRunsIndexRoute
-  '/_authenticated/app/settings/': typeof AuthenticatedAppSettingsIndexRoute
-  '/_authenticated/app/tasks/': typeof AuthenticatedAppTasksIndexRoute
+  '/_authenticated/app/_workspace/tasks/$taskId': typeof AuthenticatedAppWorkspaceTasksTaskIdRoute
+  '/_authenticated/app/_workspace/tasks/new': typeof AuthenticatedAppWorkspaceTasksNewRoute
+  '/_authenticated/app/_workspace/approvals/': typeof AuthenticatedAppWorkspaceApprovalsIndexRoute
+  '/_authenticated/app/_workspace/dashboard/': typeof AuthenticatedAppWorkspaceDashboardIndexRoute
+  '/_authenticated/app/_workspace/integrations/': typeof AuthenticatedAppWorkspaceIntegrationsIndexRoute
+  '/_authenticated/app/_workspace/projects/': typeof AuthenticatedAppWorkspaceProjectsIndexRoute
+  '/_authenticated/app/_workspace/runs/': typeof AuthenticatedAppWorkspaceRunsIndexRoute
+  '/_authenticated/app/_workspace/settings/': typeof AuthenticatedAppWorkspaceSettingsIndexRoute
+  '/_authenticated/app/_workspace/tasks/': typeof AuthenticatedAppWorkspaceTasksIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -309,9 +316,9 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/sign-up'
     | '/auth'
+    | '/app'
     | '/auth/forgot-password/sent'
     | '/auth/reset-password/success'
-    | '/app'
     | '/app/tasks/$taskId'
     | '/app/tasks/new'
     | '/app/approvals'
@@ -338,18 +345,19 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/sign-up'
     | '/auth/'
+    | '/_authenticated/app/_workspace'
     | '/auth/forgot-password/sent'
     | '/auth/reset-password/success'
     | '/_authenticated/app/'
-    | '/_authenticated/app/tasks/$taskId'
-    | '/_authenticated/app/tasks/new'
-    | '/_authenticated/app/approvals/'
-    | '/_authenticated/app/dashboard/'
-    | '/_authenticated/app/integrations/'
-    | '/_authenticated/app/projects/'
-    | '/_authenticated/app/runs/'
-    | '/_authenticated/app/settings/'
-    | '/_authenticated/app/tasks/'
+    | '/_authenticated/app/_workspace/tasks/$taskId'
+    | '/_authenticated/app/_workspace/tasks/new'
+    | '/_authenticated/app/_workspace/approvals/'
+    | '/_authenticated/app/_workspace/dashboard/'
+    | '/_authenticated/app/_workspace/integrations/'
+    | '/_authenticated/app/_workspace/projects/'
+    | '/_authenticated/app/_workspace/runs/'
+    | '/_authenticated/app/_workspace/settings/'
+    | '/_authenticated/app/_workspace/tasks/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -478,6 +486,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/_workspace': {
+      id: '/_authenticated/app/_workspace'
+      path: ''
+      fullPath: '/app'
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceRouteRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/auth/forgot-password/sent': {
       id: '/auth/forgot-password/sent'
       path: '/sent'
@@ -492,97 +507,120 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthResetPasswordSuccessRouteImport
       parentRoute: typeof AuthResetPasswordRoute
     }
-    '/_authenticated/app/approvals/': {
-      id: '/_authenticated/app/approvals/'
+    '/_authenticated/app/_workspace/approvals/': {
+      id: '/_authenticated/app/_workspace/approvals/'
       path: '/approvals'
       fullPath: '/app/approvals/'
-      preLoaderRoute: typeof AuthenticatedAppApprovalsIndexRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceApprovalsIndexRouteImport
+      parentRoute: typeof AuthenticatedAppWorkspaceRouteRoute
     }
-    '/_authenticated/app/dashboard/': {
-      id: '/_authenticated/app/dashboard/'
+    '/_authenticated/app/_workspace/dashboard/': {
+      id: '/_authenticated/app/_workspace/dashboard/'
       path: '/dashboard'
       fullPath: '/app/dashboard/'
-      preLoaderRoute: typeof AuthenticatedAppDashboardIndexRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceDashboardIndexRouteImport
+      parentRoute: typeof AuthenticatedAppWorkspaceRouteRoute
     }
-    '/_authenticated/app/integrations/': {
-      id: '/_authenticated/app/integrations/'
+    '/_authenticated/app/_workspace/integrations/': {
+      id: '/_authenticated/app/_workspace/integrations/'
       path: '/integrations'
       fullPath: '/app/integrations/'
-      preLoaderRoute: typeof AuthenticatedAppIntegrationsIndexRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceIntegrationsIndexRouteImport
+      parentRoute: typeof AuthenticatedAppWorkspaceRouteRoute
     }
-    '/_authenticated/app/projects/': {
-      id: '/_authenticated/app/projects/'
+    '/_authenticated/app/_workspace/projects/': {
+      id: '/_authenticated/app/_workspace/projects/'
       path: '/projects'
       fullPath: '/app/projects/'
-      preLoaderRoute: typeof AuthenticatedAppProjectsIndexRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceProjectsIndexRouteImport
+      parentRoute: typeof AuthenticatedAppWorkspaceRouteRoute
     }
-    '/_authenticated/app/runs/': {
-      id: '/_authenticated/app/runs/'
+    '/_authenticated/app/_workspace/runs/': {
+      id: '/_authenticated/app/_workspace/runs/'
       path: '/runs'
       fullPath: '/app/runs/'
-      preLoaderRoute: typeof AuthenticatedAppRunsIndexRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceRunsIndexRouteImport
+      parentRoute: typeof AuthenticatedAppWorkspaceRouteRoute
     }
-    '/_authenticated/app/settings/': {
-      id: '/_authenticated/app/settings/'
+    '/_authenticated/app/_workspace/settings/': {
+      id: '/_authenticated/app/_workspace/settings/'
       path: '/settings'
       fullPath: '/app/settings/'
-      preLoaderRoute: typeof AuthenticatedAppSettingsIndexRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceSettingsIndexRouteImport
+      parentRoute: typeof AuthenticatedAppWorkspaceRouteRoute
     }
-    '/_authenticated/app/tasks/': {
-      id: '/_authenticated/app/tasks/'
+    '/_authenticated/app/_workspace/tasks/': {
+      id: '/_authenticated/app/_workspace/tasks/'
       path: '/tasks'
       fullPath: '/app/tasks/'
-      preLoaderRoute: typeof AuthenticatedAppTasksIndexRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceTasksIndexRouteImport
+      parentRoute: typeof AuthenticatedAppWorkspaceRouteRoute
     }
-    '/_authenticated/app/tasks/$taskId': {
-      id: '/_authenticated/app/tasks/$taskId'
+    '/_authenticated/app/_workspace/tasks/$taskId': {
+      id: '/_authenticated/app/_workspace/tasks/$taskId'
       path: '/tasks/$taskId'
       fullPath: '/app/tasks/$taskId'
-      preLoaderRoute: typeof AuthenticatedAppTasksTaskIdRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceTasksTaskIdRouteImport
+      parentRoute: typeof AuthenticatedAppWorkspaceRouteRoute
     }
-    '/_authenticated/app/tasks/new': {
-      id: '/_authenticated/app/tasks/new'
+    '/_authenticated/app/_workspace/tasks/new': {
+      id: '/_authenticated/app/_workspace/tasks/new'
       path: '/tasks/new'
       fullPath: '/app/tasks/new'
-      preLoaderRoute: typeof AuthenticatedAppTasksNewRouteImport
-      parentRoute: typeof AuthenticatedAppRouteRoute
+      preLoaderRoute: typeof AuthenticatedAppWorkspaceTasksNewRouteImport
+      parentRoute: typeof AuthenticatedAppWorkspaceRouteRoute
     }
   }
 }
 
+interface AuthenticatedAppWorkspaceRouteRouteChildren {
+  AuthenticatedAppWorkspaceTasksTaskIdRoute: typeof AuthenticatedAppWorkspaceTasksTaskIdRoute
+  AuthenticatedAppWorkspaceTasksNewRoute: typeof AuthenticatedAppWorkspaceTasksNewRoute
+  AuthenticatedAppWorkspaceApprovalsIndexRoute: typeof AuthenticatedAppWorkspaceApprovalsIndexRoute
+  AuthenticatedAppWorkspaceDashboardIndexRoute: typeof AuthenticatedAppWorkspaceDashboardIndexRoute
+  AuthenticatedAppWorkspaceIntegrationsIndexRoute: typeof AuthenticatedAppWorkspaceIntegrationsIndexRoute
+  AuthenticatedAppWorkspaceProjectsIndexRoute: typeof AuthenticatedAppWorkspaceProjectsIndexRoute
+  AuthenticatedAppWorkspaceRunsIndexRoute: typeof AuthenticatedAppWorkspaceRunsIndexRoute
+  AuthenticatedAppWorkspaceSettingsIndexRoute: typeof AuthenticatedAppWorkspaceSettingsIndexRoute
+  AuthenticatedAppWorkspaceTasksIndexRoute: typeof AuthenticatedAppWorkspaceTasksIndexRoute
+}
+
+const AuthenticatedAppWorkspaceRouteRouteChildren: AuthenticatedAppWorkspaceRouteRouteChildren =
+  {
+    AuthenticatedAppWorkspaceTasksTaskIdRoute:
+      AuthenticatedAppWorkspaceTasksTaskIdRoute,
+    AuthenticatedAppWorkspaceTasksNewRoute:
+      AuthenticatedAppWorkspaceTasksNewRoute,
+    AuthenticatedAppWorkspaceApprovalsIndexRoute:
+      AuthenticatedAppWorkspaceApprovalsIndexRoute,
+    AuthenticatedAppWorkspaceDashboardIndexRoute:
+      AuthenticatedAppWorkspaceDashboardIndexRoute,
+    AuthenticatedAppWorkspaceIntegrationsIndexRoute:
+      AuthenticatedAppWorkspaceIntegrationsIndexRoute,
+    AuthenticatedAppWorkspaceProjectsIndexRoute:
+      AuthenticatedAppWorkspaceProjectsIndexRoute,
+    AuthenticatedAppWorkspaceRunsIndexRoute:
+      AuthenticatedAppWorkspaceRunsIndexRoute,
+    AuthenticatedAppWorkspaceSettingsIndexRoute:
+      AuthenticatedAppWorkspaceSettingsIndexRoute,
+    AuthenticatedAppWorkspaceTasksIndexRoute:
+      AuthenticatedAppWorkspaceTasksIndexRoute,
+  }
+
+const AuthenticatedAppWorkspaceRouteRouteWithChildren =
+  AuthenticatedAppWorkspaceRouteRoute._addFileChildren(
+    AuthenticatedAppWorkspaceRouteRouteChildren,
+  )
+
 interface AuthenticatedAppRouteRouteChildren {
+  AuthenticatedAppWorkspaceRouteRoute: typeof AuthenticatedAppWorkspaceRouteRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
-  AuthenticatedAppTasksTaskIdRoute: typeof AuthenticatedAppTasksTaskIdRoute
-  AuthenticatedAppTasksNewRoute: typeof AuthenticatedAppTasksNewRoute
-  AuthenticatedAppApprovalsIndexRoute: typeof AuthenticatedAppApprovalsIndexRoute
-  AuthenticatedAppDashboardIndexRoute: typeof AuthenticatedAppDashboardIndexRoute
-  AuthenticatedAppIntegrationsIndexRoute: typeof AuthenticatedAppIntegrationsIndexRoute
-  AuthenticatedAppProjectsIndexRoute: typeof AuthenticatedAppProjectsIndexRoute
-  AuthenticatedAppRunsIndexRoute: typeof AuthenticatedAppRunsIndexRoute
-  AuthenticatedAppSettingsIndexRoute: typeof AuthenticatedAppSettingsIndexRoute
-  AuthenticatedAppTasksIndexRoute: typeof AuthenticatedAppTasksIndexRoute
 }
 
 const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
+  AuthenticatedAppWorkspaceRouteRoute:
+    AuthenticatedAppWorkspaceRouteRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
-  AuthenticatedAppTasksTaskIdRoute: AuthenticatedAppTasksTaskIdRoute,
-  AuthenticatedAppTasksNewRoute: AuthenticatedAppTasksNewRoute,
-  AuthenticatedAppApprovalsIndexRoute: AuthenticatedAppApprovalsIndexRoute,
-  AuthenticatedAppDashboardIndexRoute: AuthenticatedAppDashboardIndexRoute,
-  AuthenticatedAppIntegrationsIndexRoute:
-    AuthenticatedAppIntegrationsIndexRoute,
-  AuthenticatedAppProjectsIndexRoute: AuthenticatedAppProjectsIndexRoute,
-  AuthenticatedAppRunsIndexRoute: AuthenticatedAppRunsIndexRoute,
-  AuthenticatedAppSettingsIndexRoute: AuthenticatedAppSettingsIndexRoute,
-  AuthenticatedAppTasksIndexRoute: AuthenticatedAppTasksIndexRoute,
 }
 
 const AuthenticatedAppRouteRouteWithChildren =

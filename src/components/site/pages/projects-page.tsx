@@ -21,7 +21,7 @@ import { PROTECTED_PATHS, WORKSPACE_NAME } from "@/lib/task-contract";
 import type { ConnectIntent } from "@/hooks/use-projects";
 import { WorkspaceSpecificationsPanel } from "@/components/site/workspace-specifications-panel";
 
-const projectsRoute = getRouteApi("/_authenticated/app/projects/");
+const projectsRoute = getRouteApi("/_authenticated/app/_workspace/projects/");
 
 type RepositoryConnectFormProps = {
   title: string;

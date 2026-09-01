@@ -1,10 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AppLayout } from "@/components/site/app-layout";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated/app")({
-  component: AppLayoutRoute,
+  component: AppRouteLayout,
 });
 
-function AppLayoutRoute() {
-  return <AppLayout />;
+function AppRouteLayout() {
+  return <Outlet />;
 }

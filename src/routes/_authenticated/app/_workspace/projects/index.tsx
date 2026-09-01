@@ -6,7 +6,7 @@ const projectsSearchSchema = z.object({
   create: z.literal("1").optional(),
 });
 
-export const Route = createFileRoute("/_authenticated/app/projects/")({
+export const Route = createFileRoute("/_authenticated/app/_workspace/projects/")({
   component: ProjectsPage,
   validateSearch: (search) => projectsSearchSchema.parse(search),
   head: () => ({

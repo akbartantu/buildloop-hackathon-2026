@@ -1,27 +1,18 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import {
-  Bell,
+  ArrowLeft,
   CheckSquare,
-  CircleHelp,
   FolderKanban,
   Home,
   Puzzle,
-  Search,
+  Play,
   Settings,
   ShieldCheck,
-  Play,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { AppShellHeader } from "@/components/site/app-shell-header";
 import { BuildLoopLogo } from "@/components/site/buildloop-logo";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
   Sidebar,
   SidebarContent,
@@ -46,9 +37,7 @@ import {
   resolveActiveNav,
   type AppNavItem,
 } from "@/lib/app-nav";
-import { isDevAuthBypassEnabled } from "@/lib/dev-auth-bypass";
 import { useI18n } from "@/i18n/context";
-import { LanguageSwitcher } from "@/i18n/language-switcher";
 
 const NAV_ICONS: Record<AppNavItem["key"], LucideIcon> = {
   home: Home,
@@ -106,7 +95,7 @@ export function AppLayout() {
 }
 
 function AppLayoutContent() {
-  const { displayName, email, avatarUrl, handleSignOut } = useWorkspaceSession();
+  const { displayName, email, avatarUrl } = useWorkspaceSession();
   const { tasks } = useWorkspaceTasks();
   const { t } = useI18n();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
@@ -117,7 +106,7 @@ function AppLayoutContent() {
 
   return (
     <SidebarProvider defaultOpen>
-      <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+      <Sidebar collapsible="icon" className="border-r border-sidebar-border" data-testid="workspace-sidebar">
         <SidebarHeader className="gap-3 p-4">
           <Link
             to="/app"
@@ -157,7 +146,17 @@ function AppLayoutContent() {
         </SidebarContent>
 
         <SidebarFooter className="border-t border-sidebar-border p-3">
-          <div className="flex items-center gap-3 rounded-md px-2 py-1.5">
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild tooltip={t("workspaceOverview.allWorkspaces")}>
+                <Link to="/app" data-testid="sidebar-all-workspaces">
+                  <ArrowLeft className="size-4" />
+                  <span>{t("workspaceOverview.allWorkspaces")}</span>
+                </Link>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          <div className="mt-2 flex items-center gap-3 rounded-md px-2 py-1.5">
             <Avatar className="size-8 border border-border">
               <AvatarImage src={avatarUrl} alt={displayName} />
               <AvatarFallback className="bg-muted text-xs font-medium text-foreground">
@@ -174,50 +173,8 @@ function AppLayoutContent() {
         </SidebarFooter>
       </Sidebar>
 
-      <SidebarInset className="min-h-svh bg-background">
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
-          <div className="relative mx-auto w-full max-w-xl">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              readOnly
-              placeholder={t("common.searchPlaceholder")}
-              className="h-9 bg-muted/40 pl-9"
-              aria-label={t("common.searchPlaceholder")}
-            />
-          </div>
-          <div className="ml-auto flex items-center gap-2">
-            <LanguageSwitcher />
-            {isDevAuthBypassEnabled() ? (
-              <span className="hidden rounded border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-amber-700 dark:text-amber-300 sm:inline">
-                {t("common.devBypass")}
-              </span>
-            ) : null}
-            <Button variant="ghost" size="icon" className="size-8" disabled aria-label="Notifikasi">
-              <Bell className="size-4" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="size-8" aria-label="Bantuan">
-                  <CircleHelp className="size-4" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => tour.start({ replay: true })}>
-                  {t("productTour.replay")}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <Avatar className="size-8 border border-border">
-              <AvatarImage src={avatarUrl} alt={displayName} />
-              <AvatarFallback className="bg-muted text-xs font-medium text-foreground">
-                {getInitials(displayName)}
-              </AvatarFallback>
-            </Avatar>
-            <Button variant="outline" size="sm" onClick={handleSignOut} className="hidden sm:inline-flex">
-              {t("nav.signOut")}
-            </Button>
-          </div>
-        </header>
+      <SidebarInset className="min-h-svh bg-background" data-testid="workspace-app-layout">
+        <AppShellHeader onReplayTour={() => tour.start({ replay: true })} />
 
         <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6 sm:py-8" data-tour="main-content">
           <Outlet />

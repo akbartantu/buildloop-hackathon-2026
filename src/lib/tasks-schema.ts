@@ -81,6 +81,9 @@ export const listTasksSchema = z.object({
   projectId: z.string().uuid().nullable().optional(),
 });
 
+/** Maximum tasks returned by listTasks — overview counts at this size are shown as "{limit}+". */
+export const LIST_TASKS_RESULT_LIMIT = 20;
+
 export const executeTaskRunSchema = taskIdSchema.extend({
   activeProjectId: z.string().uuid().nullable().optional(),
 });

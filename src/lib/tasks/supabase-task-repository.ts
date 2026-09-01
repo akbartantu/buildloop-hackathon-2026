@@ -5,6 +5,7 @@ import { WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
 import type { RunnerState, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { LIST_TASKS_RESULT_LIMIT } from "@/lib/tasks-schema";
 import { buildPlanningInputForTask, type PlanningDeps } from "@/lib/planning/build-planning-input";
 import { planAndEvaluateTask } from "@/lib/task-planning";
 import { getWorkspaceRoot } from "@/orchestrator/product/orchestrator";
@@ -181,7 +182,9 @@ export function createSupabaseTaskRepository(
         query = query.eq("project_id", filter.projectId);
       }
 
-      const { data: rows, error } = await query.order("created_at", { ascending: false }).limit(20);
+      const { data: rows, error } = await query
+        .order("created_at", { ascending: false })
+        .limit(LIST_TASKS_RESULT_LIMIT);
 
       if (error) {
         console.error("listTasks failed", error.code);

@@ -141,6 +141,30 @@ export const en = {
     label: "Workspace",
     switcherEmpty: "No workspace connected",
   },
+  workspaceOverview: {
+    title: "Your Workspaces",
+    description: "Manage and access your BuildLoop workspaces from here.",
+    countSummary: "{count} active workspaces",
+    countSummarySingle: "1 active workspace",
+    countSummaryZero: "No workspaces yet",
+    emptyTitle: "No workspaces yet",
+    emptyDescription:
+      "Create or connect your first workspace to start running tasks.",
+    createWorkspace: "Create workspace",
+    openWorkspace: "Open workspace",
+    createCardTitle: "Create workspace",
+    createCardDescription: "Connect a public GitHub repository in a new workspace.",
+    lastUpdated: "Last updated {relative}",
+    taskCount: "{count} tasks",
+    taskCountSingle: "1 task",
+    taskCountCapped: "{limit}+ tasks",
+    latestActivity: "Latest activity",
+    usageTitle: "Usage",
+    workspacesLabel: "Workspaces",
+    noPlanData: "Plan and billing details are not available yet.",
+    allWorkspaces: "All workspaces",
+    metaDescription: "BuildLoop workspace overview.",
+  },
   tasks: {
     title: "Tasks",
     description:
@@ -1540,6 +1564,7 @@ export type TranslationKey =
   | `overview.${string}`
   | `settings.${string}`
   | `workspace.${string}`
+  | `workspaceOverview.${string}`
   | `specifications.${string}`
   | `integrations.${string}`
   | `productTour.${string}`

@@ -6,6 +6,7 @@ import { WORKSPACE_NAME, zeroChangeRunnerState } from "@/lib/task-contract";
 import type { RunnerState, TaskStatus } from "@/lib/task-contract";
 import type { BlockedReason } from "@/lib/sensitive-intent";
 import type { TaskRecord } from "@/lib/tasks-schema";
+import { LIST_TASKS_RESULT_LIMIT } from "@/lib/tasks-schema";
 import { sanitizeTaskRecordForClient, resolveAuthorizedDeliveryHandoff, DeliveryArtifactAccessError, type AuthorizedDeliveryHandoff } from "@/lib/delivery-artifact-gate";
 import { hydrateTaskProtectedPathApproval } from "@/lib/protected-path-approval-flow";
 import { buildPlanningInputForTask, type PlanningDeps } from "@/lib/planning/build-planning-input";
@@ -231,7 +232,7 @@ export function createDevTaskRepository(
           return task.projectId === filter.projectId;
         })
         .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, 20)
+        .slice(0, LIST_TASKS_RESULT_LIMIT)
         .map(toRecord);
     },
 

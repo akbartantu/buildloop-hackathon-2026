@@ -5,7 +5,7 @@ export const BUILDLOOP_WORKER_AGENT_NAME = "buildloop_coding_worker";
 /** Generation settings shared by the official ADK worker agent. */
 export const BUILDLOOP_WORKER_GENERATE_CONTENT_CONFIG = {
   temperature: 0.2,
-  maxOutputTokens: 4096,
+  maxOutputTokens: 8192,
   responseMimeType: "application/json",
 } as const;
 

@@ -37,7 +37,7 @@ describe("BuildLoop worker ADK structured output config", () => {
     expect(options.outputSchema).toBe(workerOutputSchema);
     expect(options.generateContentConfig.responseMimeType).toBe("application/json");
     expect(options.generateContentConfig.temperature).toBe(0.2);
-    expect(options.generateContentConfig.maxOutputTokens).toBe(4096);
+    expect(options.generateContentConfig.maxOutputTokens).toBe(8192);
     expect("responseSchema" in options.generateContentConfig).toBe(false);
     expect(options.includeContents).toBe("none");
   });
@@ -51,7 +51,7 @@ describe("BuildLoop worker ADK structured output config", () => {
     expect(resolved.responseMimeType).toBe("application/json");
     expect(resolved.responseSchema).toEqual(sampleGenaiWorkerSchema);
     expect(resolved.temperature).toBe(0.2);
-    expect(resolved.maxOutputTokens).toBe(4096);
+    expect(resolved.maxOutputTokens).toBe(8192);
   });
 
   test("worker schema requires summary and changedFiles", () => {

@@ -58,7 +58,7 @@ describe("worker Gemini response diagnostics", () => {
       candidatesTokenCount: null,
       thoughtsTokenCount: null,
       totalTokenCount: null,
-      maxOutputTokens: 4096,
+      maxOutputTokens: 8192,
       rawResponseLength: 537,
     });
   });
@@ -130,7 +130,7 @@ describe("worker Gemini response diagnostics", () => {
           candidatesTokenCount: 120,
           thoughtsTokenCount: 3500,
           totalTokenCount: 3943,
-          maxOutputTokens: 4096,
+          maxOutputTokens: 8192,
           rawResponseLength: 37,
         },
       }),
@@ -170,7 +170,7 @@ describe("worker Gemini response diagnostics", () => {
       expect(record?.candidatesTokenCount).toBe(120);
       expect(record?.thoughtsTokenCount).toBe(3500);
       expect(record?.totalTokenCount).toBe(3943);
-      expect(record?.maxOutputTokens).toBe(4096);
+      expect(record?.maxOutputTokens).toBe(8192);
       expect(record?.schemaFailureCode).toBe("invalid_json");
       expect(JSON.stringify(record)).not.toContain("truncated");
       expect(JSON.stringify(record)).not.toContain("prototype/index.html");

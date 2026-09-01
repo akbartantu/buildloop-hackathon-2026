@@ -200,6 +200,8 @@ export type RunnerState = {
   changeArtifact?: ChangeArtifact;
   /** Exact verified patch and commit suggestions for manual delivery after approval. */
   deliveryHandoff?: DeliveryHandoff;
+  /** Sanitized Gemini/worker runtime diagnostics for Evidence UI. */
+  runtimeDiagnostics?: import("@/lib/runtime-diagnostics").WorkerRuntimeDiagnostics;
 };
 
 /** Evidence nol-perubahan: dipakai untuk BLOCKED dan untuk status siap-runner. */

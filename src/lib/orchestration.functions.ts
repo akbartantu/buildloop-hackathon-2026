@@ -21,6 +21,7 @@ import { extractApprovedProtectedPaths } from "@/lib/protected-path-approval";
 import {
   finalizeRunnerStateAfterOrchestration,
 } from "@/lib/protected-path-approval-flow";
+import { extractLatestWorkerRuntimeDiagnostics } from "@/lib/runtime-diagnostics";
 import type { RunStatus } from "@/orchestrator/types";
 import {
   buildActiveRunRunnerState,
@@ -178,6 +179,7 @@ export const executeTaskRun = createServerFn({ method: "POST" })
     const priorHistory = workingTask.runnerState?.runHistory ?? [];
     const lockedInputs =
       workingTask.runnerState?.lockedContractInputs ?? captureContractInputs(workingTask.contract);
+    const runtimeDiagnostics = extractLatestWorkerRuntimeDiagnostics(result.workerReports);
     const baseRunner: import("@/lib/task-contract").RunnerState = {
       runnerInvoked: result.run.counters.workerCalls > 0,
       filesChanged: result.run.counters.filesChanged,
@@ -247,6 +249,7 @@ export const executeTaskRun = createServerFn({ method: "POST" })
       ...(isRerun ? { lastAction: "worker" as const } : {}),
       ...(result.changeArtifact ? { changeArtifact: result.changeArtifact } : {}),
       ...(result.deliveryHandoff ? { deliveryHandoff: result.deliveryHandoff } : {}),
+      ...(runtimeDiagnostics ? { runtimeDiagnostics } : {}),
     };
     const runnerState = finalizeRunnerStateAfterOrchestration({
       baseRunner,

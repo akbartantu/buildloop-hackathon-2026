@@ -94,6 +94,11 @@ import { LifecycleProgressPanel } from "@/components/site/lifecycle-progress-pan
 import { ChangeEvidencePanel } from "@/components/site/change-evidence-panel";
 import { AuthorizedDeliveryHandoffSection } from "@/components/site/authorized-delivery-handoff-section";
 import { EvidenceSummaryPanel } from "@/components/site/evidence-summary-panel";
+import { RuntimeDiagnosticsPanel } from "@/components/site/runtime-diagnostics-panel";
+import { RoleSummaryPanel } from "@/components/site/role-summary-panel";
+import { SafetyGuaranteesPanel } from "@/components/site/safety-guarantees-panel";
+import { HumanGatedDeliveryStrip } from "@/components/site/human-gated-delivery-strip";
+import { shouldShowHumanGatedDeliveryStrip } from "@/lib/run-clarity-presentation";
 import { buildChangeEvidenceViewModel } from "@/lib/change-evidence-presentation";
 import {
   canShowDeliveryHandoff,
@@ -543,29 +548,6 @@ function OrchestrationView({
     translate(locale, key, params);
   const runner = task.runnerState;
   const activeRun = ["INSPECTING", "RUNNING", "CHECKING", "NEEDS_CORRECTION"].includes(task.status);
-  const catalog = (locale === "id" ? id : en) as typeof en;
-  const roleCards = [
-    {
-      title: t("taskDetail.orchestration.roles.orchestrator.title"),
-      tone: "border-status-review/30 bg-status-review/5",
-      items: [...catalog.taskDetail.orchestration.roles.orchestrator.items],
-    },
-    {
-      title: t("taskDetail.orchestration.roles.worker.title"),
-      tone: "border-status-pass/30 bg-status-pass/5",
-      items: [...catalog.taskDetail.orchestration.roles.worker.items],
-    },
-    {
-      title: t("taskDetail.orchestration.roles.checker.title"),
-      tone: "border-status-review/40 bg-accent/40",
-      items: [...catalog.taskDetail.orchestration.roles.checker.items],
-    },
-    {
-      title: t("taskDetail.orchestration.roles.decision.title"),
-      tone: "border-border bg-card",
-      items: [...catalog.taskDetail.orchestration.roles.decision.items],
-    },
-  ];
 
   return (
     <>
@@ -608,18 +590,19 @@ function OrchestrationView({
         />
       ) : null}
 
-      <div className="grid gap-3 lg:grid-cols-4">
-        {roleCards.map((card) => (
-          <div key={card.title} className={cn("rounded-lg border p-4", card.tone)}>
-            <p className="text-sm font-semibold text-foreground">{card.title}</p>
-            <ul className="mt-3 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
-              {card.items.map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </div>
-        ))}
-      </div>
+      <RoleSummaryPanel locale={locale} />
+
+      {shouldShowHumanGatedDeliveryStrip(lifecycle) ? (
+        <DemoPanel title={t("runClarity.strip.title")}>
+          <HumanGatedDeliveryStrip task={task} lifecycle={lifecycle} locale={locale} />
+        </DemoPanel>
+      ) : null}
+
+      {lifecycle.hasRun ? (
+        <DemoPanel title={t("runClarity.safety.title")}>
+          <SafetyGuaranteesPanel lifecycle={lifecycle} />
+        </DemoPanel>
+      ) : null}
 
       <DemoPanel title={t("taskDetail.orchestration.lifecycle")}>
         <LifecycleProgressPanel progress={lifecycle.progress} />
@@ -930,6 +913,18 @@ function EvidenceView({
         </DemoPanel>
       )}
 
+      {shouldShowHumanGatedDeliveryStrip(lifecycle) ? (
+        <DemoPanel title={t("runClarity.strip.title")}>
+          <HumanGatedDeliveryStrip task={task} lifecycle={lifecycle} locale={locale} />
+        </DemoPanel>
+      ) : null}
+
+      {lifecycle.hasRun ? (
+        <DemoPanel title={t("runClarity.safety.title")}>
+          <SafetyGuaranteesPanel lifecycle={lifecycle} />
+        </DemoPanel>
+      ) : null}
+
       {changeEvidence ? <ChangeEvidencePanel viewModel={changeEvidence} locale={locale} /> : null}
 
       {lifecycle.implementationVerdict === "PASS" && lifecycle.checks.allRequiredSatisfied ? (
@@ -1098,6 +1093,13 @@ function EvidenceView({
         ) : (
           <p className="mt-4 text-sm text-muted-foreground">{t("taskDetail.evidence.noRunEvidence")}</p>
         )}
+
+        {lifecycle.evidenceSummary?.runtimeDiagnostics ? (
+          <RuntimeDiagnosticsPanel
+            diagnostics={lifecycle.evidenceSummary.runtimeDiagnostics}
+            locale={locale}
+          />
+        ) : null}
       </DemoCollapsible>
     </>
   );
@@ -1293,6 +1295,16 @@ function ApprovalView({
           description={outcome.description}
         />
 
+        {shouldShowHumanGatedDeliveryStrip(lifecycle) ? (
+          <DemoPanel title={t("runClarity.strip.title")}>
+            <HumanGatedDeliveryStrip task={task} lifecycle={lifecycle} locale={locale} />
+          </DemoPanel>
+        ) : null}
+
+        <DemoPanel title={t("runClarity.safety.title")}>
+          <SafetyGuaranteesPanel lifecycle={lifecycle} />
+        </DemoPanel>
+
         {outcome.kind === "commit_approved" ? (
           <>
             <DemoPanel title={t("taskDetail.approval.execution")}>
@@ -1417,6 +1429,16 @@ function ApprovalView({
         title={recommendation.label}
         description={recommendation.description}
       />
+
+      {shouldShowHumanGatedDeliveryStrip(lifecycle) ? (
+        <DemoPanel title={t("runClarity.strip.title")}>
+          <HumanGatedDeliveryStrip task={task} lifecycle={lifecycle} locale={locale} />
+        </DemoPanel>
+      ) : null}
+
+      <DemoPanel title={t("runClarity.safety.title")}>
+        <SafetyGuaranteesPanel lifecycle={lifecycle} />
+      </DemoPanel>
 
       {recommendation.reasonBullets.length ? (
         <DemoPanel title={t("taskDetail.approval.whyRecommended")}>

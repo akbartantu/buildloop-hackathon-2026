@@ -17,6 +17,11 @@ import {
   type EvidenceRow,
 } from "@/lib/evidence-analysis";
 import type { TaskLifecycleViewModel } from "@/lib/task-lifecycle";
+import {
+  buildRuntimeOperationalExplanation,
+  sanitizePersistedRuntimeDiagnostics,
+  type WorkerRuntimeDiagnostics,
+} from "@/lib/runtime-diagnostics";
 
 export type FailureClassification =
   | "verification"
@@ -47,6 +52,8 @@ export type EvidenceSummaryViewModel = {
   remoteActions: string;
   correctionExplanation: string | null;
   technicalDetails: CheckTechnicalDetail[];
+  runtimeDiagnostics: WorkerRuntimeDiagnostics | null;
+  runtimeFailureExplanation: string | null;
 };
 
 type CheckKey =
@@ -416,6 +423,12 @@ export function buildEvidenceSummaryViewModel(
     lifecycle.correction.userSummary ||
     buildCorrectionExplanation(task, lifecycle, locale);
 
+  const runtimeDiagnostics = sanitizePersistedRuntimeDiagnostics(task.runnerState?.runtimeDiagnostics) ?? null;
+  const runtimeFailureExplanation =
+    classification === "operational"
+      ? buildRuntimeOperationalExplanation(runtimeDiagnostics ?? undefined, locale)
+      : null;
+
   return {
     headline,
     intro,
@@ -428,5 +441,7 @@ export function buildEvidenceSummaryViewModel(
     remoteActions: buildRemoteActions(task, lifecycle, locale),
     correctionExplanation: buildCorrectionExplanation(task, lifecycle, locale),
     technicalDetails,
+    runtimeDiagnostics,
+    runtimeFailureExplanation,
   };
 }

@@ -792,6 +792,93 @@ export const en = {
       },
     },
   },
+  runClarity: {
+    safety: {
+      title: "Safety guarantees",
+      actions: {
+        commit: "Git commit",
+        push: "Push",
+        merge: "Merge",
+        deploy: "Deploy",
+      },
+      notExecuted: "No {action} executed",
+      executed: "{action} executed",
+      approvedNotExecuted: "{action} approved, not executed",
+      failed: "{action} failed",
+    },
+    strip: {
+      title: "Human-gated delivery",
+      labels: {
+        task: "Task",
+        approval: "Approval",
+        worker: "Worker",
+        checker: "Checker",
+        verdict: "Verdict",
+        delivery: "Human-gated delivery",
+      },
+      task: {
+        completed: "Task completed",
+        inProgress: "Task in progress",
+        notStarted: "Not started",
+      },
+      approval: {
+        executed: "Commit executed",
+        approvedNotExecuted: "Commit approved, not executed",
+        awaiting: "Awaiting approval",
+        autoApproved: "Auto-approved by policy",
+        pending: "Not yet at approval",
+      },
+      worker: {
+        completed: "Worker completed",
+        running: "Worker running",
+        failed: "Worker failed",
+        pending: "Worker pending",
+      },
+      checker: {
+        completed: "Checker completed",
+        running: "Checker running",
+        failed: "Checker failed",
+        pending: "Checker pending",
+      },
+      verdict: {
+        pass: "Verdict PASS",
+        failed: "Verdict FAILED",
+        blocked: "Verdict BLOCKED",
+        pending: "Verdict pending",
+      },
+      delivery: {
+        humanGated: "Commit, push, merge, and deploy remain human-gated",
+        partial: "Executed: {actions}. Other actions remain human-gated",
+      },
+    },
+  },
+  runtimeDiagnostics: {
+    title: "Runtime diagnostics",
+    fields: {
+      provider: "Provider",
+      model: "Model",
+      finishReason: "Finish reason",
+      attempt: "Attempt",
+      stage: "Stage",
+      errorCode: "Error code",
+      promptTokenCount: "Prompt tokens",
+      thoughtsTokenCount: "Thinking tokens",
+      candidatesTokenCount: "Candidate tokens",
+      totalTokenCount: "Total tokens",
+      maxOutputTokens: "Max output tokens",
+      rawResponseLength: "Response length",
+    },
+    explanation: {
+      maxTokens:
+        "Gemini stopped because the output budget was exhausted. No files were applied and no correction was consumed.",
+      malformedOutput:
+        "Gemini returned output that could not be parsed as structured JSON. No files were applied and no correction was consumed.",
+      quotaExhausted:
+        "Gemini quota was exhausted. No files were applied and no correction was consumed.",
+      emptyResponse:
+        "Gemini returned an empty response. No files were applied and no correction was consumed.",
+    },
+  },
   timing: {
     runTiming: "Run timing",
     startedAt: "Started at",
@@ -948,23 +1035,33 @@ export const en = {
         orchestrator: {
           title: "BuildLoop Orchestrator",
           items: [
-            "Monitors progress",
+            "Coordinates the run",
             "Determines next steps",
-            "Limits retry attempts",
+            "Limits retries",
             "Stops risky actions",
           ],
         },
         worker: {
           title: "Coding Worker",
-          items: ["Applies changes", "Reads relevant files", "Produces patches"],
+          items: [
+            "Applies bounded changes",
+            "Reads relevant files",
+            "Produces patches",
+          ],
         },
         checker: {
           title: "Independent Checker",
-          items: ["Waits for worker output", "Checks scope and safety", "Verifies acceptance criteria"],
+          items: [
+            "Verifies worker output independently",
+            "Checks scope and acceptance criteria",
+          ],
         },
         decision: {
           title: "Decision",
-          items: ["Evaluates evidence", "PASS / FAILED / BLOCKED", "Prepares approval gate"],
+          items: [
+            "Produces PASS / FAILED / BLOCKED",
+            "Prepares human approval state",
+          ],
         },
       },
       lifecycle: "Lifecycle",
@@ -1417,6 +1514,8 @@ export type TranslationKey =
   | `lifecycle.${string}`
   | `verdict.${string}`
   | `evidence.${string}`
+  | `runtimeDiagnostics.${string}`
+  | `runClarity.${string}`
   | `timing.${string}`
   | `delivery.${string}`
   | `blockedReason.${string}`;

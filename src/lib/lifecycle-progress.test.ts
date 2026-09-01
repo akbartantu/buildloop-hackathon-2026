@@ -13,7 +13,7 @@ import {
   shouldPollTaskStatus,
   RUN_ACTIVITY_DELAY_THRESHOLD_MS,
 } from "@/lib/lifecycle-progress";
-import { progressPanelContainsFakePercentage } from "@/components/site/lifecycle-progress-panel";
+import { progressPanelContainsFakePercentage, lifecycleStageVisualStates } from "@/components/site/lifecycle-progress-panel";
 
 function baseTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
   return {
@@ -134,5 +134,20 @@ describe("lifecycle progress presentation", () => {
     expect(idVm.progress.longRunningMessage).toContain("Proses masih berjalan");
     expect(enVm.progress.componentActivity?.worker).toContain("Worker — Running");
     expect(idVm.progress.componentActivity?.worker).toContain("Worker — Berjalan");
+  });
+
+  test("horizontal lifecycle cards expose all orchestration stages", () => {
+    const vm = buildTaskLifecycleViewModel(baseTask({ status: "CHECKING" }), "en");
+    expect(vm.progress.steps).toHaveLength(7);
+    expect(vm.progress.steps.map((step) => step.key)).toEqual([
+      "planning",
+      "preflight",
+      "worker",
+      "checker",
+      "security",
+      "correction",
+      "decision",
+    ]);
+    expect(lifecycleStageVisualStates(vm.progress).length).toBe(7);
   });
 });

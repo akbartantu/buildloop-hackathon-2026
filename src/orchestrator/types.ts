@@ -111,6 +111,7 @@ export type WorkerReport = {
   patchSummary: string;
   error?: WorkerReportError;
   usageMetadata?: Record<string, string | number>;
+  runtimeDiagnostics?: import("@/lib/runtime-diagnostics").WorkerRuntimeDiagnostics;
 };
 
 export type RunCounters = {

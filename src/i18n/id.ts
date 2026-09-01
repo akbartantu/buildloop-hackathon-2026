@@ -797,6 +797,93 @@ export const id = {
       },
     },
   },
+  runClarity: {
+    safety: {
+      title: "Jaminan keamanan",
+      actions: {
+        commit: "Git commit",
+        push: "Push",
+        merge: "Merge",
+        deploy: "Deploy",
+      },
+      notExecuted: "Tidak ada {action} yang dijalankan",
+      executed: "{action} dijalankan",
+      approvedNotExecuted: "{action} disetujui, belum dijalankan",
+      failed: "{action} gagal",
+    },
+    strip: {
+      title: "Delivery dengan gate manusia",
+      labels: {
+        task: "Task",
+        approval: "Approval",
+        worker: "Worker",
+        checker: "Checker",
+        verdict: "Verdict",
+        delivery: "Delivery dengan gate manusia",
+      },
+      task: {
+        completed: "Task selesai",
+        inProgress: "Task berjalan",
+        notStarted: "Belum dimulai",
+      },
+      approval: {
+        executed: "Commit dijalankan",
+        approvedNotExecuted: "Commit disetujui, belum dijalankan",
+        awaiting: "Menunggu approval",
+        autoApproved: "Disetujui otomatis oleh kebijakan",
+        pending: "Belum sampai approval",
+      },
+      worker: {
+        completed: "Worker selesai",
+        running: "Worker berjalan",
+        failed: "Worker gagal",
+        pending: "Worker menunggu",
+      },
+      checker: {
+        completed: "Checker selesai",
+        running: "Checker berjalan",
+        failed: "Checker gagal",
+        pending: "Checker menunggu",
+      },
+      verdict: {
+        pass: "Verdict PASS",
+        failed: "Verdict FAILED",
+        blocked: "Verdict BLOCKED",
+        pending: "Verdict menunggu",
+      },
+      delivery: {
+        humanGated: "Commit, push, merge, dan deploy tetap memerlukan gate manusia",
+        partial: "Dijalankan: {actions}. Aksi lain tetap memerlukan gate manusia",
+      },
+    },
+  },
+  runtimeDiagnostics: {
+    title: "Diagnostik runtime",
+    fields: {
+      provider: "Provider",
+      model: "Model",
+      finishReason: "Alasan selesai",
+      attempt: "Attempt",
+      stage: "Tahap",
+      errorCode: "Kode error",
+      promptTokenCount: "Token prompt",
+      thoughtsTokenCount: "Token thinking",
+      candidatesTokenCount: "Token kandidat",
+      totalTokenCount: "Total token",
+      maxOutputTokens: "Batas output maksimum",
+      rawResponseLength: "Panjang respons",
+    },
+    explanation: {
+      maxTokens:
+        "Gemini berhenti karena batas output habis. Tidak ada file yang diterapkan dan tidak ada koreksi yang digunakan.",
+      malformedOutput:
+        "Gemini mengembalikan output yang tidak dapat diurai sebagai JSON terstruktur. Tidak ada file yang diterapkan dan tidak ada koreksi yang digunakan.",
+      quotaExhausted:
+        "Kuota Gemini habis. Tidak ada file yang diterapkan dan tidak ada koreksi yang digunakan.",
+      emptyResponse:
+        "Gemini mengembalikan respons kosong. Tidak ada file yang diterapkan dan tidak ada koreksi yang digunakan.",
+    },
+  },
   timing: {
     runTiming: "Waktu run",
     startedAt: "Dimulai",
@@ -953,23 +1040,33 @@ export const id = {
         orchestrator: {
           title: "BuildLoop Orchestrator",
           items: [
-            "Memantau proses",
+            "Mengkoordinasikan run",
             "Menentukan langkah berikut",
-            "Membatasi percobaan",
-            "Menghentikan risiko",
+            "Membatasi retry",
+            "Menghentikan aksi berisiko",
           ],
         },
         worker: {
           title: "Coding Worker",
-          items: ["Menerapkan perubahan", "Membaca file relevan", "Menghasilkan patch"],
+          items: [
+            "Menerapkan perubahan terbatas",
+            "Membaca file relevan",
+            "Menghasilkan patch",
+          ],
         },
         checker: {
           title: "Independent Checker",
-          items: ["Menunggu hasil worker", "Memeriksa scope & keamanan", "Memverifikasi acceptance criteria"],
+          items: [
+            "Memverifikasi output worker secara independen",
+            "Memeriksa scope dan acceptance criteria",
+          ],
         },
         decision: {
           title: "Decision",
-          items: ["Menilai evidence", "PASS / FAILED / BLOCKED", "Menyiapkan approval gate"],
+          items: [
+            "Menghasilkan PASS / FAILED / BLOCKED",
+            "Menyiapkan status approval manusia",
+          ],
         },
       },
       lifecycle: "Lifecycle",

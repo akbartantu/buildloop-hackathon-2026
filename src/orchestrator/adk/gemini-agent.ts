@@ -17,11 +17,12 @@ import {
   type WorkerStructuredOutput,
 } from "../gemini/client";
 import { normalizeOperationalWorkerError } from "../gemini/retry-policy";
-import { getBuildLoopAdkRunner, type AdkAgentRunner } from "./runner";
+import { getBuildLoopAdkRunner, type AdkAgentRunner, type AdkAgentRunResult } from "./runner";
 import {
   formatWorkerGeminiResponseDiagnostics,
   type WorkerGeminiResponseDiagnostics,
 } from "./worker-response-diagnostics";
+import { buildWorkerRuntimeDiagnostics } from "@/lib/runtime-diagnostics";
 import { safeLogSummary } from "@/lib/redaction";
 import type { CodingWorker, WorkerInput } from "../worker/types";
 
@@ -192,11 +193,13 @@ export class AdkGeminiWorker implements CodingWorker {
       };
     }
 
+    let lastAdkResult: AdkAgentRunResult | undefined;
     try {
       const result = await this.adkRunner.run({
         systemInstruction: ADK_SYSTEM_INSTRUCTION,
         userPrompt: buildUserPrompt(input),
       });
+      lastAdkResult = result;
       let structured: WorkerStructuredOutput;
       try {
         structured = parseWorkerStructuredOutput(result.text);
@@ -223,6 +226,12 @@ export class AdkGeminiWorker implements CodingWorker {
         input.approvedProtectedPaths ?? [],
       );
 
+      const successRuntimeDiagnostics = buildWorkerRuntimeDiagnostics({
+        model: result.model,
+        ...(result.responseDiagnostics ? { responseDiagnostics: result.responseDiagnostics } : {}),
+        attemptNumber: input.attemptNumber,
+      });
+
       return {
         workerId: this.id,
         attemptNumber: input.attemptNumber,
@@ -239,6 +248,7 @@ export class AdkGeminiWorker implements CodingWorker {
           operationalRetries: result.operationalRetries,
           geminiCallCount: result.geminiCallCount,
         },
+        ...(successRuntimeDiagnostics ? { runtimeDiagnostics: successRuntimeDiagnostics } : {}),
       };
     } catch (error) {
       if (error instanceof ProtectedPathApprovalRequiredError) {
@@ -296,6 +306,15 @@ export class AdkGeminiWorker implements CodingWorker {
                 : {}),
             }
           : undefined;
+      const runtimeDiagnostics = buildWorkerRuntimeDiagnostics({
+        ...(lastAdkResult?.model ? { model: lastAdkResult.model } : {}),
+        ...(lastAdkResult?.responseDiagnostics
+          ? { responseDiagnostics: lastAdkResult.responseDiagnostics }
+          : {}),
+        stage,
+        errorCode: code,
+        attemptNumber: input.attemptNumber,
+      });
       return {
         workerId: this.id,
         attemptNumber: input.attemptNumber,
@@ -308,6 +327,7 @@ export class AdkGeminiWorker implements CodingWorker {
         patchSummary: message,
         error: { code, message },
         ...(usageMetadata ? { usageMetadata } : {}),
+        ...(runtimeDiagnostics ? { runtimeDiagnostics } : {}),
       };
     }
   }

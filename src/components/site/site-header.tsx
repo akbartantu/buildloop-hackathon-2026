@@ -3,13 +3,14 @@ import { Link } from "@tanstack/react-router";
 import { Menu } from "lucide-react";
 import { BuildLoopLogo } from "@/components/site/buildloop-logo";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useSession } from "@/hooks/use-session";
 import { LanguageSwitcher } from "@/i18n/language-switcher";
 import { usePublicI18n } from "@/i18n/use-public-i18n";
 
 const linkClass =
-  "relative text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none after:absolute after:-bottom-1 after:left-0 after:h-px after:w-0 after:bg-foreground after:transition-[width] hover:after:w-full focus-visible:after:w-full";
+  "relative text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:outline-none";
 
 function getInitials(name: string): string {
   return name
@@ -30,7 +31,8 @@ export function SiteHeader() {
     { label: pt("header.howItWorks"), to: "/" as const, hash: "how-it-works" },
     { label: pt("header.features"), to: "/" as const, hash: "features" },
     { label: pt("header.pricing"), to: "/" as const, hash: "pricing" },
-    { label: pt("header.faq"), to: "/" as const, hash: "faq" },
+    { label: pt("header.docs"), to: "/docs" as const },
+    { label: pt("header.about"), to: "/" as const, hash: "about" },
   ];
 
   const displayName =
@@ -44,7 +46,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur">
       <nav
         aria-label={pt("header.navLabel")}
-        className="mx-auto flex h-14 max-w-5xl items-center gap-4 px-4 sm:px-6"
+        className="mx-auto flex h-14 max-w-6xl items-center gap-4 px-4 sm:px-6"
       >
         <Link
           to="/"
@@ -54,19 +56,24 @@ export function SiteHeader() {
           <BuildLoopLogo wordmarkClassName="text-[15px] text-foreground" />
         </Link>
 
-        <div className="ml-auto flex items-center gap-3 sm:gap-4">
-          <LanguageSwitcher className="hidden sm:inline-flex" />
-
-          <div className="hidden items-center gap-5 text-[13px] md:flex">
-            {navLinks.map((item) => (
+        <div className="hidden flex-1 items-center justify-center gap-6 lg:flex">
+          {navLinks.map((item) =>
+            item.hash ? (
               <Link key={item.hash} to={item.to} hash={item.hash} className={linkClass}>
                 {item.label}
               </Link>
-            ))}
-            <Link to="/docs" className={linkClass}>
-              {pt("header.docs")}
-            </Link>
+            ) : (
+              <Link key={item.to} to={item.to} className={linkClass}>
+                {item.label}
+              </Link>
+            ),
+          )}
+        </div>
 
+        <div className="ml-auto flex items-center gap-2 sm:gap-3">
+          <LanguageSwitcher />
+
+          <div className="hidden items-center gap-3 md:flex">
             {user ? (
               <>
                 <Link to="/app" className={linkClass}>
@@ -90,29 +97,23 @@ export function SiteHeader() {
                 <Link to="/auth" className={linkClass}>
                   {pt("header.signIn")}
                 </Link>
-                <Link
-                  to="/auth/sign-up"
-                  className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
-                  {pt("header.signUp")}
-                </Link>
+                <Button asChild size="sm">
+                  <Link to="/auth/sign-up">{pt("header.startFree")}</Link>
+                </Button>
               </>
             )}
           </div>
 
           {!user ? (
-            <Link
-              to="/auth/sign-up"
-              className="inline-flex items-center rounded-lg bg-primary px-3 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:hidden"
-            >
-              {pt("header.signUp")}
-            </Link>
+            <Button asChild size="sm" className="md:hidden">
+              <Link to="/auth/sign-up">{pt("header.startFree")}</Link>
+            </Button>
           ) : null}
 
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
               aria-label={pt("header.openMenu")}
-              className="inline-flex size-8 items-center justify-center rounded-lg border border-border text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+              className="inline-flex size-8 items-center justify-center rounded-lg border border-border text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring lg:hidden"
             >
               <Menu className="size-4" aria-hidden="true" />
             </SheetTrigger>
@@ -120,28 +121,29 @@ export function SiteHeader() {
               <SheetHeader>
                 <SheetTitle className="text-left text-sm">{pt("header.menuTitle")}</SheetTitle>
               </SheetHeader>
-              <div className="mt-4 px-4">
-                <LanguageSwitcher />
-              </div>
-              <div className="mt-2 flex flex-col border-t border-border">
-                {navLinks.map((item) => (
-                  <Link
-                    key={item.hash}
-                    to={item.to}
-                    hash={item.hash}
-                    onClick={() => setOpen(false)}
-                    className="border-b border-border px-4 py-3 text-sm text-foreground focus-visible:outline-none focus-visible:bg-accent"
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-                <Link
-                  to="/docs"
-                  onClick={() => setOpen(false)}
-                  className="border-b border-border px-4 py-3 text-sm text-foreground focus-visible:outline-none focus-visible:bg-accent"
-                >
-                  {pt("header.docs")}
-                </Link>
+              <div className="mt-4 flex flex-col border-t border-border">
+                {navLinks.map((item) =>
+                  item.hash ? (
+                    <Link
+                      key={item.hash}
+                      to={item.to}
+                      hash={item.hash}
+                      onClick={() => setOpen(false)}
+                      className="border-b border-border px-4 py-3 text-sm text-foreground focus-visible:outline-none focus-visible:bg-accent"
+                    >
+                      {item.label}
+                    </Link>
+                  ) : (
+                    <Link
+                      key={item.to}
+                      to={item.to}
+                      onClick={() => setOpen(false)}
+                      className="border-b border-border px-4 py-3 text-sm text-foreground focus-visible:outline-none focus-visible:bg-accent"
+                    >
+                      {item.label}
+                    </Link>
+                  ),
+                )}
 
                 {user ? (
                   <>
@@ -180,7 +182,7 @@ export function SiteHeader() {
                       onClick={() => setOpen(false)}
                       className="border-b border-border px-4 py-3 text-sm font-medium text-foreground focus-visible:outline-none focus-visible:bg-accent"
                     >
-                      {pt("header.signUp")}
+                      {pt("header.startFree")}
                     </Link>
                   </>
                 )}

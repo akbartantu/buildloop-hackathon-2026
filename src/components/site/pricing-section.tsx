@@ -40,7 +40,7 @@ export function PricingSection() {
 
   return (
     <section id="pricing" aria-labelledby="pricing-heading" className="border-b border-border">
-      <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6 sm:py-14">
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <SectionHeading
             eyebrow={pt("pricing.eyebrow")}
@@ -78,7 +78,7 @@ export function PricingSection() {
           </ToggleGroup>
         </div>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
           {PRICING_PLANS.map((plan) => {
             const price = plan.prices[currency];
             const features = planFeatureKeys(plan.id);
@@ -87,9 +87,9 @@ export function PricingSection() {
               <Card
                 key={plan.id}
                 className={cn(
-                  "flex flex-col rounded-xl shadow-none",
+                  "flex flex-col rounded-xl border shadow-none",
                   plan.highlight
-                    ? "border-foreground/20 bg-card ring-1 ring-foreground/10"
+                    ? "border-foreground/25 bg-card ring-1 ring-foreground/10"
                     : "border-border bg-card",
                 )}
               >

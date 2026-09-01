@@ -35,6 +35,7 @@ export type AdkAgentRunner = {
 };
 
 type AdkEvent = {
+  author?: string;
   errorMessage?: string;
   errorCode?: string;
   output?: unknown;
@@ -53,6 +54,7 @@ type OfficialAdkModule = {
   };
   LlmAgent: new (options: Record<string, unknown>) => unknown;
   stringifyContent: (event: AdkEvent) => string;
+  isFinalResponse: (event: AdkEvent) => boolean;
 };
 
 let runnerOverride: AdkAgentRunner | null = null;
@@ -139,7 +141,8 @@ async function invokeOfficialAdkRunner(
   request: AdkAgentRunRequest,
   model: string,
 ): Promise<Omit<AdkAgentRunResult, "operationalRetries" | "geminiCallCount">> {
-  const { Gemini, InMemoryRunner, LlmAgent, stringifyContent } = await loadOfficialAdkModule();
+  const { Gemini, InMemoryRunner, LlmAgent, stringifyContent, isFinalResponse } =
+    await loadOfficialAdkModule();
   const agentName = BUILDLOOP_WORKER_AGENT_NAME;
   const agent = new LlmAgent(
     buildBuildLoopWorkerAgentOptions({
@@ -161,7 +164,11 @@ async function invokeOfficialAdkRunner(
     events.push(event);
   }
 
-  const text = extractAdkResponseText(events, stringifyContent);
+  const text = extractAdkResponseText(events, {
+    agentName,
+    stringifyContent,
+    isFinalResponse,
+  });
   if (!text) {
     const errorMessage = events.map((event) => event.errorMessage).filter(Boolean).join(" ");
     throw classifyEmptyAdkResponse(errorMessage);
@@ -197,22 +204,49 @@ function classifyEmptyAdkResponse(errorMessage: string): GeminiClientError {
   );
 }
 
-function extractAdkResponseText(
+type ExtractAdkResponseTextOptions = {
+  agentName: string;
+  stringifyContent: (event: AdkEvent) => string;
+  isFinalResponse: (event: AdkEvent) => boolean;
+};
+
+/** Select the authoritative final coding-agent response from ADK events. */
+export function extractAdkResponseText(
   events: AdkEvent[],
-  stringifyContent: (event: AdkEvent) => string,
+  options: ExtractAdkResponseTextOptions,
 ): string {
-  const chunks: string[] = [];
   for (const event of events) {
     if (event.errorMessage) {
       throw mapAdkEventError(event.errorCode, event.errorMessage);
     }
-    const text = stringifyContent(event);
-    if (text) chunks.push(text);
-    if (event.output !== undefined) {
-      chunks.push(typeof event.output === "string" ? event.output : JSON.stringify(event.output));
+  }
+
+  const agentEvents = events.filter((event) => event.author === options.agentName);
+
+  let selected: AdkEvent | undefined;
+  for (let index = agentEvents.length - 1; index >= 0; index -= 1) {
+    const event = agentEvents[index];
+    if (event && options.isFinalResponse(event)) {
+      selected = event;
+      break;
     }
   }
-  return chunks.join("").trim();
+
+  if (!selected) {
+    for (let index = agentEvents.length - 1; index >= 0; index -= 1) {
+      const event = agentEvents[index];
+      if (event && options.stringifyContent(event).trim()) {
+        selected = event;
+        break;
+      }
+    }
+  }
+
+  if (!selected) {
+    return "";
+  }
+
+  return options.stringifyContent(selected).trim();
 }
 
 function mapAdkEventError(code: string | undefined, message: string): GeminiClientError {

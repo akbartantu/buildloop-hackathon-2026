@@ -23,7 +23,15 @@ declare module "@google/adk" {
     errorMessage?: string;
     errorCode?: string;
     output?: unknown;
+    author?: string;
   }): string;
+
+  export function isFinalResponse(event: {
+    errorMessage?: string;
+    errorCode?: string;
+    output?: unknown;
+    author?: string;
+  }): boolean;
 
   export type Event = {
     errorMessage?: string;

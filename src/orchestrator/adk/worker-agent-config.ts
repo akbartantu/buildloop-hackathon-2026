@@ -2,11 +2,17 @@ import { workerOutputSchema } from "../gemini/client";
 
 export const BUILDLOOP_WORKER_AGENT_NAME = "buildloop_coding_worker";
 
+/** Bounded thinking budget for structured coding-worker responses (@google/genai ThinkingConfig). */
+export const BUILDLOOP_WORKER_THINKING_BUDGET = 2048;
+
 /** Generation settings shared by the official ADK worker agent. */
 export const BUILDLOOP_WORKER_GENERATE_CONTENT_CONFIG = {
   temperature: 0.2,
   maxOutputTokens: 8192,
   responseMimeType: "application/json",
+  thinkingConfig: {
+    thinkingBudget: BUILDLOOP_WORKER_THINKING_BUDGET,
+  },
 } as const;
 
 /**

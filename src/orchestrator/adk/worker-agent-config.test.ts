@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { workerOutputSchema } from "../gemini/client";
 import {
   BUILDLOOP_WORKER_GENERATE_CONTENT_CONFIG,
+  BUILDLOOP_WORKER_THINKING_BUDGET,
   buildBuildLoopWorkerAgentOptions,
   resolveWorkerGeminiGenerationConfig,
 } from "./worker-agent-config";
@@ -38,6 +39,9 @@ describe("BuildLoop worker ADK structured output config", () => {
     expect(options.generateContentConfig.responseMimeType).toBe("application/json");
     expect(options.generateContentConfig.temperature).toBe(0.2);
     expect(options.generateContentConfig.maxOutputTokens).toBe(8192);
+    expect(options.generateContentConfig.thinkingConfig?.thinkingBudget).toBe(
+      BUILDLOOP_WORKER_THINKING_BUDGET,
+    );
     expect("responseSchema" in options.generateContentConfig).toBe(false);
     expect(options.includeContents).toBe("none");
   });
@@ -52,6 +56,12 @@ describe("BuildLoop worker ADK structured output config", () => {
     expect(resolved.responseSchema).toEqual(sampleGenaiWorkerSchema);
     expect(resolved.temperature).toBe(0.2);
     expect(resolved.maxOutputTokens).toBe(8192);
+    expect(resolved.thinkingConfig?.thinkingBudget).toBe(BUILDLOOP_WORKER_THINKING_BUDGET);
+  });
+
+  test("canonical worker config caps thinking budget at 2048 tokens", () => {
+    expect(BUILDLOOP_WORKER_GENERATE_CONTENT_CONFIG.thinkingConfig?.thinkingBudget).toBe(2048);
+    expect(BUILDLOOP_WORKER_THINKING_BUDGET).toBe(2048);
   });
 
   test("worker schema requires summary and changedFiles", () => {

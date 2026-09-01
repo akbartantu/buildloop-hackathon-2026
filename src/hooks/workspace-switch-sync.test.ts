@@ -8,7 +8,7 @@ import {
 
 const projectsSourcePath = new URL("./use-projects.tsx", import.meta.url);
 const authenticatedRouteSourcePath = new URL("../routes/_authenticated/route.tsx", import.meta.url);
-const homePageSourcePath = new URL("../components/site/pages/home-page.tsx", import.meta.url);
+const homePageSourcePath = new URL("../components/site/pages/workspace-dashboard-page.tsx", import.meta.url);
 const workspaceTasksSourcePath = new URL("./use-workspace-tasks.ts", import.meta.url);
 const activeWorkspaceStoreSourcePath = new URL(
   "../lib/workspace/active-workspace-store.ts",

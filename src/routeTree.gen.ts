@@ -28,6 +28,7 @@ import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticat
 import { Route as AuthForgotPasswordSentRouteImport } from './routes/auth/forgot-password.sent'
 import { Route as AuthResetPasswordSuccessRouteImport } from './routes/auth/reset-password.success'
 import { Route as AuthenticatedAppApprovalsIndexRouteImport } from './routes/_authenticated/app/approvals/index'
+import { Route as AuthenticatedAppDashboardIndexRouteImport } from './routes/_authenticated/app/dashboard/index'
 import { Route as AuthenticatedAppIntegrationsIndexRouteImport } from './routes/_authenticated/app/integrations/index'
 import { Route as AuthenticatedAppProjectsIndexRouteImport } from './routes/_authenticated/app/projects/index'
 import { Route as AuthenticatedAppRunsIndexRouteImport } from './routes/_authenticated/app/runs/index'
@@ -132,6 +133,12 @@ const AuthenticatedAppApprovalsIndexRoute =
     path: '/approvals/',
     getParentRoute: () => AuthenticatedAppRouteRoute,
   } as any)
+const AuthenticatedAppDashboardIndexRoute =
+  AuthenticatedAppDashboardIndexRouteImport.update({
+    id: '/dashboard/',
+    path: '/dashboard/',
+    getParentRoute: () => AuthenticatedAppRouteRoute,
+  } as any)
 const AuthenticatedAppIntegrationsIndexRoute =
   AuthenticatedAppIntegrationsIndexRouteImport.update({
     id: '/integrations/',
@@ -196,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/app/tasks/$taskId': typeof AuthenticatedAppTasksTaskIdRoute
   '/app/tasks/new': typeof AuthenticatedAppTasksNewRoute
   '/app/approvals/': typeof AuthenticatedAppApprovalsIndexRoute
+  '/app/dashboard/': typeof AuthenticatedAppDashboardIndexRoute
   '/app/integrations/': typeof AuthenticatedAppIntegrationsIndexRoute
   '/app/projects/': typeof AuthenticatedAppProjectsIndexRoute
   '/app/runs/': typeof AuthenticatedAppRunsIndexRoute
@@ -221,6 +229,7 @@ export interface FileRoutesByTo {
   '/app/tasks/$taskId': typeof AuthenticatedAppTasksTaskIdRoute
   '/app/tasks/new': typeof AuthenticatedAppTasksNewRoute
   '/app/approvals': typeof AuthenticatedAppApprovalsIndexRoute
+  '/app/dashboard': typeof AuthenticatedAppDashboardIndexRoute
   '/app/integrations': typeof AuthenticatedAppIntegrationsIndexRoute
   '/app/projects': typeof AuthenticatedAppProjectsIndexRoute
   '/app/runs': typeof AuthenticatedAppRunsIndexRoute
@@ -250,6 +259,7 @@ export interface FileRoutesById {
   '/_authenticated/app/tasks/$taskId': typeof AuthenticatedAppTasksTaskIdRoute
   '/_authenticated/app/tasks/new': typeof AuthenticatedAppTasksNewRoute
   '/_authenticated/app/approvals/': typeof AuthenticatedAppApprovalsIndexRoute
+  '/_authenticated/app/dashboard/': typeof AuthenticatedAppDashboardIndexRoute
   '/_authenticated/app/integrations/': typeof AuthenticatedAppIntegrationsIndexRoute
   '/_authenticated/app/projects/': typeof AuthenticatedAppProjectsIndexRoute
   '/_authenticated/app/runs/': typeof AuthenticatedAppRunsIndexRoute
@@ -279,6 +289,7 @@ export interface FileRouteTypes {
     | '/app/tasks/$taskId'
     | '/app/tasks/new'
     | '/app/approvals/'
+    | '/app/dashboard/'
     | '/app/integrations/'
     | '/app/projects/'
     | '/app/runs/'
@@ -304,6 +315,7 @@ export interface FileRouteTypes {
     | '/app/tasks/$taskId'
     | '/app/tasks/new'
     | '/app/approvals'
+    | '/app/dashboard'
     | '/app/integrations'
     | '/app/projects'
     | '/app/runs'
@@ -332,6 +344,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/tasks/$taskId'
     | '/_authenticated/app/tasks/new'
     | '/_authenticated/app/approvals/'
+    | '/_authenticated/app/dashboard/'
     | '/_authenticated/app/integrations/'
     | '/_authenticated/app/projects/'
     | '/_authenticated/app/runs/'
@@ -486,6 +499,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppApprovalsIndexRouteImport
       parentRoute: typeof AuthenticatedAppRouteRoute
     }
+    '/_authenticated/app/dashboard/': {
+      id: '/_authenticated/app/dashboard/'
+      path: '/dashboard'
+      fullPath: '/app/dashboard/'
+      preLoaderRoute: typeof AuthenticatedAppDashboardIndexRouteImport
+      parentRoute: typeof AuthenticatedAppRouteRoute
+    }
     '/_authenticated/app/integrations/': {
       id: '/_authenticated/app/integrations/'
       path: '/integrations'
@@ -543,6 +563,7 @@ interface AuthenticatedAppRouteRouteChildren {
   AuthenticatedAppTasksTaskIdRoute: typeof AuthenticatedAppTasksTaskIdRoute
   AuthenticatedAppTasksNewRoute: typeof AuthenticatedAppTasksNewRoute
   AuthenticatedAppApprovalsIndexRoute: typeof AuthenticatedAppApprovalsIndexRoute
+  AuthenticatedAppDashboardIndexRoute: typeof AuthenticatedAppDashboardIndexRoute
   AuthenticatedAppIntegrationsIndexRoute: typeof AuthenticatedAppIntegrationsIndexRoute
   AuthenticatedAppProjectsIndexRoute: typeof AuthenticatedAppProjectsIndexRoute
   AuthenticatedAppRunsIndexRoute: typeof AuthenticatedAppRunsIndexRoute
@@ -555,6 +576,7 @@ const AuthenticatedAppRouteRouteChildren: AuthenticatedAppRouteRouteChildren = {
   AuthenticatedAppTasksTaskIdRoute: AuthenticatedAppTasksTaskIdRoute,
   AuthenticatedAppTasksNewRoute: AuthenticatedAppTasksNewRoute,
   AuthenticatedAppApprovalsIndexRoute: AuthenticatedAppApprovalsIndexRoute,
+  AuthenticatedAppDashboardIndexRoute: AuthenticatedAppDashboardIndexRoute,
   AuthenticatedAppIntegrationsIndexRoute:
     AuthenticatedAppIntegrationsIndexRoute,
   AuthenticatedAppProjectsIndexRoute: AuthenticatedAppProjectsIndexRoute,

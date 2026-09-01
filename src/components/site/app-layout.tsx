@@ -134,7 +134,7 @@ function AppLayoutContent() {
               <SidebarMenu>
                 {APP_NAV_ITEMS.map((item) => (
                   <SidebarMenuItem key={item.key}>
-                    <NavLink item={item} isActive={activeNav === item.key} />
+                    <NavLink item={item} isActive={activeNav !== null && activeNav === item.key} />
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>
@@ -148,7 +148,7 @@ function AppLayoutContent() {
               <SidebarMenu>
                 {APP_SECONDARY_NAV_ITEMS.map((item) => (
                   <SidebarMenuItem key={item.key}>
-                    <NavLink item={item} isActive={activeNav === item.key} />
+                    <NavLink item={item} isActive={activeNav !== null && activeNav === item.key} />
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>

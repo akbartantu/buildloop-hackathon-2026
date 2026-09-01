@@ -60,6 +60,11 @@ export function WorkspaceSwitcher() {
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
+          <Link to="/app" className="flex items-center gap-2">
+            {t("workspaceOverview.allWorkspaces")}
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
           <Link to="/app/projects" search={{ create: "1" }} className="flex items-center gap-2">
             <Plus className="size-4" />
             {t("projects.createWorkspace")}

@@ -1,14 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { HomePage } from "@/components/site/pages/home-page";
+import { WorkspaceOverviewPage } from "@/components/site/pages/workspace-overview-page";
 
 export const Route = createFileRoute("/_authenticated/app/")({
-  component: HomePage,
+  component: WorkspaceOverviewPage,
   head: () => ({
     meta: [
-      { title: "Home — BuildLoop" },
+      { title: "Workspaces — BuildLoop" },
       {
         name: "description",
-        content: "BuildLoop workspace operational overview.",
+        content: "BuildLoop workspace overview.",
       },
     ],
   }),

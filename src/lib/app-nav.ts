@@ -15,7 +15,7 @@ export type AppNavItem = {
 };
 
 export const APP_NAV_ITEMS: AppNavItem[] = [
-  { key: "home", labelKey: "nav.home", to: "/app" },
+  { key: "home", labelKey: "nav.home", to: "/app/dashboard" },
   { key: "projects", labelKey: "nav.projects", to: "/app/projects" },
   { key: "tasks", labelKey: "nav.tasks", to: "/app/tasks" },
   { key: "runs", labelKey: "nav.runs", to: "/app/runs" },
@@ -27,12 +27,14 @@ export const APP_SECONDARY_NAV_ITEMS: AppNavItem[] = [
   { key: "settings", labelKey: "nav.settings", to: "/app/settings" },
 ];
 
-export function resolveActiveNav(pathname: string): AppNavKey {
+export function resolveActiveNav(pathname: string): AppNavKey | null {
+  if (pathname === "/app" || pathname === "/app/") return null;
   if (pathname.startsWith("/app/projects")) return "projects";
   if (pathname.startsWith("/app/tasks")) return "tasks";
   if (pathname.startsWith("/app/runs")) return "runs";
   if (pathname.startsWith("/app/approvals")) return "approvals";
   if (pathname.startsWith("/app/integrations")) return "integrations";
   if (pathname.startsWith("/app/settings")) return "settings";
+  if (pathname.startsWith("/app/dashboard")) return "home";
   return "home";
 }

@@ -28,6 +28,8 @@ import {
   formatWorkspaceCountSummary,
   resolveWorkspaceOverviewStats,
   workspaceOverviewContentClassName,
+  workspaceOverviewHeaderClassName,
+  workspaceOverviewCardsRegionClassName,
   workspaceOverviewLayoutClassName,
   workspaceOverviewGridClassName,
   workspaceOverviewSidebarClassName,
@@ -224,7 +226,7 @@ export function WorkspaceOverviewPage() {
   return (
     <div className={workspaceOverviewLayoutClassName()} data-testid="workspace-overview-page" data-tour="workspace-overview">
       <div className={workspaceOverviewContentClassName()} data-testid="workspace-overview-content">
-        <section className="min-w-0 flex-1 space-y-6" data-testid="workspace-overview-main">
+        <div className={workspaceOverviewHeaderClassName()} data-testid="workspace-overview-header">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <DemoPageHeader
               title={t("workspaceOverview.title")}
@@ -232,7 +234,9 @@ export function WorkspaceOverviewPage() {
             />
             <CreateWorkspacePrimaryButton className="w-full shrink-0 sm:w-auto sm:self-center" />
           </div>
+        </div>
 
+        <section className={workspaceOverviewCardsRegionClassName()} data-testid="workspace-overview-main">
           <DemoSectionLabel>{countSummary}</DemoSectionLabel>
 
           {isLoading ? (

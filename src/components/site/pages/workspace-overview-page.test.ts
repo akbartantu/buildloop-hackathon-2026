@@ -63,6 +63,7 @@ describe("workspace overview page behavior", () => {
     const source = await readSource(overviewSourcePath);
     expect(source).toContain("CreateWorkspacePrimaryButton");
     expect(source).toContain('data-testid="workspace-create-primary"');
+    expect(source).toContain('data-testid="workspace-overview-header"');
     expect(source).toContain("sm:flex-row sm:items-start sm:justify-between");
   });
 
@@ -114,13 +115,18 @@ describe("workspace overview page behavior", () => {
     expect(source).not.toContain("pricing-plans");
   });
 
-  test("layout uses main column plus usage sidebar without forcing overflow", async () => {
+  test("layout uses grid with usage aligned to card row, not page heading", async () => {
     const source = await readSource(overviewSourcePath);
     expect(source).toContain("workspaceOverviewLayoutClassName");
     expect(source).toContain("workspaceOverviewContentClassName");
+    expect(source).toContain("workspaceOverviewHeaderClassName");
+    expect(source).toContain("workspaceOverviewCardsRegionClassName");
     expect(source).toContain("workspaceOverviewSidebarClassName");
     expect(source).toContain("workspaceOverviewGridClassName");
-    expect(source).not.toContain("lg:grid-cols-3");
+    expect(source).toContain('data-testid="workspace-overview-header"');
+    expect(source).toContain('data-testid="workspace-overview-main"');
+    expect(source).toContain('data-testid="workspace-overview-sidebar"');
+    expect(source).not.toContain("lg:flex-row");
     expect(source).not.toContain("xl:grid-cols-4");
   });
 });

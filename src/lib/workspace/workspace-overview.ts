@@ -111,17 +111,33 @@ export function workspaceOverviewLayoutClassName(): string {
   return "mx-auto w-full max-w-full overflow-x-hidden";
 }
 
-/** Main + usage sidebar wrapper: stacked on narrow screens, side-by-side on desktop. */
+/**
+ * Desktop grid: workspace header in row 1 / col 1; card area row 2 / col 1; usage row 2 / col 2.
+ * Usage aligns with the workspace cards, not the page heading.
+ */
 export function workspaceOverviewContentClassName(): string {
-  return "flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-12 xl:gap-16";
+  return "grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-9 lg:gap-y-8 xl:grid-cols-[minmax(0,1fr)_360px]";
 }
 
-/** Right usage sidebar: full width below main content until desktop breakpoint. */
+/** Workspace title + create button — occupies main column only on desktop. */
+export function workspaceOverviewHeaderClassName(): string {
+  return "min-w-0 lg:col-start-1 lg:row-start-1";
+}
+
+/** Section label + workspace card grid — main column, second row on desktop. */
+export function workspaceOverviewCardsRegionClassName(): string {
+  return "min-w-0 space-y-6 lg:col-start-1 lg:row-start-2";
+}
+
+/** Usage sidebar — right column, aligned with card row on desktop. */
 export function workspaceOverviewSidebarClassName(): string {
-  return "w-full shrink-0 lg:w-72 lg:min-w-[280px] lg:max-w-[320px]";
+  return "w-full shrink-0 self-start lg:col-start-2 lg:row-start-2 lg:w-full lg:max-w-[360px]";
 }
 
-/** Workspace cards grid inside the main column only (create tile first, then workspaces). */
+/**
+ * Two-column workspace card grid with bounded width so cards stay normal size
+ * and a single empty-state tile does not stretch across both columns.
+ */
 export function workspaceOverviewGridClassName(): string {
-  return "grid grid-cols-1 gap-4 sm:grid-cols-2";
+  return "grid w-full max-w-[788px] grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-7";
 }

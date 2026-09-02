@@ -14,9 +14,9 @@ import {
   workspaceOverviewLayoutClassName,
   workspaceOverviewContentClassName,
   workspaceOverviewHeaderClassName,
-  workspaceOverviewCardsRegionClassName,
-  workspaceOverviewSidebarClassName,
-  workspaceOverviewGridClassName,
+  workspaceOverviewSectionLabelClassName,
+  workspaceOverviewUsageClassName,
+  workspaceOverviewGridContentsClassName,
 } from "@/lib/workspace/workspace-overview";
 
 function makeProject(id: string): ProjectRecord {
@@ -131,35 +131,31 @@ describe("workspace overview helpers", () => {
 
   test("layout class avoids intentional horizontal overflow", () => {
     expect(workspaceOverviewLayoutClassName()).toContain("overflow-x-hidden");
-    expect(workspaceOverviewLayoutClassName()).toContain("max-w-full");
+    expect(workspaceOverviewLayoutClassName()).toContain("max-w-[1080px]");
   });
 
-  test("content grid places usage beside card row on desktop", () => {
+  test("content grid uses three dashboard columns on desktop", () => {
     expect(workspaceOverviewContentClassName()).toContain("grid");
-    expect(workspaceOverviewContentClassName()).toContain("lg:grid-cols-[minmax(0,1fr)_340px]");
-    expect(workspaceOverviewContentClassName()).toContain("lg:gap-x-9");
+    expect(workspaceOverviewContentClassName()).toContain("lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_350px]");
+    expect(workspaceOverviewContentClassName()).toContain("lg:gap-x-7");
   });
 
-  test("header occupies main column row one only", () => {
-    expect(workspaceOverviewHeaderClassName()).toContain("lg:col-start-1");
-    expect(workspaceOverviewHeaderClassName()).toContain("lg:row-start-1");
+  test("header spans full dashboard width", () => {
+    expect(workspaceOverviewHeaderClassName()).toContain("col-span-full");
   });
 
-  test("cards region and usage share row two on desktop", () => {
-    expect(workspaceOverviewCardsRegionClassName()).toContain("lg:col-start-1");
-    expect(workspaceOverviewCardsRegionClassName()).toContain("lg:row-start-2");
-    expect(workspaceOverviewSidebarClassName()).toContain("lg:col-start-2");
-    expect(workspaceOverviewSidebarClassName()).toContain("lg:row-start-2");
-    expect(workspaceOverviewSidebarClassName()).toContain("lg:max-w-[360px]");
+  test("section label spans workspace columns only on desktop", () => {
+    expect(workspaceOverviewSectionLabelClassName()).toContain("lg:col-span-2");
   });
 
-  test("grid class bounds card width for two-column desktop layout", () => {
-    expect(workspaceOverviewGridClassName()).toContain("grid-cols-1");
-    expect(workspaceOverviewGridClassName()).toContain("sm:grid-cols-2");
-    expect(workspaceOverviewGridClassName()).toContain("max-w-[788px]");
-    expect(workspaceOverviewGridClassName()).toContain("gap-6");
-    expect(workspaceOverviewGridClassName()).toContain("sm:gap-7");
-    expect(workspaceOverviewGridClassName()).not.toContain("xl:grid-cols-4");
+  test("usage occupies third column aligned with first card row", () => {
+    expect(workspaceOverviewUsageClassName()).toContain("lg:col-start-3");
+    expect(workspaceOverviewUsageClassName()).toContain("lg:row-start-3");
+    expect(workspaceOverviewUsageClassName()).toContain("h-fit");
+  });
+
+  test("workspace cards participate in parent grid via contents wrapper", () => {
+    expect(workspaceOverviewGridContentsClassName()).toBe("contents");
   });
 
   test("relative time formatting supports EN locale", () => {

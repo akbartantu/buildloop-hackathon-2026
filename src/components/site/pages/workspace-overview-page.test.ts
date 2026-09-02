@@ -71,7 +71,7 @@ describe("workspace overview page behavior", () => {
     const source = await readSource(overviewSourcePath);
     const gridSection = source.slice(
       source.indexOf('data-testid="workspace-overview-grid"'),
-      source.indexOf('data-testid="workspace-overview-sidebar"'),
+      source.indexOf('data-testid="workspace-overview-usage"'),
     );
     expect(gridSection.indexOf("<CreateWorkspaceCard />")).toBeLessThan(
       gridSection.indexOf("projects.map"),
@@ -86,14 +86,16 @@ describe("workspace overview page behavior", () => {
     expect(source).toContain("<CreateWorkspaceCard />");
   });
 
-  test("usage panel is isolated in a sidebar outside the workspace grid", async () => {
+  test("usage panel is the third dashboard column, not a workspace grid item", async () => {
     const source = await readSource(overviewSourcePath);
     expect(source).toContain('data-testid="workspace-usage-panel"');
-    expect(source).toContain('data-testid="workspace-overview-sidebar"');
+    expect(source).toContain('data-testid="workspace-overview-usage"');
+    expect(source).toContain("workspaceOverviewUsageClassName");
+    expect(source).toContain("workspaceOverviewGridContentsClassName");
     expect(source).toContain("<WorkspaceUsagePanel workspaceCount={projects.length} />");
     const gridSection = source.slice(
       source.indexOf('data-testid="workspace-overview-grid"'),
-      source.indexOf("</div>", source.indexOf('data-testid="workspace-overview-grid"')),
+      source.indexOf('data-testid="workspace-overview-usage"'),
     );
     expect(gridSection).not.toContain("WorkspaceUsagePanel");
   });
@@ -115,19 +117,20 @@ describe("workspace overview page behavior", () => {
     expect(source).not.toContain("pricing-plans");
   });
 
-  test("layout uses grid with usage aligned to card row, not page heading", async () => {
+  test("layout uses compact three-column dashboard grid with full-width header", async () => {
     const source = await readSource(overviewSourcePath);
     expect(source).toContain("workspaceOverviewLayoutClassName");
     expect(source).toContain("workspaceOverviewContentClassName");
     expect(source).toContain("workspaceOverviewHeaderClassName");
-    expect(source).toContain("workspaceOverviewCardsRegionClassName");
-    expect(source).toContain("workspaceOverviewSidebarClassName");
-    expect(source).toContain("workspaceOverviewGridClassName");
+    expect(source).toContain("workspaceOverviewSectionLabelClassName");
+    expect(source).toContain("workspaceOverviewUsageClassName");
+    expect(source).toContain("workspaceOverviewGridContentsClassName");
     expect(source).toContain('data-testid="workspace-overview-header"');
-    expect(source).toContain('data-testid="workspace-overview-main"');
-    expect(source).toContain('data-testid="workspace-overview-sidebar"');
+    expect(source).toContain('data-testid="workspace-overview-section-label"');
+    expect(source).toContain('data-testid="workspace-overview-usage"');
+    expect(source).not.toContain("workspaceOverviewCardsRegionClassName");
+    expect(source).not.toContain("workspaceOverviewSidebarClassName");
     expect(source).not.toContain("lg:flex-row");
-    expect(source).not.toContain("xl:grid-cols-4");
   });
 });
 

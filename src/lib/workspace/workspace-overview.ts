@@ -106,38 +106,40 @@ export function formatTaskCountLabel(
   return translate("workspaceOverview.taskCount", { count });
 }
 
-/** Ensures overview layout classes do not introduce horizontal overflow. */
+/** Compact centered dashboard container — fits two workspace columns plus Usage without dead space. */
 export function workspaceOverviewLayoutClassName(): string {
-  return "mx-auto w-full max-w-full overflow-x-hidden";
+  return "mx-auto w-full max-w-[1080px] overflow-x-hidden";
 }
 
 /**
- * Desktop grid: workspace header in row 1 / col 1; card area row 2 / col 1; usage row 2 / col 2.
- * Usage aligns with the workspace cards, not the page heading.
+ * Three-column dashboard grid on desktop: workspace | workspace | usage.
+ * Header spans full width; cards auto-flow in columns 1–2 via display:contents wrapper.
  */
 export function workspaceOverviewContentClassName(): string {
-  return "grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_340px] lg:gap-x-9 lg:gap-y-8 xl:grid-cols-[minmax(0,1fr)_360px]";
+  return "grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_350px] lg:gap-x-7 lg:gap-y-6";
 }
 
-/** Workspace title + create button — occupies main column only on desktop. */
+/** Full-width header row spanning all dashboard columns. */
 export function workspaceOverviewHeaderClassName(): string {
-  return "min-w-0 lg:col-start-1 lg:row-start-1";
+  return "col-span-full";
 }
 
-/** Section label + workspace card grid — main column, second row on desktop. */
-export function workspaceOverviewCardsRegionClassName(): string {
-  return "min-w-0 space-y-6 lg:col-start-1 lg:row-start-2";
+/** Section label above workspace columns 1–2 on desktop. */
+export function workspaceOverviewSectionLabelClassName(): string {
+  return "col-span-full lg:col-span-2 lg:col-start-1";
 }
 
-/** Usage sidebar — right column, aligned with card row on desktop. */
-export function workspaceOverviewSidebarClassName(): string {
-  return "w-full shrink-0 self-start lg:col-start-2 lg:row-start-2 lg:w-full lg:max-w-[360px]";
+/** Usage occupies dashboard column 3, aligned with the first workspace-card row. */
+export function workspaceOverviewUsageClassName(): string {
+  return "col-span-full h-fit self-start lg:col-start-3 lg:row-start-3";
 }
 
-/**
- * Two-column workspace card grid with bounded width so cards stay normal size
- * and a single empty-state tile does not stretch across both columns.
- */
-export function workspaceOverviewGridClassName(): string {
-  return "grid w-full max-w-[788px] grid-cols-1 gap-6 sm:grid-cols-2 sm:gap-7";
+/** Loading / empty states in the workspace-card area only. */
+export function workspaceOverviewWorkspaceAreaClassName(): string {
+  return "col-span-full lg:col-span-2 lg:col-start-1";
+}
+
+/** Lets workspace cards participate directly in the parent 3-column grid. */
+export function workspaceOverviewGridContentsClassName(): string {
+  return "contents";
 }

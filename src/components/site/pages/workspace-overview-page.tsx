@@ -28,11 +28,12 @@ import {
   formatWorkspaceCountSummary,
   resolveWorkspaceOverviewStats,
   workspaceOverviewContentClassName,
+  workspaceOverviewGridContentsClassName,
   workspaceOverviewHeaderClassName,
-  workspaceOverviewCardsRegionClassName,
   workspaceOverviewLayoutClassName,
-  workspaceOverviewGridClassName,
-  workspaceOverviewSidebarClassName,
+  workspaceOverviewSectionLabelClassName,
+  workspaceOverviewUsageClassName,
+  workspaceOverviewWorkspaceAreaClassName,
 } from "@/lib/workspace/workspace-overview";
 
 function repositoryStatusLabel(
@@ -66,7 +67,7 @@ function WorkspaceOverviewCard({
 
   return (
     <div
-      className="flex h-full flex-col rounded-lg border border-border bg-card"
+      className="flex h-full min-h-[220px] flex-col rounded-lg border border-border bg-card"
       data-testid={`workspace-card-${project.id}`}
       data-tour="workspace-card"
     >
@@ -226,7 +227,7 @@ export function WorkspaceOverviewPage() {
   return (
     <div className={workspaceOverviewLayoutClassName()} data-testid="workspace-overview-page" data-tour="workspace-overview">
       <div className={workspaceOverviewContentClassName()} data-testid="workspace-overview-content">
-        <div className={workspaceOverviewHeaderClassName()} data-testid="workspace-overview-header">
+        <header className={workspaceOverviewHeaderClassName()} data-testid="workspace-overview-header">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <DemoPageHeader
               title={t("workspaceOverview.title")}
@@ -234,29 +235,34 @@ export function WorkspaceOverviewPage() {
             />
             <CreateWorkspacePrimaryButton className="w-full shrink-0 sm:w-auto sm:self-center" />
           </div>
+        </header>
+
+        <div className={workspaceOverviewSectionLabelClassName()} data-testid="workspace-overview-section-label">
+          <DemoSectionLabel>{countSummary}</DemoSectionLabel>
         </div>
 
-        <section className={workspaceOverviewCardsRegionClassName()} data-testid="workspace-overview-main">
-          <DemoSectionLabel>{countSummary}</DemoSectionLabel>
+        {isLoading ? (
+          <p className={`text-sm text-muted-foreground ${workspaceOverviewWorkspaceAreaClassName()}`}>
+            {t("common.loading")}
+          </p>
+        ) : (
+          <div
+            className={workspaceOverviewGridContentsClassName()}
+            data-testid="workspace-overview-grid"
+          >
+            <CreateWorkspaceCard />
+            {projects.map((project) => (
+              <WorkspaceOverviewCard
+                key={project.id}
+                project={project}
+                tasks={tasksByProjectId.get(project.id) ?? []}
+                onOpen={openWorkspace}
+              />
+            ))}
+          </div>
+        )}
 
-          {isLoading ? (
-            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-          ) : (
-            <div className={workspaceOverviewGridClassName()} data-testid="workspace-overview-grid">
-              <CreateWorkspaceCard />
-              {projects.map((project) => (
-                <WorkspaceOverviewCard
-                  key={project.id}
-                  project={project}
-                  tasks={tasksByProjectId.get(project.id) ?? []}
-                  onOpen={openWorkspace}
-                />
-              ))}
-            </div>
-          )}
-        </section>
-
-        <aside className={workspaceOverviewSidebarClassName()} data-testid="workspace-overview-sidebar">
+        <aside className={workspaceOverviewUsageClassName()} data-testid="workspace-overview-usage">
           <WorkspaceUsagePanel workspaceCount={projects.length} />
         </aside>
       </div>

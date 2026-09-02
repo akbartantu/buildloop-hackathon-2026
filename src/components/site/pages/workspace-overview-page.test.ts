@@ -70,7 +70,7 @@ describe("workspace overview page behavior", () => {
     const source = await readSource(overviewSourcePath);
     const gridSection = source.slice(
       source.indexOf('data-testid="workspace-overview-grid"'),
-      source.indexOf("WorkspaceUsagePanel workspaceCount"),
+      source.indexOf('data-testid="workspace-overview-sidebar"'),
     );
     expect(gridSection.indexOf("<CreateWorkspaceCard />")).toBeLessThan(
       gridSection.indexOf("projects.map"),
@@ -85,10 +85,16 @@ describe("workspace overview page behavior", () => {
     expect(source).toContain("<CreateWorkspaceCard />");
   });
 
-  test("usage panel remains in workspace overview grid", async () => {
+  test("usage panel is isolated in a sidebar outside the workspace grid", async () => {
     const source = await readSource(overviewSourcePath);
     expect(source).toContain('data-testid="workspace-usage-panel"');
+    expect(source).toContain('data-testid="workspace-overview-sidebar"');
     expect(source).toContain("<WorkspaceUsagePanel workspaceCount={projects.length} />");
+    const gridSection = source.slice(
+      source.indexOf('data-testid="workspace-overview-grid"'),
+      source.indexOf("</div>", source.indexOf('data-testid="workspace-overview-grid"')),
+    );
+    expect(gridSection).not.toContain("WorkspaceUsagePanel");
   });
 
   test("zero-workspace state uses create tile and usage panel without placeholder cards", async () => {
@@ -108,11 +114,14 @@ describe("workspace overview page behavior", () => {
     expect(source).not.toContain("pricing-plans");
   });
 
-  test("layout uses responsive unified grid without forcing overflow", async () => {
+  test("layout uses main column plus usage sidebar without forcing overflow", async () => {
     const source = await readSource(overviewSourcePath);
     expect(source).toContain("workspaceOverviewLayoutClassName");
+    expect(source).toContain("workspaceOverviewContentClassName");
+    expect(source).toContain("workspaceOverviewSidebarClassName");
     expect(source).toContain("workspaceOverviewGridClassName");
     expect(source).not.toContain("lg:grid-cols-3");
+    expect(source).not.toContain("xl:grid-cols-4");
   });
 });
 

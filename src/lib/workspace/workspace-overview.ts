@@ -108,10 +108,20 @@ export function formatTaskCountLabel(
 
 /** Ensures overview layout classes do not introduce horizontal overflow. */
 export function workspaceOverviewLayoutClassName(): string {
-  return "mx-auto w-full max-w-full space-y-6 overflow-x-hidden";
+  return "mx-auto w-full max-w-full overflow-x-hidden";
 }
 
-/** Responsive workspace overview grid: create tile first, then workspaces, usage last in row flow. */
+/** Main + usage sidebar wrapper: stacked on narrow screens, side-by-side on desktop. */
+export function workspaceOverviewContentClassName(): string {
+  return "flex flex-col gap-8 lg:flex-row lg:items-start lg:gap-12 xl:gap-16";
+}
+
+/** Right usage sidebar: full width below main content until desktop breakpoint. */
+export function workspaceOverviewSidebarClassName(): string {
+  return "w-full shrink-0 lg:w-72 lg:min-w-[280px] lg:max-w-[320px]";
+}
+
+/** Workspace cards grid inside the main column only (create tile first, then workspaces). */
 export function workspaceOverviewGridClassName(): string {
-  return "grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4";
+  return "grid grid-cols-1 gap-4 sm:grid-cols-2";
 }

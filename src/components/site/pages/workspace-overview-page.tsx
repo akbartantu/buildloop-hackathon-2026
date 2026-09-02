@@ -27,8 +27,10 @@ import {
   formatTaskCountLabel,
   formatWorkspaceCountSummary,
   resolveWorkspaceOverviewStats,
+  workspaceOverviewContentClassName,
   workspaceOverviewLayoutClassName,
   workspaceOverviewGridClassName,
+  workspaceOverviewSidebarClassName,
 } from "@/lib/workspace/workspace-overview";
 
 function repositoryStatusLabel(
@@ -221,32 +223,39 @@ export function WorkspaceOverviewPage() {
 
   return (
     <div className={workspaceOverviewLayoutClassName()} data-testid="workspace-overview-page" data-tour="workspace-overview">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <DemoPageHeader
-          title={t("workspaceOverview.title")}
-          description={t("workspaceOverview.description")}
-        />
-        <CreateWorkspacePrimaryButton className="w-full shrink-0 sm:w-auto sm:self-center" />
-      </div>
-
-      <DemoSectionLabel>{countSummary}</DemoSectionLabel>
-
-      {isLoading ? (
-        <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
-      ) : (
-        <div className={workspaceOverviewGridClassName()} data-testid="workspace-overview-grid">
-          <CreateWorkspaceCard />
-          {projects.map((project) => (
-            <WorkspaceOverviewCard
-              key={project.id}
-              project={project}
-              tasks={tasksByProjectId.get(project.id) ?? []}
-              onOpen={openWorkspace}
+      <div className={workspaceOverviewContentClassName()} data-testid="workspace-overview-content">
+        <section className="min-w-0 flex-1 space-y-6" data-testid="workspace-overview-main">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <DemoPageHeader
+              title={t("workspaceOverview.title")}
+              description={t("workspaceOverview.description")}
             />
-          ))}
+            <CreateWorkspacePrimaryButton className="w-full shrink-0 sm:w-auto sm:self-center" />
+          </div>
+
+          <DemoSectionLabel>{countSummary}</DemoSectionLabel>
+
+          {isLoading ? (
+            <p className="text-sm text-muted-foreground">{t("common.loading")}</p>
+          ) : (
+            <div className={workspaceOverviewGridClassName()} data-testid="workspace-overview-grid">
+              <CreateWorkspaceCard />
+              {projects.map((project) => (
+                <WorkspaceOverviewCard
+                  key={project.id}
+                  project={project}
+                  tasks={tasksByProjectId.get(project.id) ?? []}
+                  onOpen={openWorkspace}
+                />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <aside className={workspaceOverviewSidebarClassName()} data-testid="workspace-overview-sidebar">
           <WorkspaceUsagePanel workspaceCount={projects.length} />
-        </div>
-      )}
+        </aside>
+      </div>
     </div>
   );
 }

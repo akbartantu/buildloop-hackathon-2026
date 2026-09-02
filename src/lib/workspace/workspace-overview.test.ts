@@ -12,6 +12,8 @@ import {
   LIST_TASKS_RESULT_LIMIT,
   resolveWorkspaceOverviewStats,
   workspaceOverviewLayoutClassName,
+  workspaceOverviewContentClassName,
+  workspaceOverviewSidebarClassName,
   workspaceOverviewGridClassName,
 } from "@/lib/workspace/workspace-overview";
 
@@ -130,10 +132,23 @@ describe("workspace overview helpers", () => {
     expect(workspaceOverviewLayoutClassName()).toContain("max-w-full");
   });
 
-  test("grid class supports create-first responsive columns", () => {
+  test("content wrapper stacks on narrow screens and uses sidebar gap on desktop", () => {
+    expect(workspaceOverviewContentClassName()).toContain("flex-col");
+    expect(workspaceOverviewContentClassName()).toContain("lg:flex-row");
+    expect(workspaceOverviewContentClassName()).toContain("lg:gap-12");
+    expect(workspaceOverviewContentClassName()).toContain("xl:gap-16");
+  });
+
+  test("sidebar class constrains usage panel width on desktop", () => {
+    expect(workspaceOverviewSidebarClassName()).toContain("lg:min-w-[280px]");
+    expect(workspaceOverviewSidebarClassName()).toContain("lg:max-w-[320px]");
+    expect(workspaceOverviewSidebarClassName()).toContain("w-full");
+  });
+
+  test("grid class supports create-first responsive columns in main area only", () => {
     expect(workspaceOverviewGridClassName()).toContain("grid-cols-1");
     expect(workspaceOverviewGridClassName()).toContain("sm:grid-cols-2");
-    expect(workspaceOverviewGridClassName()).toContain("xl:grid-cols-4");
+    expect(workspaceOverviewGridClassName()).not.toContain("xl:grid-cols-4");
   });
 
   test("relative time formatting supports EN locale", () => {
